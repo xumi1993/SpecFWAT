@@ -44,8 +44,9 @@ include_directories(
 )
 
 set(APP_SOURCES
-  src/meshfem3D/meshfem3D.f95
-  src/generate_databases/generate_databases.f95
+  src/meshfem3D/meshfem3D.F95
+  src/generate_databases/generate_databases.F95
+  src/specfem3D/specfem3D.F95
   )
 foreach(execsourcefile ${APP_SOURCES})
   # get exec name
@@ -53,6 +54,10 @@ foreach(execsourcefile ${APP_SOURCES})
 
   file(GLOB SOURCES_SUBS "${SOURCE_DIR}/${EXEC_NAME}/*.[fFc]*")
 
+  if (EXEC_NAME STREQUAL "specfem3D")
+    file(GLOB SOURCES_CUDA "${SOURCE_DIR}/cuda/*.c*")
+    list(APPEND SOURCES_SUBS ${SOURCES_CUDA})
+  endif()
   # add executable
   add_executable(${EXEC_NAME} ${execsourcefile}
     ${SOURCES_SHARED} ${SOURCES_SUBS} 

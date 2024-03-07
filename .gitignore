@@ -1,5 +1,7 @@
 bin/
 build/
+OUTPUT_FILES/
+DATABASES_MPI/
 .DS_Store
 .ipynb_checkpoints
 __pycache__
