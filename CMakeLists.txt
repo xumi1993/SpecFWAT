@@ -11,7 +11,7 @@ set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 
 # if ("${CMAKE_FORTRAN_COMPILER_ID}" MATCHES "GNU")
-set(MPI_Fortran_COMPILE_FLAGS "-std=gnu -fimplicit-none -frange-check -fmax-errors=10 -pedantic -Waliasing -Wampersand -Wcharacter-truncation -Wline-truncation -Wsurprising -Wunderflow -ffpe-trap=invalid,zero,overflow -O3 -finline-functions -Wno-argument-mismatch -finline-functions")
+# set(MPI_Fortran_COMPILE_FLAGS "-std=gnu -fimplicit-none -frange-check -fmax-errors=10 -pedantic -Waliasing -Wampersand -Wcharacter-truncation -Wline-truncation -Wsurprising -Wunderflow -ffpe-trap=invalid,zero,overflow -O3 -finline-functions -Wno-argument-mismatch -finline-functions")
 # endif()
 
 set(BUILD_TESTING OFF)
@@ -63,8 +63,8 @@ foreach(execsourcefile ${APP_SOURCES})
     ${SOURCES_SHARED} ${SOURCES_SUBS} 
     ${HEADERS}
   )
-  target_compile_options(${EXEC_NAME} PUBLIC ${MPI_Fortran_COMPILE_FLAGS} "-Wl,-no_compact_unwind")
-  # target_compile_options(${EXEC_NAME} PUBLIC "-O3")
+  # target_compile_options(${EXEC_NAME} PUBLIC "${MPI_Fortran_COMPILE_FLAGS}")
+  target_compile_options(${EXEC_NAME} PUBLIC "-O3")
 
   set_target_properties(
     ${EXEC_NAME}
