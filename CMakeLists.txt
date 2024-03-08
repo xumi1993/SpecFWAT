@@ -72,7 +72,6 @@ foreach(execsourcefile ${APP_SOURCES})
     ${SOURCES_SHARED} ${SOURCES_SUBS} 
     ${HEADERS}
   )
-  message(STATUS ${MPI_Fortran_COMPILE_FLAGS})
 
   # target_compile_options(${EXEC_NAME} PUBLIC "${MPI_Fortran_COMPILE_FLAGS}")
   # target_compile_options(${EXEC_NAME} PUBLIC "-O3")
