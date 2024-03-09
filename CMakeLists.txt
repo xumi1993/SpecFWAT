@@ -34,7 +34,26 @@ message(STATUS "MPI_VERSION: ${MPI_VERSION}")
 
 # setup source files
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
+set(SOURCE_FWAT_DIR "${PROJECT_SOURCE_DIR}/src/fullwave_adjoint_tomo")
 file(GLOB SOURCES_SHARED "${SOURCE_DIR}/shared/*.[fFc]*")
+file(GLOB SOURCES_SPECFEM "${SOURCE_DIR}/specfem3D/*.[fF]90")
+file(GLOB SOURCES_MESHFEM "${SOURCE_DIR}/meshfem3D/*.[fF]90")
+file(GLOB SOURCES_GENERATE_DATABASES "${SOURCE_DIR}/generate_databases/*.[fF]90")
+file(GLOB SOURCES_GENERATE_DATABASES_C "${SOURCE_DIR}/generate_databases/*.c")
+list(APPEND SOURCES_GENERATE_DATABASES ${SOURCES_GENERATE_DATABASES_C})
+
+# cuda sources
+file(GLOB SOURCES_CUDA "${SOURCE_DIR}/cuda/*.c*")
+
+# FWAT sources
+set(SOURCES_FWAT_SHARED "${SOURCE_FWAT_DIR}/fullwave_adjoint_tomo_par.f90"
+                       "${SOURCE_FWAT_DIR}/fwat_input.f90"
+                       "${SOURCE_FWAT_DIR}/fwat_utils.f90")
+file(GLOB SOURCES_RECFUNC "${SOURCE_FWAT_DIR}/preproc_recfunc/*.f90" )
+file(GLOB SOURCES_FWAT_OPT "${SOURCE_FWAT_DIR}/optimization/*.[fF]90")
+file(GLOB SOURCES_SPECFEMINTERFACE "${SOURCE_FWAT_DIR}/specfem_interface/*.[fF]*")
+
+
 file(GLOB HEADERS "${PROJECT_SOURCE_DIR}/include/*.h")
 # add sub modules
 # add_subdirectory("${PROJECT_SOURCE_DIR}/external_libs")
@@ -56,6 +75,8 @@ set(APP_SOURCES
   src/meshfem3D/meshfem3D.F95
   src/generate_databases/generate_databases.F95
   src/specfem3D/specfem3D.F95
+  src/aux/combine_vol_data_vtk.F95
+  ${SOURCE_FWAT_DIR}/program_fwat_mesh_database.f95
   )
 foreach(execsourcefile ${APP_SOURCES})
   # get exec name
@@ -64,18 +85,21 @@ foreach(execsourcefile ${APP_SOURCES})
   file(GLOB SOURCES_SUBS "${SOURCE_DIR}/${EXEC_NAME}/*.[fFc]*")
 
   if (EXEC_NAME STREQUAL "specfem3D")
-    file(GLOB SOURCES_CUDA "${SOURCE_DIR}/cuda/*.c*")
     list(APPEND SOURCES_SUBS ${SOURCES_CUDA})
+  elseif(EXEC_NAME STREQUAL "combine_vol_data_vtk")
+    file(GLOB SOURCES_AUX "${SOURCE_DIR}/aux/*.[Ff]90")
+    list(APPEND SOURCES_SUBS ${SOURCES_AUX} "${SOURCE_DIR}/aux/vtk_writer.c")
+  elseif(EXEC_NAME STREQUAL "program_fwat_mesh_database")
+    set(EXEC_NAME "fwat_mesh_database")
+    list(APPEND SOURCES_SUBS ${SOURCES_SPECFEM} ${SOURCES_MESHFEM}
+         ${SOURCES_GENERATE_DATABASES} ${SOURCES_CUDA}
+         ${SOURCES_SPECFEMINTERFACE} ${SOURCES_FWAT_SHARED})
   endif()
   # add executable
   add_executable(${EXEC_NAME} ${execsourcefile}
     ${SOURCES_SHARED} ${SOURCES_SUBS} 
     ${HEADERS}
   )
-  message(STATUS ${MPI_Fortran_COMPILE_FLAGS})
-
-  # target_compile_options(${EXEC_NAME} PUBLIC "${MPI_Fortran_COMPILE_FLAGS}")
-  # target_compile_options(${EXEC_NAME} PUBLIC "-O3")
 
   set_target_properties(
     ${EXEC_NAME}
