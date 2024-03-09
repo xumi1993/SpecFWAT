@@ -1,0 +1,49 @@
+######
+VERBOSE_MODE: .false.
+#
+NSCOMP: 1
+#
+SCOMPS: Z 
+#
+NRCOMP: 2
+# in order of Z R T
+RCOMPS: Z R
+#
+CH_CODE: BX
+#
+NUM_FILTER: 1
+#
+SHORT_P: 5 
+#
+LONG_P: 50
+#
+TW_BEFORE: 5
+#
+TW_AFTER: 45
+#
+ADJ_SRC_NORM: .false.
+#
+SAVE_OUTPUT_EACH_EVENT: .false.
+### Smoothing parameters #####
+# in meter
+SIGMA_H: 4000
+# in meter
+SIGMA_V: 2000
+### Tapering misfit gradient ###
+KERNEL_TAPER: .true.
+TAPER_H_SUPPRESS: 5000
+TAPER_H_BUFFER: 10000
+TAPER_V: 10000
+# options: SD / CG / LBFGS
+OPT_METHOD: LBFGS
+# options: default / z_precond 
+PRECOND_TYPE: default
+#
+MAX_SLEN: 0.04
+#
+DO_LS: .false.
+#
+NUM_STEP: 5
+# format: F5.3
+STEP_LENS: 0.010 0.020 0.030 0.040 0.060
+#####

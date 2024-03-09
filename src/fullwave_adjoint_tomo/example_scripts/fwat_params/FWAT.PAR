@@ -1,0 +1,157 @@
+#-----------------------------------------------------------
+#
+# FWAT input parameters
+#
+#-----------------------------------------------------------
+VERBOSE_MODE: .false.
+
+###################### FWAT PAR for Noise tomo #####################
+# Number of source components
+NOISE_NSCOMP: 1 
+# Names of source components
+NOISE_SCOMPS: Z 
+# Number of receiver components
+NOISE_NRCOMP: 1
+# Names of receiver components, in order of Z R T
+NOISE_RCOMPS: Z
+# Channel code
+NOISE_CH_CODE: BX
+# Number of time steps
+NOISE_NSTEP: 3500
+# Time interval
+NOISE_DT: 0.05
+# Number of filters
+NOISE_NUM_FILTER: 3
+# Short period of filters
+NOISE_SHORT_P: 6 10 15 
+# Long period of filters
+NOISE_LONG_P: 15 20 30
+# Approximate minimum group velocity
+NOISE_GROUPVEL_MIN: 2.65 2.65 2.65
+# Approximate maximum group velocity
+NOISE_GROUPVEL_MAX: 4.20 4.20 4.20
+# Set the following to .true. to normalize adjoint sources across different bands
+NOISE_ADJ_SRC_NORM: .true.
+# Set the following to false if use only data > 1 average wavelength
+NOISE_USE_NEAR_OFFSET: .true. 
+# Set to .false. when the data are cross-correlation functions
+NOISE_SUPPRESS_EGF: .true.
+
+###################### FWAT PAR for Teleseismic FWI #####################
+# Number of receiver components
+TELE_NRCOMP: 2
+# Names of receiver components, in order of Z R T
+TELE_RCOMPS: Z R
+# Channel code
+TELE_CH_CODE: BX
+# Number of time steps
+TELE_NSTEP: 3500
+# Time interval
+TELE_DT: 0.05
+# Number of filters (Only 1 available for RF)
+TELE_NUM_FILTER: 1
+# Short period of filters
+TELE_SHORT_P: 5 
+# Long period of filters
+TELE_LONG_P: 50
+# Time before P arrival in seconds
+TELE_TW_BEFORE: 5
+# Time after P arrival in seconds
+TELE_TW_AFTER: 45
+
+################### FWAT PAR for Receiver Function tomo ##################
+# The parameters used for simulation are inherited from TeleFWI
+#
+# Number of gaussian filters
+RF_NGAUSS: 1
+# Gaussian factors of filters
+RF_F0: 1.0
+# Max iterations for calculating RFs
+RF_MAXIT: 200
+# Minimum residual error when the RF converges
+RF_MINDERR: 0.001
+# Time shift before P
+RF_TSHIFT: 10
+
+####################### FWAT PAR for Local EQ tomo ######################
+# Number of receiver components
+LEQ_NRCOMP: 3
+# Names of receiver components, in order of Z R T
+LEQ_RCOMPS: Z R T
+# Channel code
+LEQ_CH_CODE: BX
+# Number of time steps
+LEQ__NSTEP: 3500
+# Time interval
+LEQ_DT: 0.05
+# Number of filters (Only 1 available for RF)
+LEQ_NUM_FILTER: 1
+# Short period of filters
+LEQ_SHORT_P: 5 
+# Long period of filters
+LEQ_LONG_P: 50
+# imeas (1-8; see manual: https://docs.xumijian.me/seismo/specfem3d/measure_adj.html#input-file-2-measurement-par)
+LEQ_IMEAS: 7
+# ITAPER -- taper type: 1 multi-taper; 2 cosine; 3 boxcar
+LEQ_ITAPER: 1
+
+####################### FWAT PAR for Post-processing ######################
+SAVE_OUTPUT_EACH_EVENT: .false.
+### Joint inversion ###
+# Type of inversion:
+# 1: noise; 2: tele; 3: local eq; 4 joint with noise and tele
+JOINT_TYPE: 1
+# Start and end set name for Noise
+NOISE_SET_RANGE: set0 set0
+# Start and end set name for Tele/RF
+TELE_SET_RANGE: set1 set1
+# Start and end set name for LEQ
+LEQ_SET_RANGE: set2 set2
+# Weight of the 3 types of datasets
+JOINT_WEIGHT: 0.5 0.5 0.0
+### Smoothing parameters #####
+IS_SMOOTH: .true.
+USE_SPH_SMOOTH: .false.
+USE_PDE_SMOOTH: .false.
+USE_RHO_SCALING_FWAT: .false.
+# in meter
+SIGMA_H: 4000
+# in meter
+SIGMA_V: 2000
+### Tapering misfit gradient ###
+KERNEL_TAPER: .true.
+TAPER_H_SUPPRESS: 5000
+TAPER_H_BUFFER: 10000
+TAPER_V_SUPPRESS: 5000
+TAPER_V_BUFFER: 10000
+# options: SD / CG / LBFGS
+OPT_METHOD: SD
+# options: default / z_precond 
+PRECOND_TYPE: default
+# Step length
+MAX_SLEN: 0.02
+#
+DO_LS: .false.
+#
+NUM_STEP: 5
+# format: F5.3
+STEP_LENS: 0.010 0.020 0.030 0.040 0.050
+
+####################### FWAT PAR for measure_adj ######################
+# The names below correspond to the variable names in measure_adj
+# see manual in detail https://docs.xumijian.me/seismo/specfem3d/measure_adj.html#input-file-2-measurement-par
+TSHIFT_MIN: -4.5000
+TSHIFT_MAX: 4.5000
+DLNA_MIN: -1.5000
+DLNA_MAX: 1.5000
+CC_MIN: 0.800
+ERROR_TYPE: 1
+DT_SIGMA_MIN: 1.000
+DLNA_SIGMA_MIN: 0.500
+WTR: 0.020
+NPI: 2.50
+DT_FAC: 2.000
+ERR_FAC: 2.500
+DT_MAX_SCALE: 3.500 
+NCYCLE_IN_WINDOW: 1.500
+USE_PHYSICAL_DISPERSION: .false.
