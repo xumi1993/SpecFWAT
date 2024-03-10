@@ -72,7 +72,7 @@ subroutine run_forward_data(model,evtset,simu_type)
   if (ADIOS_FOR_MESH) then
     call read_mesh_databases_adios()
   else
-    call read_mesh_databases()
+    call read_mesh_databases_fwat()
   endif
 
   ! copy mass matrixs for prepare_timerun()

@@ -1209,6 +1209,55 @@ contains
   end function mysinc
 !--------------------------------------------------------------------------------
 
+
+  subroutine interpolate_syn_alloc(syn,t1,dt1,npt1,t2,dt2,npt2)
+
+   implicit none
+   double precision, dimension(:),intent(inout) :: syn
+   integer,intent(in) :: npt1,npt2
+   double precision,intent(in) :: t1,dt1,t2,dt2
+
+   double precision, dimension(:), allocatable :: syn1
+   double precision :: time, tt
+   integer i, ii
+
+   ! initializes trace holding interpolated values
+   ! syn1(1:npt2) = 0.
+   allocate(syn1(npt2))
+
+   ! loops over number of time steps in complete trace
+   do i = 1, npt2
+
+     ! sets time (in s) at this time step:
+     ! t2 : start time of trace
+     ! dt2: delta_t of a single time step
+     time = t2 + (i-1) * dt2
+
+     ! checks if time is within measurement window
+     ! t1: start time of measurement window
+     ! npt1: number of time steps in measurement window
+     ! dt1: delta_t of a single time step in measurement window
+     if (time > t1 .and. time < t1 + (npt1-1)*dt1) then
+
+       ! sets index of time steps within this window: is 1 at the beginning of window
+       ii = floor((time-t1)/dt1) + 1
+
+       ! time increment within this single time step to match the exact value of time
+       tt = time - ((ii-1)*dt1 + t1)
+
+       ! interpolates value of trace for the exact time
+       syn1(i) = (syn(ii+1)-syn(ii)) * tt/dt1 + syn(ii)
+     endif
+   enddo
+
+   ! saves interpolated values to output trace
+   syn(1:npt2) = syn1(1:npt2)
+   ! LQY: zero out any thing beyond npts
+   if (npt1 > npt2) syn(npt2+1:npt1)=0.
+   deallocate(syn1)
+ end subroutine interpolate_syn_alloc
+
+
 !!$!================================================================================
 !!$! Make lookup tables
 !!$  subroutine create_lookup_tables(nx,ny,nz,xo,yo,zo,dx,dy,dz, &

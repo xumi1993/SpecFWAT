@@ -84,10 +84,12 @@ c
       tmp=buf(1)
       return
 c   If the record doesn't exist, zero fill the buffer.
- 1    do 2 i=1,len
- 2    buf(i)=0d0
+ 1    do i=1,len
+      buf(i)=0d0
+      enddo
       return
       end
+
       subroutine brnset(nn,pcntl,prflg)
 c
 c   Brnset takes character array pcntl(nn) as a list of nn tokens to be
@@ -148,8 +150,9 @@ c   Take care of the print flags.
       if(prnt(1)) prnt(2)=.true.
 c   Copy the token list into local storage.
       no=min0(nn,jseg)
-      do 23 i=1,no
- 23   phlst(i)=pcntl(i)
+      do i=1,no
+      phlst(i)=pcntl(i)
+      enddo
 c   See if we are in query mode.
       if(no.gt.1.or.(phlst(1).ne.'query'.and.phlst(1).ne.'QUERY'))
      1 go to 1
@@ -248,14 +251,15 @@ c
 c   If the token is a keyword, find the matching generic branch names.
  12   j1=ncmpt(1,j)
       j2=ncmpt(2,j)
-      do 15 j=j1,j2
-      do 15 k=1,kseg
-      if(cmdlst(j).ne.segcd(k)) go to 15
+      do j=j1,j2
+      do k=1,kseg
+      if(cmdlst(j).ne.segcd(k)) exit
       l=nsgpt(k)
       segmsk(l)=.true.
 c     print *,'Brnset:  cmdlst found - j k l segcd =',j,k,l,' ',
 c    1 segcd(k)
- 15   continue
+      enddo
+      enddo
  10   continue
 c
 c   Make the caller a list of the generic branch names selected.
@@ -371,12 +375,14 @@ c   depth.
  10   call bkin(nin,ndex(ks,nph),ku(nph)+km(nph),tup)
 c   Move the depth correction values to a less temporary area.
  11   do 31 i=1,ku(nph)
- 31   tauu(i,nph)=tup(i)
+      tauu(i,nph)=tup(i)
+ 31   continue 
       k=ku(nph)
       do 12 i=1,km(nph)
       k=k+1
-      xc(i)=tup(k)
- 12   xu(i,nph)=tup(k)
+      xc(i)=tauspl
+      xu(i,nph)=tup(k)
+ 12   continue
 c     write(10,*)'bkin',ks,sngl(sgn),sngl(tauu(1,nph)),sngl(xu(1,nph))
 c
 c   Fiddle pointers.
@@ -395,17 +401,29 @@ c
 c   Correct the integrals for the depth interval [zm(msrc),zs].
 c
       ms=msrc(nph)
-      if(sgn)15,16,16
- 16   u0=pm(ms,nph)
-      z0=zm(ms,nph)
-      u1=us(nph)
-      z1=zs
-      go to 17
- 15   u0=us(nph)
-      z0=zs
-      u1=pm(ms,nph)
-      z1=zm(ms,nph)
- 17   mu=1
+!       if(sgn)15,16,16
+!  16   u0=pm(ms,nph)
+!       z0=zm(ms,nph)
+!       u1=us(nph)
+!       z1=zs
+!       go to 17
+!  15   u0=us(nph)
+!       z0=zs
+!       u1=pm(ms,nph)
+!       z1=zm(ms,nph)
+      if (sgn > 0.0) then
+          u0 = pm(ms, nph)
+          z0 = zm(ms, nph)
+          u1 = us(nph)
+          z1 = zs
+      else
+          u0 = us(nph)
+          z0 = zs
+          u1 = pm(ms, nph)
+          z1 = zm(ms, nph)
+      end if
+      mu = 1
+!  17   mu=1
 c     write(10,*)'u0 z0',sngl(u0),sngl(z0)
 c     write(10,*)'u1 z1',sngl(u1),sngl(z1)
       do 18 k=1,k1
@@ -456,7 +474,8 @@ c   Integrate from the surface to the source.
       call tauint(umin,pm(j,nph),pm(i,nph),zm(j,nph),zm(i,nph),ttau,tx)
       tauus1(nph)=tauus1(nph)+ttau
       xus1(nph)=xus1(nph)+tx
- 19   j=i
+      j=i
+ 19   continue
 c     write(10,*)'is ks tauus1 xus1',is,ks,sngl(tauus1(nph)),
 c    1 sngl(xus1(nph))
  42   if(dabs(zm(is,nph)-zs).le.dtol) go to 33
@@ -480,7 +499,8 @@ c   down to the turning point of the shallowest down-going ray.
       if(u1.lt.umin) go to 36
       call tauint(umin,u0,u1,z0,z1,ttau,tx)
       tauus2(nph)=tauus2(nph)+ttau
- 35   xus2(nph)=xus2(nph)+tx
+      xus2(nph)=xus2(nph)+tx
+ 35   continue
 c36   write(10,*)'is ks tauus2 xus2',is,ks,sngl(tauus2(nph)),
 c    1 sngl(xus2(nph))
  36   z1=zmod(umin,i-1,nph)
@@ -537,7 +557,8 @@ c     write(10,*)'Depcor:  do pS or sP integral - iph =',iph
       call tauint(umin,pm(j,iph),pm(i,iph),zm(j,iph),zm(i,iph),ttau,tx)
       tauus1(iph)=tauus1(iph)+ttau
       xus1(iph)=xus1(iph)+tx
- 46   j=i
+      j=i
+ 46   continue
  47   z1=zmod(umin,j,iph)
       if(dabs(zm(j,iph)-z1).le.dtol) go to 53
 c   Unless the turning point is right on a sample slowness, one more
@@ -576,7 +597,8 @@ c    1 sngl(du),sngl(us(nph))
       call tauint(ua(k,nph),pm(j,nph),pm(i,nph),zm(j,nph),zm(i,nph),
      1 ttau,tx)
       taua(k,nph)=taua(k,nph)+ttau
- 55   j=i
+      j=i
+ 55   continue
 c     write(10,*)'l k ua taua',l,k,sngl(ua(k,nph)),sngl(taua(k,nph))
  54   if(dabs(zm(is,nph)-zs).le.dtol) go to 56
 c   Unless the source is right on a sample slowness, one more partial
@@ -614,7 +636,8 @@ c     write(10,*)'i1 i2 sgn iph',i1,i2,sngl(sgn),iph
  23   if(dabs(pt(k)-pu(m,nph)).le.dtol) go to 21
       m=m+1
       go to 23
- 21   tau(1,k)=taut(k)+sgn*tauc(m)
+      tau(1,k)=taut(k)+sgn*tauc(m)
+ 21   continue
       k=i2
 c     write(10,*)'k m',k,m
       go to 24
@@ -712,14 +735,18 @@ c
       k=0
       do 15 j=indx(i,1),indx(i,2)
       k=k+1
- 15   pt(j)=tp(k,ind)
- 5    iidx(i)=-1
+      pt(j)=tp(k,ind)
+ 15   continue
+      iidx(i)=-1
+ 5    continue
       do 6 i=1,nbrn
- 6    jndx(i,2)=-1
+      jndx(i,2)=-1
+ 6    continue
       if(ki.le.0) go to 7
       do 8 i=1,ki
       j=kk(i)
- 8    pt(j)=pk(i)
+      pt(j)=pk(i)
+ 8    continue
       ki=0
 c   Sample the model at the source depth.
  7    odep=amax1(dep,.011)
@@ -902,17 +929,39 @@ c
       double precision tau(4,i2),x1,xn,coef(5,i2),a(2,60),ap(3),b(60),
      1 alr,g1,gn
 c
-      if(i2-i1)13,1,2
- 1    tau(2,i1)=x1
- 13   return
- 2    n=0
-      do 3 i=i1,i2
+!       if(i2-i1)13,1,2
+!  1    tau(2,i1)=x1
+!  13   return
+!  2    n=0
+!       do 3 i=i1,i2
+!       n=n+1
+!       b(n)=tau(1,i)
+!       do 3 j=1,2
+!  3    a(j,n)=coef(j,i)
+!       do 4 j=1,3
+!  4    ap(j)=coef(j+2,i2)
+!       n1=n-1
+      if (i2-i1 < 0) then
+          ! Corresponds to original label 13 actions
+          return
+      elseif (i2-i1 == 0) then
+          ! Corresponds to original label 1 actions
+          tau(2, i1) = x1
+          return
+      else
+          ! Corresponds to original label 2 actions
+          n = 0
+      endif
+      do i=i1,i2
       n=n+1
       b(n)=tau(1,i)
-      do 3 j=1,2
- 3    a(j,n)=coef(j,i)
-      do 4 j=1,3
- 4    ap(j)=coef(j+2,i2)
+      do j=1,2
+      a(j,n)=coef(j,i)
+      enddo
+      enddo
+      do j=1,3
+      ap(j)=coef(j+2,i2)
+      enddo
       n1=n-1
 c
 c   Arrays ap(*,1), a, and ap(*,2) comprise n+2 x n+2 penta-diagonal
@@ -932,7 +981,8 @@ c   a(4,*).
       alr=a(1,i)/a(1,j)
       a(1,i)=1d0-a(2,j)*alr
       b(i)=b(i)-b(j)*alr
- 5    j=i
+      j=i
+ 5    continue
       alr=ap(1)/a(1,n1)
       ap(2)=ap(2)-a(2,n1)*alr
       gn=xn-b(n1)*alr
@@ -944,7 +994,8 @@ c   When finished, storage g(2), a(4,*), g(5) will comprise vector g.
       j=n
       do 6 i=n1,1,-1
       b(i)=(b(i)-b(j)*a(2,i))/a(1,i)
- 6    j=i
+      j=i
+ 6    continue
       g1=(x1-coef(4,i1)*b(1)-coef(5,i1)*b(2))/coef(3,i1)
 c
       tau(2,i1)=x1
@@ -953,7 +1004,8 @@ c
       j=1
       do 7 i=is,ie
       j=j+1
- 7    tau(2,i)=coef(3,i)*b(j-1)+coef(4,i)*b(j)+coef(5,i)*b(j+1)
+      tau(2,i)=coef(3,i)*b(j-1)+coef(4,i)*b(j)+coef(5,i)*b(j+1)
+ 7    continue  
       tau(2,i2)=xn
       return
       end

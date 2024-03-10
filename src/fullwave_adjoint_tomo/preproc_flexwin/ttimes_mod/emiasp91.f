@@ -20,8 +20,9 @@ c
 c
       entry emdld(n,cpr,name)
       n=np
-      do 1 i=1,np
- 1    cpr(i)=rd(i)
+      do i=1,np
+        cpr(i)=rd(i)
+      enddo
       name=modnam
       return
       end

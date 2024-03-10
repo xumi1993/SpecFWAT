@@ -13,3 +13,11 @@ Photo.run
 build
 *.a
 *.dylib
+
+*.hed
+*.lis
+*.tbl
+flexwin
+ttimes_mod/remodl
+ttimes_mod/setbrn
+

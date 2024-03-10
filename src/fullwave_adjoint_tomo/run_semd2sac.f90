@@ -14,7 +14,7 @@ subroutine run_semd2sac(ievt,simu_type)
 
   use specfem_par, only: CUSTOM_REAL, MAX_STRING_LEN, IIN, network_name, station_name,nrec, nrec_local, &
        seismograms_d, ispec_selected_rec, number_receiver_global, myrank, t0
-  use meshfem3D_par, only: LATITUDE_MIN,LATITUDE_MAX,LONGITUDE_MIN,LONGITUDE_MAX
+  ! use meshfem3D_par, only: LATITUDE_MIN,LATITUDE_MAX,LONGITUDE_MIN,LONGITUDE_MAX
   use specfem_par_coupling, only: phi_FK
   use shared_input_parameters, only: NSTEP, DT, SUPPRESS_UTM_PROJECTION
 
@@ -55,10 +55,10 @@ subroutine run_semd2sac(ievt,simu_type)
   double precision                                          :: lon_center_chunk, lat_center_chunk, chunk_azi
 !   double precision, dimension(3,3)                          :: rotation_matrix
 
-!   lon_center_chunk=0.
-!   lat_center_chunk=0.
-  lon_center_chunk = (LONGITUDE_MIN+LONGITUDE_MAX)/2/1000
-  lat_center_chunk = (LATITUDE_MIN+LATITUDE_MAX)/2/1000
+  lon_center_chunk=0.
+  lat_center_chunk=0.
+  ! lon_center_chunk = (LONGITUDE_MIN+LONGITUDE_MAX)/2/1000
+  ! lat_center_chunk = (LATITUDE_MIN+LATITUDE_MAX)/2/1000
   chunk_azi=0.
   call world_rank(myrank)
   

@@ -5,6 +5,7 @@ set(CMAKE_PROJECT_NAME "specfwat")
 project(${CMAKE_PROJECT_NAME} VERSION 1.3.0 LANGUAGES C Fortran)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 
 if ("${CMAKE_FORTRAN_COMPILER_ID}" MATCHES "GNU")
@@ -42,31 +43,20 @@ file(GLOB SOURCES_GENERATE_DATABASES "${SOURCE_DIR}/generate_databases/*.[fF]90"
 file(GLOB SOURCES_GENERATE_DATABASES_C "${SOURCE_DIR}/generate_databases/*.c")
 list(APPEND SOURCES_GENERATE_DATABASES ${SOURCES_GENERATE_DATABASES_C})
 
+add_subdirectory(${SOURCE_DIR}/shared)
+add_subdirectory(${SOURCE_DIR}/specfem3D)
+add_subdirectory(${SOURCE_DIR}/meshfem3D)
+add_subdirectory(${SOURCE_DIR}/generate_databases)
+add_subdirectory(${SOURCE_DIR}/fullwave_adjoint_tomo)
+
 # cuda sources
 file(GLOB SOURCES_CUDA "${SOURCE_DIR}/cuda/*.c*")
-
-# FWAT sources
-set(SOURCES_FWAT_SHARED "${SOURCE_FWAT_DIR}/fullwave_adjoint_tomo_par.f90"
-                       "${SOURCE_FWAT_DIR}/fwat_input.f90"
-                       "${SOURCE_FWAT_DIR}/fwat_utils.f90")
-file(GLOB SOURCES_RECFUNC "${SOURCE_FWAT_DIR}/preproc_recfunc/*.f90" )
-file(GLOB SOURCES_FWAT_OPT "${SOURCE_FWAT_DIR}/optimization/*.[fF]90")
-file(GLOB SOURCES_SPECFEMINTERFACE "${SOURCE_FWAT_DIR}/specfem_interface/*.[fF]*")
-
-
-file(GLOB HEADERS "${PROJECT_SOURCE_DIR}/include/*.h")
-# add sub modules
-# add_subdirectory("${PROJECT_SOURCE_DIR}/external_libs")
-
-# fortran-yaml-cpp
-# add_subdirectory("${SOURCE_DIR}/fortran-yaml")
-
-# fortran-csv
-# add_subdirectory("${SOURCE_DIR}/fortran-csv")
 
 # setup include directory
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
+  ${SOURCE_FWAT_DIR}/sac_inc
+  ${CMAKE_BINARY_DIR}/modules
   # ${CMAKE_CURRENT_BINARY_DIR}/src/fortran-yaml
   # ${CMAKE_CURRENT_BINARY_DIR}/src/fortran-csv
 )
@@ -75,38 +65,43 @@ set(APP_SOURCES
   src/meshfem3D/meshfem3D.F95
   src/generate_databases/generate_databases.F95
   src/specfem3D/specfem3D.F95
-  src/aux/combine_vol_data_vtk.F95
-  ${SOURCE_FWAT_DIR}/program_fwat_mesh_database.f95
+  # ${SOURCE_FWAT_DIR}/program_fwat_mesh_database.f95
+  ${SOURCE_FWAT_DIR}/program_fwat0_forward_data.f95
   )
 foreach(execsourcefile ${APP_SOURCES})
   # get exec name
   get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)
 
-  file(GLOB SOURCES_SUBS "${SOURCE_DIR}/${EXEC_NAME}/*.[fFc]*")
-
-  if (EXEC_NAME STREQUAL "specfem3D")
-    list(APPEND SOURCES_SUBS ${SOURCES_CUDA})
-  elseif(EXEC_NAME STREQUAL "combine_vol_data_vtk")
-    file(GLOB SOURCES_AUX "${SOURCE_DIR}/aux/*.[Ff]90")
-    list(APPEND SOURCES_SUBS ${SOURCES_AUX} "${SOURCE_DIR}/aux/vtk_writer.c")
-  elseif(EXEC_NAME STREQUAL "program_fwat_mesh_database")
+  if(EXEC_NAME STREQUAL "program_fwat_mesh_database")
     set(EXEC_NAME "fwat_mesh_database")
-    list(APPEND SOURCES_SUBS ${SOURCES_SPECFEM} ${SOURCES_MESHFEM}
-         ${SOURCES_GENERATE_DATABASES} ${SOURCES_CUDA}
-         ${SOURCES_SPECFEMINTERFACE} ${SOURCES_FWAT_SHARED})
+  elseif(EXEC_NAME STREQUAL "program_fwat0_forward_data")
+    set(EXEC_NAME "fwat0_forward_data")
   endif()
   # add executable
   add_executable(${EXEC_NAME} ${execsourcefile}
-    ${SOURCES_SHARED} ${SOURCES_SUBS} 
+    ${SOURCES_SUBS} 
     ${HEADERS}
   )
 
   set_target_properties(
     ${EXEC_NAME}
     PROPERTIES
-    Fortran_MODULE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/mod_${EXEC_NAME}"
     PREFIX "x"
 )
+  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs")
+  if (${EXEC_NAME} STREQUAL "fwat0_forward_data")
+    target_link_libraries(${EXEC_NAME} PUBLIC measadj_objs flexwin_objs 
+                          specfem_interface_objs read_mesh_interface_objs
+                          fwat_shared_objs fwat_recfunc_objs fwat_telestf_objs
+                          specfem3D_objs meshfem3D_objs
+                          )
+  endif()
+  
+  # link objects
+
+  # link shared objects
+  target_link_libraries(${EXEC_NAME} PUBLIC shared_objs)
+  
   # link MPI
   target_link_libraries(${EXEC_NAME} PUBLIC MPI::MPI_Fortran)
 
@@ -116,18 +111,12 @@ foreach(execsourcefile ${APP_SOURCES})
   # link BLAS
   target_link_libraries(${EXEC_NAME} PUBLIC BLAS::BLAS)
   
-  # # link fortran stdlib
-  # target_link_libraries(${EXEC_NAME} PUBLIC fortran_stdlib)
+  # link libtau
+  target_link_libraries(${EXEC_NAME} PUBLIC tau)
 
-  # # link yaml-app:
-  # target_link_libraries(${EXEC_NAME} PUBLIC fortran-yaml)
-
-  # # link fortran-csv
-  # target_link_libraries(${EXEC_NAME} PUBLIC fortran-csv)
-  
-  # # link h5fortran
-  # target_link_libraries(${EXEC_NAME} PUBLIC h5fortran)
 endforeach()
+
+add_subdirectory(${SOURCE_DIR}/aux)
 
 # if(BUILD_TESTING)
 #   add_subdirectory(${PROJECT_SOURCE_DIR}/examples)

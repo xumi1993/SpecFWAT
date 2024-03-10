@@ -502,53 +502,6 @@ subroutine dif1(signal, dt, nt)
 end subroutine dif1
 
 !================================================================================
-! Rotation of components
-  subroutine rotate_ZNE_to_ZRT(vz,vn,ve,vz2,vr,vt,nt,bazi)
-  use specfem_par, only: CUSTOM_REAL
-  use fullwave_adjoint_tomo_par, only: deg2rad
-
-    integer,                  intent(in) :: nt
-    real(kind=CUSTOM_REAL),   intent(in) :: bazi
-
-    real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz,  vn, ve
-    real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz2, vr, vt
-
-    real(kind=CUSTOM_REAL) :: baz
-
-    integer :: it
-
-    baz = deg2rad * bazi
-
-    do it = 1, nt
-       vr(it) = -ve(it) * sin(baz) - vn(it) * cos(baz)
-       vt(it) = -ve(it) * cos(baz) + vn(it) * sin(baz)
-       vz2(it) = vz(it)
-    enddo
-
-  end subroutine rotate_ZNE_to_ZRT
-
-  subroutine rotate_ZRT_to_ZNE(vz2,vr,vt,vz,vn,ve,nt,bazi)
-  use specfem_par, only: CUSTOM_REAL
-  use fullwave_adjoint_tomo_par, only: deg2rad
-
-    integer,                  intent(in) :: nt
-    real(kind=CUSTOM_REAL),   intent(in) :: bazi
-
-    real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz2, vr, vt
-    real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz,  vn, ve
-
-    real(kind=CUSTOM_REAL) :: baz
-    integer :: it
-
-    baz = deg2rad * bazi
-
-    do it = 1, nt
-       ve(it) = -vr(it) * sin(baz) - vt(it) * cos(baz)
-       vn(it) = -vr(it) * cos(baz) + vt(it) * sin(baz)
-       vz(it) = vz2(it)
-    enddo
-
-  end subroutine rotate_ZRT_to_ZNE
 
 !===============================================
 !  subroutine detrend(array,npt1,t01,dt1)

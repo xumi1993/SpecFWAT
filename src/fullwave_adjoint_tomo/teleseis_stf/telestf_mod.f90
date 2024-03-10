@@ -2,7 +2,6 @@ module telestf_mod
    use fullwave_adjoint_tomo_par, only: NRCOMP, RCOMPS, VERBOSE_MODE 
    use interpolation_mod 
    use ma_constants
-   use ma_sub
    use spanlib
    use specfem_par, only: OUTPUT_FILES
    use sacio
@@ -45,10 +44,10 @@ subroutine time_iterdeconv(stnm,seismo_dat,seismo_syn,dat_tw,syn_tw,ff,&
   dat_inp(1:npts)=dble(seismo_dat(1:npts))
   syn_inp(1:npts)=dble(seismo_syn(1:npts))
   ! cut to P window -5 to 45 ps
-  call interpolate_syn(dat_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
-  call interpolate_syn(syn_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
-  call interpolate_syn(dat_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
-  call interpolate_syn(syn_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
+  call interpolate_syn_alloc(dat_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
+  call interpolate_syn_alloc(syn_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
+  call interpolate_syn_alloc(dat_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
+  call interpolate_syn_alloc(syn_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
   dat_tw(irec,1:npts,1)=real(dat_inp(1:npts))
   syn_tw(irec,1:npts,1)=real(syn_inp(1:npts))
   NDIM_CUT=npts
