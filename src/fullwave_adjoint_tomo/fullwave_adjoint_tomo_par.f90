@@ -908,7 +908,6 @@ module user_parameters
   ! note that some integer arrays (iM,iL,iR) are NWINDOWS * NWINDOWS
   ! THESE SHOULD PROBABLY BE USER PARAMETERS, SINCE THEY WILL AFFECT
   ! THE SPEED OF THE PROGRAM (ALTHOUGH NOT THE OUTPUT).
-  !integer, parameter :: NDIM = 10000
   integer, parameter :: NWINDOWS = 2500
 
   ! -------------------------------------------------------------

@@ -4,6 +4,7 @@ module preproc_subs
                               t0,NSTEP,DT,IIN,OUTPUT_FILES
   use fullwave_adjoint_tomo_par
   use fwat_input
+  use fwat_utils, only: rotate_ZNE_to_ZRT
   use measure_adj_mod
   use sacio
 

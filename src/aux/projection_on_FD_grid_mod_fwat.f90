@@ -3,13 +3,11 @@ module projection_on_FD_grid_fwat
   !! IMPORT SPECFEM VARIABLES -----------------------------------------------------------------------------------------------------
   use specfem_par, only: NGLLX, NGLLY, NGLLZ, NDIM, NSPEC_AB, &
        NGLOB_AB, ibool, xstore, ystore, zstore,  NUM_ITER, NGNOD, xigll, yigll, zigll, NPROC, HUGEVAL, &
-       MIDX, MIDY, MIDZ, CUSTOM_REAL
-  use fullwave_adjoint_tomo_par
-
+       MIDX, MIDY, MIDZ, CUSTOM_REAL, MAX_STRING_LEN
+!   use fullwave_adjoint_tomo_par
 
   !! IMPORT INVERSE_PROBLEM VARIABLES ---------------------------------------------------------------------------------------------
 !   use inverse_problem_par
-
   implicit none
 
   !! fd grid parameters
@@ -22,6 +20,7 @@ module projection_on_FD_grid_fwat
   integer,                private                                  :: igg, jgg, kgg
   real(kind=CUSTOM_REAL), private                                  :: xfd, yfd, zfd
   integer,                private, parameter                       :: IINN=667, IIDD=668
+  logical, private, parameter :: DEBUG_MODE  = .false.
 
   real(kind=CUSTOM_REAL), private, dimension(:,:,:), allocatable   :: valence , valence_tmp, model_on_FD_grid_tmp
 

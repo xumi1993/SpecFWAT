@@ -7,7 +7,7 @@ module preproc_measure_adj_subs
   use fwat_input
   use my_mpi
   use fwat_utils
-  use measure_adj_mod
+  use measure_adj_mod, MAX_NDIM => NDIM
   ! module from preproc_flexwin
   use seismo_variables 
   use interpolation_mod 
@@ -31,7 +31,7 @@ contains
     integer                                          :: yr,jda,ho,mi, npt1, irec, icomp, ievt, &
                                                         out_imeas, flag
     double precision                                 :: t01,dt1,sec,dist,az,baz,slat,slon,tstart,tend
-    double precision, dimension(NDIM)                :: datarray, dat_inp_bp, syn_inp_bp, adj_syn_all
+    double precision, dimension(MAX_NDIM)                :: datarray, dat_inp_bp, syn_inp_bp, adj_syn_all
     character(len=256),dimension(nrec)               :: glob_net, glob_sta
     character(len=256),dimension(nrec,NRCOMP)        :: glob_chan_dat
     character(len=MAX_STRING_LEN)                    :: bandname,adjfile,datafile,file_prefix0
@@ -149,7 +149,7 @@ contains
     double precision, dimension(nrec)                        :: baz_all
     ! real(kind=CUSTOM_REAL), dimension(3,NSTEP)               :: seismo_syn
     real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_full
-    double precision, dimension(NDIM)                        :: datr_inp_bp,synr_inp_bp,&
+    double precision, dimension(MAX_NDIM)                        :: datr_inp_bp,synr_inp_bp,&
                                                                 datz_inp_bp,synz_inp_bp
 
     ! setup data and syn
@@ -284,7 +284,7 @@ contains
     type(sachead)                                            :: head
     logical                                                  :: findfile
     character(len=MAX_STRING_LEN)                            :: datafile,file_prefix0
-    double precision, dimension(NDIM)                        :: datarray
+    double precision, dimension(MAX_NDIM)                        :: datarray
     integer                                                  :: npt1,npt1_inp
     double precision                                         :: t01,t01_p,dt1
     ! for rotation
@@ -292,14 +292,14 @@ contains
     ! for preprocessing 
     double precision                                         :: t0_inp,t1_inp,dt_inp
     integer                                                  :: win_b, win_e ! for norm in signal window
-    double precision, dimension(NDIM)                        :: dat_inp, syn_inp 
-    double precision, dimension(NDIM)                        :: dat_inp_bp, syn_inp_bp
+    double precision, dimension(MAX_NDIM)                        :: dat_inp, syn_inp 
+    double precision, dimension(MAX_NDIM)                        :: dat_inp_bp, syn_inp_bp
     double precision                                         :: fstart0,fend0
     ! for measurement 
     double precision                                         :: tstart,tend
     integer                                                  :: out_imeas
     integer                                                  :: NDIM_CUT
-    double precision, dimension(NDIM)                        :: adj_syn_all
+    double precision, dimension(MAX_NDIM)                        :: adj_syn_all
     character(len=MAX_STRING_LEN)                            :: bandname,adjfile
     integer                                                  :: yr,jda,ho,mi        
     integer                                                  :: iband
@@ -366,7 +366,7 @@ contains
         dat_inp(1:npt1)=datarray(1:npt1)
         syn_inp(1:NSTEP)=dble(seismo_syn(icomp,1:NSTEP))
         ! interp
-        if (npt1_inp>NDIM) call exit_mpi(myrank,'NDIM too small!!!') 
+        if (npt1_inp>MAX_NDIM) call exit_mpi(myrank,'NDIM too small!!!') 
         call interpolate_syn(dat_inp,t01,dt1,npt1,t01_p,dt_inp,npt1_inp)
         call interpolate_syn(syn_inp,-t0,DT,NSTEP,t0_inp,dt_inp,NDIM_CUT)
 
@@ -493,14 +493,14 @@ contains
     real(kind=CUSTOM_REAL), dimension(3,NSTEP)               :: seismo_syn                       
     ! for preprocessing 
     double precision                                         :: t0_inp,t1_inp,dt_inp
-    double precision, dimension(NDIM)                        :: dat_inp, syn_inp 
-    double precision, dimension(NDIM)                        :: dat_inp_bp, syn_inp_bp
+    double precision, dimension(MAX_NDIM)                        :: dat_inp, syn_inp 
+    double precision, dimension(MAX_NDIM)                        :: dat_inp_bp, syn_inp_bp
     double precision                                         :: fstart0,fend0
     ! for measurement 
     double precision                                         :: tstart,tend
     integer                                                  :: out_imeas
     integer                                                  :: NDIM_CUT
-    double precision, dimension(NDIM)                        :: adj_syn_all
+    double precision, dimension(MAX_NDIM)                        :: adj_syn_all
     character(len=MAX_STRING_LEN)                            :: bandname
     integer                                                  :: yr,jda,ho,mi        
     integer                                                  :: iband
@@ -659,8 +659,8 @@ contains
         endif
         if (icmt==0) then
           !!**************** 2. flexwin ******************************************
-          obs_lp=dat_inp_bp
-          synt_lp=syn_inp_bp
+          obs_lp(1:MAX_NDIM)=dat_inp_bp(1:MAX_NDIM)
+          synt_lp(1:MAX_NDIM)=syn_inp_bp(1:MAX_NDIM)
           call select_windows_stalta2()
           glob_num_win(irec,icomp)=num_win
           if ( num_win>0 ) then
@@ -700,9 +700,9 @@ contains
 
     character(len=MAX_STRING_LEN)                    :: adjfile,bandname,datafile,simu_type
     integer                                          :: icomp, iband, npt1, num_adj, irec, ier, ievt, nflt
-    double precision, dimension(3,NDIM)              :: adj_syn_all_sum
-    real(kind=CUSTOM_REAL), dimension(3,NDIM)        :: adj_arrays_zne
-    double precision, dimension(NDIM)                :: datarray
+    double precision, dimension(3,MAX_NDIM)              :: adj_syn_all_sum
+    real(kind=CUSTOM_REAL), dimension(3,MAX_NDIM)        :: adj_arrays_zne
+    double precision, dimension(MAX_NDIM)                :: datarray
     double precision                                 :: baz_all(nrec)
     real                                             :: avgamp
     logical                                          :: findfile
@@ -794,7 +794,7 @@ contains
     adj_syn_all_sum = adj_syn_all_sum * src_weight(ievt)
     if (trim(dat_coord)=='ZRT') then
       call rotate_ZRT_to_ZNE(real(adj_syn_all_sum(1,:)),real(adj_syn_all_sum(2,:)),real(adj_syn_all_sum(3,:)), &
-              adj_arrays_zne(1,:),adj_arrays_zne(2,:),adj_arrays_zne(3,:),NDIM,real(baz_all(irec)))      
+              adj_arrays_zne(1,:),adj_arrays_zne(2,:),adj_arrays_zne(3,:),MAX_NDIM,real(baz_all(irec)))      
     else
       adj_arrays_zne=adj_syn_all_sum
     endif
@@ -830,28 +830,6 @@ contains
       endif           
     endif
   end subroutine sum_adj_source
-
-  subroutine rotate_ZRT_to_ZNE(vz2,vr,vt,vz,vn,ve,nt,bazi)
-  use specfem_par, only: CUSTOM_REAL
-  use fullwave_adjoint_tomo_par, only: deg2rad
-
-    integer,                  intent(in) :: nt
-    real(kind=CUSTOM_REAL),   intent(in) :: bazi
-
-    real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz2, vr, vt
-    real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz,  vn, ve
-
-    real(kind=CUSTOM_REAL) :: baz
-    integer :: it
-
-    baz = deg2rad * bazi
-
-    do it = 1, nt
-        ve(it) = -vr(it) * sin(baz) - vt(it) * cos(baz)
-        vn(it) = -vr(it) * cos(baz) + vt(it) * sin(baz)
-        vz(it) = vz2(it)
-    enddo
-  end subroutine rotate_ZRT_to_ZNE
 
 end module preproc_measure_adj_subs
 

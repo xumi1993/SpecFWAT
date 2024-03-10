@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  program model_grid_cert
+  program model_grid_cart
 
 ! combines the database files on several slices, project it on a regular grid
 ! and saves it in a binary file that can be read with Paraview in RAW format
@@ -221,4 +221,4 @@
 
   call finalize_mpi()
 
-end program model_grid_cert
+end program model_grid_cart

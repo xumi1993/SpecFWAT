@@ -26,3 +26,15 @@ add_library(fwat0_forward_data_objs OBJECT ${SOURCES_fwat0})
 target_link_libraries(fwat0_forward_data_objs PUBLIC measadj_objs flexwin_objs 
                       specfem_interface_objs read_mesh_interface_objs
                       fwat_shared_objs fwat_recfunc_objs)
+
+# Define fwat1 library
+set(SOURCES_fwat1 "run_fwat1_fwd_measure_adj.f90"
+                  "preproc_subs.f90"
+                  "run_preprocessing.f90"
+                  "preproc_measure_adj_subs.f90"
+                  "preproc_collect_data.f90"
+                  "run_precond.f90")
+add_library(fwat1_fwd_measure_adj_objs OBJECT ${SOURCES_fwat1})
+target_link_libraries(fwat1_fwd_measure_adj_objs PUBLIC measadj_objs flexwin_objs 
+                      specfem_interface_objs read_mesh_interface_objs
+                      fwat_shared_objs fwat_recfunc_objs)

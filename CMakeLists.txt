@@ -61,6 +61,7 @@ set(APP_SOURCES
   src/specfem3D/specfem3D.F95
   # ${SOURCE_FWAT_DIR}/program_fwat_mesh_database.f95
   ${SOURCE_FWAT_DIR}/program_fwat0_forward_data.f95
+  ${SOURCE_FWAT_DIR}/program_fwat1_fwd_measure_adj.f95
   )
 foreach(execsourcefile ${APP_SOURCES})
   # get exec name
@@ -70,6 +71,8 @@ foreach(execsourcefile ${APP_SOURCES})
     set(EXEC_NAME "fwat_mesh_database")
   elseif(EXEC_NAME STREQUAL "program_fwat0_forward_data")
     set(EXEC_NAME "fwat0_forward_data")
+  elseif(EXEC_NAME STREQUAL "program_fwat1_fwd_measure_adj")
+    set(EXEC_NAME "fwat1_fwd_measure_adj")
   endif()
 
   # add executable
@@ -83,7 +86,7 @@ foreach(execsourcefile ${APP_SOURCES})
 
   # link objects
   target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs")
-  if (${EXEC_NAME} STREQUAL "fwat0_forward_data")
+  if (${EXEC_NAME} STREQUAL "fwat0_forward_data" OR ${EXEC_NAME} STREQUAL "fwat1_fwd_measure_adj")
     target_link_libraries(${EXEC_NAME} PUBLIC measadj_objs flexwin_objs 
                           specfem_interface_objs read_mesh_interface_objs
                           fwat_shared_objs fwat_recfunc_objs fwat_telestf_objs
