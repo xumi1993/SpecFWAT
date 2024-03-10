@@ -36,12 +36,6 @@ message(STATUS "MPI_VERSION: ${MPI_VERSION}")
 # setup source files
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 set(SOURCE_FWAT_DIR "${PROJECT_SOURCE_DIR}/src/fullwave_adjoint_tomo")
-file(GLOB SOURCES_SHARED "${SOURCE_DIR}/shared/*.[fFc]*")
-file(GLOB SOURCES_SPECFEM "${SOURCE_DIR}/specfem3D/*.[fF]90")
-file(GLOB SOURCES_MESHFEM "${SOURCE_DIR}/meshfem3D/*.[fF]90")
-file(GLOB SOURCES_GENERATE_DATABASES "${SOURCE_DIR}/generate_databases/*.[fF]90")
-file(GLOB SOURCES_GENERATE_DATABASES_C "${SOURCE_DIR}/generate_databases/*.c")
-list(APPEND SOURCES_GENERATE_DATABASES ${SOURCES_GENERATE_DATABASES_C})
 
 add_subdirectory(${SOURCE_DIR}/shared)
 add_subdirectory(${SOURCE_DIR}/specfem3D)
@@ -77,17 +71,17 @@ foreach(execsourcefile ${APP_SOURCES})
   elseif(EXEC_NAME STREQUAL "program_fwat0_forward_data")
     set(EXEC_NAME "fwat0_forward_data")
   endif()
+
   # add executable
   add_executable(${EXEC_NAME} ${execsourcefile}
     ${SOURCES_SUBS} 
     ${HEADERS}
   )
 
-  set_target_properties(
-    ${EXEC_NAME}
-    PROPERTIES
-    PREFIX "x"
-)
+  # set prefix before executable name
+  set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
+
+  # link objects
   target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs")
   if (${EXEC_NAME} STREQUAL "fwat0_forward_data")
     target_link_libraries(${EXEC_NAME} PUBLIC measadj_objs flexwin_objs 
@@ -97,7 +91,6 @@ foreach(execsourcefile ${APP_SOURCES})
                           )
   endif()
   
-  # link objects
 
   # link shared objects
   target_link_libraries(${EXEC_NAME} PUBLIC shared_objs)
