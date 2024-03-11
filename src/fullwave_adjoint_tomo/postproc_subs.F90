@@ -404,7 +404,7 @@ module postproc_sub
   end subroutine smooth_kernel
 
   subroutine sum_joint_kernels()
-    ! use postprocess_par, only: IOUT
+    ! use postprocess_par, only: FIOUT
     implicit none
 
     real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: kernel1, total_kernel
@@ -465,7 +465,6 @@ module postproc_sub
   end subroutine calc_kernel0_std_weight
 
   subroutine read_smoothed_kernel(input_dir, kernel_name, kernel_data, issmooth)
-    use postprocess_par, only: IIN
 
     logical, optional, intent(in) :: issmooth
     character(len=MAX_STRING_LEN) :: k_file,input_dir,kernel_name,this_kernel_name
@@ -484,18 +483,17 @@ module postproc_sub
     endif
 
     write(k_file,'(a,i6.6,a)') trim(input_dir)//'/proc',myrank,'_'//trim(this_kernel_name)//'.bin'
-    open(IIN,file=trim(k_file),status='old',form='unformatted',action='read',iostat=ier)
+    open(FIIN,file=trim(k_file),status='old',form='unformatted',action='read',iostat=ier)
     if (ier /= 0) then
       write(*,*) '  kernel not found: ',trim(k_file)
       stop 'Error kernel file not found'
     endif
-    read(IIN) kernel_data
-    close(IIN)
+    read(FIIN) kernel_data
+    close(FIIN)
     call synchronize_all()
   end subroutine read_smoothed_kernel
 
   subroutine write_smoothed_kernel(output_dir, kernel_name, kernel_data, issmooth)
-    use postprocess_par, only: IOUT
 
     logical, optional, intent(in) :: issmooth
     character(len=MAX_STRING_LEN) :: k_file,output_dir,kernel_name, this_kernel_name
@@ -511,15 +509,14 @@ module postproc_sub
     endif
 
     write(k_file,'(a,i6.6,a)') trim(output_dir)//'/proc',myrank,'_'//trim(this_kernel_name)//'.bin'
-    open(IOUT,file=trim(k_file),status='unknown',form='unformatted',iostat=ier)
+    open(FIOUT,file=trim(k_file),status='unknown',form='unformatted',iostat=ier)
     if (ier /= 0) stop 'Error writing smoothed kernel file'
-    write(IOUT) kernel_data(:,:,:,:)
-    close(IOUT)
+    write(FIOUT) kernel_data(:,:,:,:)
+    close(FIOUT)
     call synchronize_all()
   end subroutine write_smoothed_kernel
 
   subroutine rho_scaling_fwat(input_dir,output_dir)
-    use postprocess_par, only: IIN,IOUT
 
     character(len=MAX_STRING_LEN)                          :: input_dir,output_dir
     character(len=MAX_STRING_LEN), parameter               :: beta_kernel_name='beta_kernel'
@@ -544,18 +541,17 @@ module postproc_sub
   end subroutine rho_scaling_fwat
 
   subroutine read_misfit(simu_type, model_name, sum_chi, nchan)
-    use ma_constants, only: NDIM
     implicit none
 
     type(chi_table)                                    :: chi
     integer                                            :: setb,sete,iset,nflt,&
                                                           iband,nchan,i,nevt
-    integer, parameter                                 :: col = 29
+    integer, parameter                                 :: col = 29, max_ndim=100000
     character(len=MAX_STRING_LEN), dimension(:), allocatable  :: evtnames
     character(len=MAX_STRING_LEN)                      :: fname,strset,bandname
     character(len=*),intent(in)                        :: simu_type, model_name
     double precision, dimension(:), allocatable        :: array
-    double precision, dimension(NDIM)                  :: chi_non_zero
+    double precision, dimension(max_ndim)              :: chi_non_zero
     real(kind=CUSTOM_REAL), dimension(:), allocatable  :: weight
     double precision                                   :: mean_chi,std_chi,sum_chi
 

@@ -1206,9 +1206,8 @@ end subroutine invert_hess
 subroutine smooth_sem_fwat(sigma_h,sigma_v,kernel_names_comma_delimited,input_dir,&
                       output_dir,USE_GPU)
 
-  use constants, only: USE_QUADRATURE_RULE_FOR_SMOOTHING
-  use postprocess_par, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
-    MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI,MAX_KERNEL_NAMES
+  use constants, only: USE_QUADRATURE_RULE_FOR_SMOOTHING, CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
+    MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI!,MAX_KERNEL_NAMES
 
   use specfem_par
   use specfem_par_movie
@@ -2085,8 +2084,7 @@ end subroutine smooth_sem_fwat
 subroutine smooth_sem_pde_fwat(sigma_h,sigma_v,kernel_name,input_dir,&
                       output_dir,USE_GPU)
 
-  use constants, only: HUGEVAL
-  use postprocess_par, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
+  use constants, only: HUGEVAL, CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
     MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI
   use specfem_par
   use specfem_par_elastic, only: nspec_inner_elastic, &
