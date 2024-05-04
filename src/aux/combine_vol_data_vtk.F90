@@ -635,12 +635,12 @@
   integer :: iglob1, iglob2, iglob3, iglob4, iglob5, iglob6, iglob7, iglob8
 
   ! outputs total number of elements for all slices
-  if (it == 1) then
-    ! VTK
-    ! note: indices for vtk start at 0
-    write(IOVTK,'(a,i12,i12)') "CELLS ",nee,nee*9
+  ! if (it == 1) then
+  !   ! VTK
+  !   ! note: indices for vtk start at 0
+  !   write(IOVTK,'(a,i12,i12)') "CELLS ",nee,nee*9
 
-  endif
+  ! endif
 
   ! writes out element indices
   allocate(mask_ibool(NGLOB_AB),stat=ier)
@@ -751,9 +751,9 @@
   integer :: iglob,iglob1, iglob2, iglob3, iglob4, iglob5, iglob6, iglob7, iglob8
 
   ! outputs total number of elements for all slices
-  if (it == 1) then
-    write(IOVTK,'(a,i12,i12)') "CELLS ",nee,nee*9
-  endif
+  ! if (it == 1) then
+  !   write(IOVTK,'(a,i12,i12)') "CELLS ",nee,nee*9
+  ! endif
 
   ! sets numbering num_ibool respecting mask
   allocate(mask_ibool(NGLOB_AB),stat=ier)

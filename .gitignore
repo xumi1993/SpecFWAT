@@ -21,3 +21,5 @@ flexwin
 ttimes_mod/remodl
 ttimes_mod/setbrn
 
+.vscode/
+*.vtk

@@ -5,8 +5,15 @@ file(GLOB SOURCES_C "*.c")
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
 )
+
+set(FILTERED_SOURCE_FILES "")
+foreach(FILE ${SOURCES_Fortran})
+  if (NOT ${FILE} MATCHES "meshfem3D.F90")
+    list(APPEND FILTERED_SOURCE_FILES ${FILE})
+  endif()
+endforeach()
 find_package(MPI REQUIRED)
-add_library(meshfem3D_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
+add_library(meshfem3D_objs OBJECT ${FILTERED_SOURCE_FILES} ${SOURCES_C})
 target_link_libraries(meshfem3D_objs PRIVATE shared_objs)
 target_link_libraries(meshfem3D_objs PRIVATE MPI::MPI_Fortran)
 

@@ -1,4 +1,4 @@
-program slice_model_gll
+program decompose_h5_gll
 
   use constants
   use shared_parameters
@@ -134,4 +134,4 @@ contains
   end subroutine read_npy
 
 
-end program
+end program decompose_h5_gll

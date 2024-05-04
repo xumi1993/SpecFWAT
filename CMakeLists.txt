@@ -33,6 +33,11 @@ find_package(MPI REQUIRED)
 message(STATUS "MPI_FOUND: ${MPI_FOUND}")
 message(STATUS "MPI_VERSION: ${MPI_VERSION}")
 
+find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
+include_directories(${HDF5_INCLUDE_DIRS} ${HDF5_HL_INCLUDE_DIR})
+message(STATUS "HDF5_FOUND: ${HDF5_FOUND}")
+message(STATUS "HDF5_VERSION: ${HDF5_VERSION}")
+
 # setup source files
 set(SOURCE_DIR "${PROJECT_SOURCE_DIR}/src")
 set(SOURCE_FWAT_DIR "${PROJECT_SOURCE_DIR}/src/fullwave_adjoint_tomo")
@@ -49,20 +54,19 @@ file(GLOB SOURCES_CUDA "${SOURCE_DIR}/cuda/*.c*")
 # setup include directory
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
-  ${SOURCE_FWAT_DIR}/sac_inc
   ${CMAKE_BINARY_DIR}/modules
   # ${CMAKE_CURRENT_BINARY_DIR}/src/fortran-yaml
   # ${CMAKE_CURRENT_BINARY_DIR}/src/fortran-csv
 )
 
 set(APP_SOURCES
-  src/meshfem3D/meshfem3D.F95
-  src/generate_databases/generate_databases.F95
-  src/specfem3D/specfem3D.F95
-  # ${SOURCE_FWAT_DIR}/program_fwat_mesh_database.f95
-  ${SOURCE_FWAT_DIR}/program_fwat0_forward_data.f95
-  ${SOURCE_FWAT_DIR}/program_fwat1_fwd_measure_adj.f95
-  ${SOURCE_FWAT_DIR}/program_fwat2_postproc_opt.f95
+  src/meshfem3D/meshfem3D.F90
+  src/generate_databases/generate_databases.f90
+  src/specfem3D/specfem3D.F90
+  # ${SOURCE_FWAT_DIR}/program_fwat_mesh_database.f90
+  ${SOURCE_FWAT_DIR}/program_fwat0_forward_data.f90
+  ${SOURCE_FWAT_DIR}/program_fwat1_fwd_measure_adj.f90
+  ${SOURCE_FWAT_DIR}/program_fwat2_postproc_opt.f90
   )
 foreach(execsourcefile ${APP_SOURCES})
   # get exec name
@@ -117,6 +121,9 @@ foreach(execsourcefile ${APP_SOURCES})
   
   # link libtau
   target_link_libraries(${EXEC_NAME} PUBLIC tau)
+
+  # link HDF5
+  target_link_libraries(${EXEC_NAME} PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
 
 endforeach()
 

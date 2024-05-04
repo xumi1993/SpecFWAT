@@ -9,7 +9,6 @@ file(GLOB SOURCES_FWAT_OPT "${SOURCE_FWAT_DIR}/optimization/*.[fF]90")
 
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
-  ${SOURCE_FWAT_DIR}/sac_inc
   ${CMAKE_BINARY_DIR}/modules
   # ${CMAKE_CURRENT_BINARY_DIR}/src/fortran-yaml
   # ${CMAKE_CURRENT_BINARY_DIR}/src/fortran-csv
