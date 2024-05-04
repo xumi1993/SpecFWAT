@@ -484,7 +484,7 @@ contains
     ! for reading dat in sac format
     logical                                                  :: findfile
     character(len=MAX_STRING_LEN)                            :: datafile,file_prefix0
-    double precision, dimension(NDIM)                        :: datarray
+    double precision, dimension(MAX_NDIM)                        :: datarray
     integer                                                  :: npt1
     double precision                                         :: t01,dt1
     ! sacio from sacio.f90

@@ -18,6 +18,7 @@ set(APP_SOURCES
   add_pert_gaus.f90
   add_pert_trigo.f90
   decompose_h5_gll.f90
+  model_grid_cart.f90
   )
 foreach(execsourcefile ${APP_SOURCES})
   get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)
@@ -25,12 +26,10 @@ foreach(execsourcefile ${APP_SOURCES})
     add_executable(${EXEC_NAME} ${execsourcefile} ${SOURCE_FWAT_DIR}/teleseis_stf/interpolation_mod.f90)
   elseif (${EXEC_NAME} STREQUAL "combine_vol_data_vtk")
     add_executable(${EXEC_NAME} ${execsourcefile} combine_vol_data_impl.f90 ${SOURCES_C})
-  elseif(${EXEC_NAME} STREQUAL "decompose_h5_gll")
+  else()
     add_executable(${EXEC_NAME} ${execsourcefile})
-  elseif(${EXEC_NAME} STREQUAL "add_pert_gaus")
-    add_executable(${EXEC_NAME} ${execsourcefile} )
   endif()
-  set_target_properties( ${EXEC_NAME} PROPERTIES PREFIX "x")
+  set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   target_link_libraries(${EXEC_NAME} PRIVATE shared_objs aux_objs)
   target_link_libraries(${EXEC_NAME} PRIVATE MPI::MPI_Fortran)
   target_link_libraries(${EXEC_NAME} PRIVATE specfem3D_objs fwat_shared_objs)

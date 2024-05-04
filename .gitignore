@@ -23,3 +23,4 @@ ttimes_mod/setbrn
 
 .vscode/
 *.vtk
+model_target/

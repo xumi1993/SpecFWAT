@@ -63,7 +63,7 @@ NGNOD                           = 8
 #   1d_prem,1d_socal,1d_cascadia
 # 3D models available are:
 #   aniso,external,gll,salton_trough,tomo,SEP,coupled,...
-MODEL                           = default
+MODEL                           = gll
 # path for external tomographic models files
 TOMOGRAPHY_PATH                 = ./DATA/tomo_files/
 # if you are using a SEP model (oil-industry format)

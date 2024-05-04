@@ -6,12 +6,14 @@ module hdf5_interface
   public :: hdf5_file
 
   interface h5read
-    module procedure h5read_f_1d, h5read_f_2d, h5read_f_3d
+    module procedure h5read_s_1d, h5read_s_2d, h5read_s_3d, &
+                     h5read_f_1d, h5read_f_2d, h5read_f_3d
   end interface h5read
   public :: h5read
 
   interface h5write
-    module procedure h5write_f_1d, h5write_f_2d, h5write_f_3d
+    module procedure h5write_f_1d, h5write_f_2d, h5write_f_3d,&
+                     h5write_s_1d, h5write_s_2d, h5write_s_3d
   end interface h5write
   public :: h5write
 
@@ -52,6 +54,10 @@ module hdf5_interface
                         hdf_add_real1d,&
                         hdf_add_real2d,&
                         hdf_add_real3d,&
+                        hdf_add_double,&
+                        hdf_add_double1d,&
+                        hdf_add_double2d,&
+                        hdf_add_double3d,&
                         hdf_add_string
 
     !> get dataset integer/real 0-3d
@@ -63,6 +69,10 @@ module hdf5_interface
                         hdf_get_real1d,&
                         hdf_get_real2d,&
                         hdf_get_real3d,&
+                        hdf_get_double,&
+                        hdf_get_double1d,&
+                        hdf_get_double2d,&
+                        hdf_get_double3d,&
                         hdf_get_string
 
     !> add attribute
@@ -86,6 +96,14 @@ module hdf5_interface
     procedure,private :: hdf_get_real2d
     procedure,private :: hdf_add_real3d
     procedure,private :: hdf_get_real3d
+    procedure,private :: hdf_add_double
+    procedure,private :: hdf_get_double
+    procedure,private :: hdf_add_double1d
+    procedure,private :: hdf_get_double1d
+    procedure,private :: hdf_add_double2d
+    procedure,private :: hdf_get_double2d
+    procedure,private :: hdf_add_double3d
+    procedure,private :: hdf_get_double3d
     procedure,private :: hdf_get_string
     procedure,private :: hdf_add_string
     procedure,private :: hdf_adda_string
@@ -331,7 +349,7 @@ contains
   subroutine hdf_add_real(self,dname,value)
     class(hdf5_file), intent(in) :: self
     character(*), intent(in) :: dname
-    real(kind=dp), intent(in)      :: value
+    real, intent(in)      :: value
 
     integer(HID_T)  :: sid,did
     integer         :: ierr
@@ -358,7 +376,7 @@ contains
   subroutine hdf_add_real1d(self,dname,value)
     class(hdf5_file), intent(in) :: self
     character(*), intent(in) :: dname
-    real(kind=dp), intent(in) :: value(:)
+    real, intent(in) :: value(:)
 
     integer         :: ierr
 
@@ -372,7 +390,7 @@ contains
   subroutine hdf_add_real2d(self,dname,value)
     class(hdf5_file), intent(in) :: self
     character(*), intent(in) :: dname
-    real(kind=dp), intent(in)      :: value(:,:)
+    real, intent(in)      :: value(:,:)
 
     integer         :: ierr
 
@@ -386,7 +404,7 @@ contains
   subroutine hdf_add_real3d(self,dname,value)
     class(hdf5_file), intent(in) :: self
     character(*), intent(in) :: dname
-    real(kind=dp), intent(in)      :: value(:,:,:)
+    real, intent(in)      :: value(:,:,:)
 
     integer         :: ierr
 
@@ -396,6 +414,76 @@ contains
       rank(value), int(shape(value),HSIZE_T), h5kind_to_type(kind(value),H5_REAL_KIND), value, ierr)
 
   end subroutine hdf_add_real3d
+  !=============================================================================
+  subroutine hdf_add_double(self,dname,value)
+    class(hdf5_file), intent(in) :: self
+    character(*), intent(in) :: dname
+    real(kind=dp), intent(in)      :: value
+
+    integer(HID_T)  :: sid,did
+    integer         :: ierr
+
+    call self%add(dname)
+
+    !> create dataspace
+    call h5screate_f(H5S_SCALAR_F, sid, ierr)
+
+    !> create dataset
+    call h5dcreate_f(self%lid, dname, h5kind_to_type(kind(value),H5_REAL_KIND), sid, did, ierr)
+
+    !> write dataset
+    call h5dwrite_f(did, h5kind_to_type(kind(value),H5_REAL_KIND), value, int(shape(value),HSIZE_T), ierr)
+
+    !> close space and dataset
+    call h5dclose_f(did, ierr)
+
+    call h5sclose_f(sid, ierr)
+
+
+  end subroutine hdf_add_double
+  !=============================================================================
+  subroutine hdf_add_double1d(self,dname,value)
+    class(hdf5_file), intent(in) :: self
+    character(*), intent(in) :: dname
+    real(kind=dp), intent(in) :: value(:)
+
+    integer         :: ierr
+
+    call self%add(dname)
+
+    call h5ltmake_dataset_f(self%lid, dname, &
+      rank(value), int(shape(value),HSIZE_T), h5kind_to_type(kind(value),H5_REAL_KIND), value, ierr)
+
+  end subroutine hdf_add_double1d
+  !=============================================================================
+  subroutine hdf_add_double2d(self,dname,value)
+    class(hdf5_file), intent(in) :: self
+    character(*), intent(in) :: dname
+    real(kind=dp), intent(in)      :: value(:,:)
+
+    integer         :: ierr
+
+    call self%add(dname)
+
+    call h5ltmake_dataset_f(self%lid, dname, &
+      rank(value), int(shape(value),HSIZE_T), h5kind_to_type(kind(value),H5_REAL_KIND), value, ierr)
+
+  end subroutine hdf_add_double2d
+  !=============================================================================
+  subroutine hdf_add_double3d(self,dname,value)
+    class(hdf5_file), intent(in) :: self
+    character(*), intent(in) :: dname
+    real(kind=dp), intent(in)      :: value(:,:,:)
+
+    integer         :: ierr
+
+    call self%add(dname)
+
+    call h5ltmake_dataset_f(self%lid, dname, &
+      rank(value), int(shape(value),HSIZE_T), h5kind_to_type(kind(value),H5_REAL_KIND), value, ierr)
+
+  end subroutine hdf_add_double3d
+
   !=============================================================================
   subroutine hdf_add_string(self,dname,value)
     class(hdf5_file), intent(in) :: self
@@ -506,7 +594,7 @@ contains
 
     class(hdf5_file), intent(in)  :: self
     character(*), intent(in)      :: dname
-    real(kind=dp), intent(out)             :: value
+    real, intent(out)             :: value
 
     integer(HID_T)  :: set_id
     integer :: ierr
@@ -527,7 +615,7 @@ contains
 
     class(hdf5_file), intent(in)     :: self
     character(*), intent(in)         :: dname
-    real(kind=dp), intent(out),allocatable :: value(:)
+    real, intent(out),allocatable :: value(:)
 
     integer(HSIZE_T) :: dims(1)
     integer(SIZE_T)  :: dsize
@@ -546,7 +634,7 @@ contains
 
     class(hdf5_file), intent(in)     :: self
     character(*), intent(in)         :: dname
-    real(kind=dp), intent(out),allocatable :: value(:,:)
+    real, intent(out),allocatable :: value(:,:)
 
     integer(HSIZE_T) :: dims(2)
     integer(SIZE_T)  :: dsize
@@ -565,7 +653,7 @@ contains
 
     class(hdf5_file), intent(in)     :: self
     character(*), intent(in)         :: dname
-    real(kind=dp), intent(out),allocatable :: value(:,:,:)
+    real, intent(out),allocatable :: value(:,:,:)
 
     integer(HSIZE_T) :: dims(3)
     integer(SIZE_T)  :: dsize
@@ -579,6 +667,86 @@ contains
          & h5kind_to_type(kind(value),H5_REAL_KIND), value, dims,  ierr)
 
   end subroutine hdf_get_real3d
+
+!=============================================================================
+  subroutine hdf_get_double(self, dname, value)
+
+    class(hdf5_file), intent(in)  :: self
+    character(*), intent(in)      :: dname
+    real(kind=dp), intent(out)    :: value
+
+    integer(HID_T)  :: set_id
+    integer :: ierr
+
+    ! open dataset
+    call h5dopen_f(self%lid, dname, set_id, ierr)
+
+    ! read dataset
+    call h5dread_f(set_id, h5kind_to_type(kind(value),H5_REAL_KIND),&
+                 & value,int(shape(value),HSIZE_T), ierr)
+
+    ! close dataset
+    call h5dclose_f(set_id, ierr)
+
+  end subroutine hdf_get_double
+  !=============================================================================
+  subroutine hdf_get_double1d(self, dname, value)
+
+    class(hdf5_file), intent(in)     :: self
+    character(*), intent(in)         :: dname
+    real(kind=dp), intent(out),allocatable :: value(:)
+
+    integer(HSIZE_T) :: dims(1)
+    integer(SIZE_T)  :: dsize
+    integer :: ierr, dtype
+
+    call h5ltget_dataset_info_f(self%lid, dname, dims, dtype, dsize, ierr)
+
+    allocate(value(dims(1)))
+
+    call h5ltread_dataset_f(self%lid, dname, &
+         & h5kind_to_type(kind(value),H5_REAL_KIND), value, dims,  ierr)
+
+  end subroutine hdf_get_double1d
+  !=============================================================================
+  subroutine hdf_get_double2d(self, dname, value)
+
+    class(hdf5_file), intent(in)     :: self
+    character(*), intent(in)         :: dname
+    real(kind=dp), intent(out),allocatable :: value(:,:)
+
+    integer(HSIZE_T) :: dims(2)
+    integer(SIZE_T)  :: dsize
+    integer :: ierr, dtype
+
+    call h5ltget_dataset_info_f(self%lid, dname, dims, dtype, dsize, ierr)
+
+    allocate(value(dims(1),dims(2)))
+
+    call h5ltread_dataset_f(self%lid, dname, &
+         & h5kind_to_type(kind(value),H5_REAL_KIND), value, dims,  ierr)
+
+  end subroutine hdf_get_double2d
+  !=============================================================================
+  subroutine hdf_get_double3d(self, dname, value)
+
+    class(hdf5_file), intent(in)     :: self
+    character(*), intent(in)         :: dname
+    real(kind=dp), intent(out),allocatable :: value(:,:,:)
+
+    integer(HSIZE_T) :: dims(3)
+    integer(SIZE_T)  :: dsize
+    integer :: ierr, dtype
+
+    call h5ltget_dataset_info_f(self%lid, dname, dims, dtype, dsize, ierr)
+
+    allocate(value(dims(1),dims(2),dims(3)))
+
+    call h5ltread_dataset_f(self%lid, dname, &
+         & h5kind_to_type(kind(value),H5_REAL_KIND), value, dims,  ierr)
+
+  end subroutine hdf_get_double3d
+  !=============================================================================
 
 !----- Helper functions
 
@@ -642,6 +810,48 @@ contains
     
   end subroutine h5read_f_3d
 
+    subroutine h5read_s_1d(fname, dname, value)
+    character(*), intent(in) :: fname
+    character(*), intent(in) :: dname
+    real, allocatable, intent(out) :: value(:)
+
+    type(hdf5_file) :: hdf
+    integer :: ierr
+
+    call hdf%open(fname)
+    call hdf%get(dname, value)
+    call hdf%close()
+    
+  end subroutine h5read_s_1d
+
+  subroutine h5read_s_2d(fname, dname, value)
+    character(*), intent(in) :: fname
+    character(*), intent(in) :: dname
+    real, allocatable, intent(out) :: value(:,:)
+
+    type(hdf5_file) :: hdf
+    integer :: ierr
+
+    call hdf%open(fname)
+    call hdf%get(dname, value)
+    call hdf%close()
+    
+  end subroutine h5read_s_2d
+
+  subroutine h5read_s_3d(fname, dname, value)
+    character(*), intent(in) :: fname
+    character(*), intent(in) :: dname
+    real, allocatable, intent(out) :: value(:,:,:)
+
+    type(hdf5_file) :: hdf
+    integer :: ierr
+
+    call hdf%open(fname)
+    call hdf%get(dname, value)
+    call hdf%close()
+    
+  end subroutine h5read_s_3d
+
   subroutine h5write_f_1d(fname, dname, value)
     character(*), intent(in) :: fname
     character(*), intent(in) :: dname
@@ -683,5 +893,47 @@ contains
     call hdf%close()
     
   end subroutine h5write_f_3d
+
+  subroutine h5write_s_1d(fname, dname, value)
+    character(*), intent(in) :: fname
+    character(*), intent(in) :: dname
+    real, intent(in) :: value(:)
+
+    type(hdf5_file) :: hdf
+    integer :: ierr
+
+    call hdf%open(fname)
+    call hdf%add(dname, value)
+    call hdf%close()
+    
+  end subroutine h5write_s_1d
+
+  subroutine h5write_s_2d(fname, dname, value)
+    character(*), intent(in) :: fname
+    character(*), intent(in) :: dname
+    real, intent(in) :: value(:,:)
+
+    type(hdf5_file) :: hdf
+    integer :: ierr
+
+    call hdf%open(fname)
+    call hdf%add(dname, value)
+    call hdf%close()
+    
+  end subroutine h5write_s_2d
+
+  subroutine h5write_s_3d(fname, dname, value)
+    character(*), intent(in) :: fname
+    character(*), intent(in) :: dname
+    real, intent(in) :: value(:,:,:)
+
+    type(hdf5_file) :: hdf
+    integer :: ierr
+
+    call hdf%open(fname)
+    call hdf%add(dname, value)
+    call hdf%close()
+    
+  end subroutine h5write_s_3d
 
 end module hdf5_interface

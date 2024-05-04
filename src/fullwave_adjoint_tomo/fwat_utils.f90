@@ -1,5 +1,5 @@
 module fwat_utils
-  use constants, only: MAX_STRING_LEN, CUSTOM_REAL
+  use constants
   use ma_constants, only: NCHI
   use my_mpi
   implicit none
@@ -243,7 +243,6 @@ contains
   ! Rotation of components
   subroutine rotate_ZNE_to_ZRT(vz,vn,ve,vz2,vr,vt,nt,bazi)
     use specfem_par, only: CUSTOM_REAL
-    use fullwave_adjoint_tomo_par, only: deg2rad
   
       integer,                  intent(in) :: nt
       real(kind=CUSTOM_REAL),   intent(in) :: bazi
@@ -267,7 +266,6 @@ contains
   
     subroutine rotate_ZRT_to_ZNE(vz2,vr,vt,vz,vn,ve,nt,bazi)
     use specfem_par, only: CUSTOM_REAL
-    use fullwave_adjoint_tomo_par, only: deg2rad
   
       integer,                  intent(in) :: nt
       real(kind=CUSTOM_REAL),   intent(in) :: bazi

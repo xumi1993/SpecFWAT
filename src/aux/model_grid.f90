@@ -4,6 +4,7 @@ program sem_model_slice
   use shared_parameters
   use m_npy
   use my_mpi             !! module from specfem
+  use hdf5_interface
   use shared_input_parameters, only: SUPPRESS_UTM_PROJECTION
   use projection_on_FD_grid_fwat, only: find_nearestXY_nonzero,find_nearestZ_nonzero
   
@@ -34,6 +35,7 @@ program sem_model_slice
   integer :: nx, ny, nz, count,ix_min,iy_min,iz_min,ii,jj,kk,iptmin
   integer, dimension(2) :: ix, iy, iz
   logical :: BROADCAST_AFTER_READ
+  type(hdf5_file) :: h5file
   !!!
 
   ! true --> replace "air" points with NaN (vertical cross sections)
@@ -230,7 +232,7 @@ program sem_model_slice
     ! do i = 1,npts
     !   if(allcount(i)>0)  vall(i) = vall(i)/allcount(i)
     ! enddo
-    zrange = zrange / 1000.
+    ! zrange = zrange / 1000.
     allocate(v3d(nx,ny,nz))
     count=0
     do i=1,nx
@@ -256,17 +258,17 @@ program sem_model_slice
         enddo
       enddo
     endif
-    gmt_outfile =  trim(out_dir)//'/'//trim(data_name) // '_'//trim(suffix)//'.npz'
-    call add_npz(gmt_outfile, 'x', xrange)
-    call add_npz(gmt_outfile, 'y', yrange)
-    call add_npz(gmt_outfile, 'z', zrange)
-    call add_npz(gmt_outfile, trim(data_name), v3d)
+    gmt_outfile =  trim(out_dir)//'/'//trim(data_name) // '_'//trim(suffix)//'.h5'
+    call h5file%open(gmt_outfile, status='new', action='write')
+    call h5file%add('/x', xrange)
+    call h5file%add('/y', yrange)
+    call h5file%add('/z', zrange)
+    call h5file%add('/'//trim(data_name), transpose_3(v3d))
     deallocate(v3d)
   endif
   deallocate(xrange,yrange,zrange)
   deallocate(x,y,dist, igrid)
   call finalize_mpi()
-!   call MPI_FINALIZE(ier)
 
 contains
 

@@ -36,7 +36,8 @@
   use constants
   use shared_parameters
   use specfem_par, only: xigll, yigll, zigll, wxgll, wygll, wzgll
-  use m_npy
+  use hdf5_interface
+  use utils
   use projection_on_FD_grid_fwat
   use shared_input_parameters, only: SUPPRESS_UTM_PROJECTION
 
@@ -60,6 +61,7 @@
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: model_on_FD_grid
   double precision, dimension(:), allocatable :: xfd, yfd, zfd
   double precision :: ox, oy
+  type(hdf5_file) :: h5file
 
   ! MPI initialization
   call init_mpi()
@@ -211,12 +213,13 @@
       enddo
     endif
 
-    fname =  trim(outdir)//'/'//trim(data_filename)//'_'//trim(model_name)//'.npz'
-    call add_npz(fname, 'x', xfd)
-    call add_npz(fname, 'y', yfd)
-    call add_npz(fname, 'z', zfd)
-    call add_npz(fname, trim(data_filename), model_on_FD_grid)
-    print *, 'Done writing ', trim(outdir)//'/'//trim(data_filename)//'_'//trim(model_name)//'.npz'
+    fname =  trim(outdir)//'/'//trim(data_filename)//'_'//trim(model_name)//'.h5'
+    call h5file%open(fname, status='new', action='write')
+    call h5file%add('/x', xfd)
+    call h5file%add('/y', yfd)
+    call h5file%add('/z', zfd)
+    call h5file%add('/'//trim(data_filename), transpose_3(model_on_FD_grid))
+    print *, 'Done writing ', trim(fname)
   endif
 
   call finalize_mpi()

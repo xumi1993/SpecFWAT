@@ -9,8 +9,17 @@
 #module load intel/intel-18 openmpi/3.0.0-intel-18
 
 NPROC=4
+
+mkdir -p model_target
+mkdir -p DATABASES_MPI
+mkdir -p OUTPUT_FILES
+
+for name in vs vp rho; do
+  mpirun -np $NPROC ../../bin/xdecompose_h5_gll ${name} ./target_model.h5 model_target/
+done
+
 cp model_target/* ./DATABASES_MPI
-sed -i "/MODEL                           =/c\MODEL                           = gll" DATA/Par_file
+setpar_fwat DATA/Par_file MODEL gll
 
 for SET in set0;do
   echo "Running SET: " $SET

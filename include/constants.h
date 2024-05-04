@@ -42,6 +42,7 @@
 ! set to SIZE_REAL to run in single precision
 ! set to SIZE_DOUBLE to run in double precision (increases memory size by 2)
   integer, parameter :: CUSTOM_REAL = SIZE_REAL
+  integer, parameter :: CUSTOM_DOUBLE = SIZE_DOUBLE
 
 !----------- parameters that can be changed by the user -----------
 
@@ -61,6 +62,7 @@
 
 ! maximum length of strings used for paths, reading from files, etc.
   integer, parameter :: MAX_STRING_LEN = 512
+  integer, parameter :: MAX_NAME_LEN = 30
 
 !!-----------------------------------------------------------
 !!
@@ -363,6 +365,11 @@
 ! some useful constants
   double precision, parameter :: PI = 3.141592653589793d0
   double precision, parameter :: TWO_PI = 2.d0 * PI
+
+  double precision, parameter :: DEG2RAD = PI / 180.d0
+  double precision, parameter :: RAD2DEG = 180.d0 / PI
+  double precision, parameter :: DEG2KM = 111.19492664455873d0
+  double precision, parameter :: KM2DEG = 1.d0/(6371.0d0*pi/180.0d0)
 
 ! 3-D simulation
   integer, parameter :: NDIM = 3

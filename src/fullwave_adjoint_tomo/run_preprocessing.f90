@@ -21,7 +21,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
   use fwat_input
   use fwat_utils
   use my_mpi
-  use measure_adj_mod  ! module from preproc_measure_adj
+  use measure_adj_mod, MAX_NDIM => NDIM ! module from preproc_measure_adj
   use telestf_mod      ! module form teleseis_stf
   use collect_data, only: collect_seismograms_d, collect_stf_deconvolution, collect_chi
   use preproc_subs, only: read_fktimes, get_rf_times, pre_proc_tele_elastic,read_local_stf,&
@@ -76,7 +76,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
   double precision                                         :: stlat,stlon,stele,stbur
   ! for writing adjoint sources
   integer                                                  :: num_adj
-  double precision, dimension(3,NDIM)                      :: adj_syn_all_sum
+  double precision, dimension(3,MAX_NDIM)                  :: adj_syn_all_sum
   real(kind=CUSTOM_REAL)                                   :: total_misfit,total_misfit_reduced
 
   !

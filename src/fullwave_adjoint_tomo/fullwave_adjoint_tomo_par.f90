@@ -25,7 +25,6 @@ module fullwave_adjoint_tomo_par
 
   !! log file for inversion
   integer,                       public, parameter  :: OUT_FWAT_LOG=888, FIIN=889, FIOUT=890
-  real(kind=CUSTOM_REAL),        public, parameter  :: deg2rad = 0.017453292519943
   logical,                       public, parameter  :: DEBUG_MODE=.false.
   integer,                        public, parameter :: NUM_INV_TYPE = 3
   character(len= MAX_STRING_LEN), public, parameter :: FWAT_PAR_FILE = 'fwat_params/FWAT.PAR'

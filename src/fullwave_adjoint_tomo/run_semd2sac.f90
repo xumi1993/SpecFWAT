@@ -24,7 +24,7 @@ subroutine run_semd2sac(ievt,simu_type)
   use fwat_input
   use fwat_utils
   use my_mpi
-  use measure_adj_mod
+  use measure_adj_mod, MAX_NDIM => NDIM
   use telestf_mod
   use decon_mod
   
@@ -34,7 +34,7 @@ subroutine run_semd2sac(ievt,simu_type)
   integer                                                   :: ievt,icomp,ier,igaus
   character(len=MAX_STRING_LEN)                             :: datafile
   integer                                                   :: npt1
-  double precision, dimension(NDIM)                         :: datarray
+  double precision, dimension(MAX_NDIM)                     :: datarray
   real(kind=4), dimension(NSTEP)                            :: stf_array
   double precision, dimension(NSTEP)                        :: uin, win, rfi
   real(kind=4), dimension(:), allocatable                   :: tmpl
