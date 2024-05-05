@@ -14,6 +14,10 @@ mkdir -p model_target
 mkdir -p DATABASES_MPI
 mkdir -p OUTPUT_FILES
 
+setpar_fwat DATA/Par_file MODEL default
+mpirun -np $NPROC ../../bin/xmeshfem3D
+mpirun -np $NPROC ../../bin/xgenerate_databases
+
 for name in vs vp rho; do
   mpirun -np $NPROC ../../bin/xdecompose_h5_gll ${name} ./target_model.h5 model_target/
 done
