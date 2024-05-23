@@ -27,7 +27,7 @@ module fullwave_adjoint_tomo_par
   integer,                       public, parameter  :: OUT_FWAT_LOG=888, FIIN=889, FIOUT=890
   logical,                       public, parameter  :: DEBUG_MODE=.false.
   integer,                        public, parameter :: NUM_INV_TYPE = 3
-  character(len= MAX_STRING_LEN), public, parameter :: FWAT_PAR_FILE = 'fwat_params/FWAT.PAR'
+  character(len= MAX_STRING_LEN), public, parameter :: FWAT_PAR_FILE = 'DATA/FWAT.PAR'
   logical,                       public             :: VERBOSE_MODE=.false.
   real(kind=CUSTOM_REAL), public, dimension(:), allocatable  :: src_weight
   integer, public                                                   :: NRCOMP, NUM_FILTER

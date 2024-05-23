@@ -665,7 +665,6 @@ contains
 
     call h5ltread_dataset_f(self%lid, dname, &
          & h5kind_to_type(kind(value),H5_REAL_KIND), value, dims,  ierr)
-
   end subroutine hdf_get_real3d
 
 !=============================================================================
@@ -778,7 +777,7 @@ contains
 
     call hdf%open(fname)
     call hdf%get(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5read_f_1d
 
@@ -792,7 +791,7 @@ contains
 
     call hdf%open(fname)
     call hdf%get(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5read_f_2d
 
@@ -806,7 +805,7 @@ contains
 
     call hdf%open(fname)
     call hdf%get(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5read_f_3d
 
@@ -820,7 +819,7 @@ contains
 
     call hdf%open(fname)
     call hdf%get(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5read_s_1d
 
@@ -834,7 +833,7 @@ contains
 
     call hdf%open(fname)
     call hdf%get(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5read_s_2d
 
@@ -848,7 +847,7 @@ contains
 
     call hdf%open(fname)
     call hdf%get(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5read_s_3d
 
@@ -862,7 +861,7 @@ contains
 
     call hdf%open(fname)
     call hdf%add(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5write_f_1d
 
@@ -876,7 +875,7 @@ contains
 
     call hdf%open(fname)
     call hdf%add(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5write_f_2d
 
@@ -890,7 +889,7 @@ contains
 
     call hdf%open(fname)
     call hdf%add(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5write_f_3d
 
@@ -904,7 +903,7 @@ contains
 
     call hdf%open(fname)
     call hdf%add(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5write_s_1d
 
@@ -918,7 +917,7 @@ contains
 
     call hdf%open(fname)
     call hdf%add(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5write_s_2d
 
@@ -932,7 +931,7 @@ contains
 
     call hdf%open(fname)
     call hdf%add(dname, value)
-    call hdf%close()
+    call hdf%close(finalize=.true.)
     
   end subroutine h5write_s_3d
 

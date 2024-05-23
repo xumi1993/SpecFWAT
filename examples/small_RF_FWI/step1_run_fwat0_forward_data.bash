@@ -8,7 +8,7 @@
 
 #module load intel/intel-18 openmpi/3.0.0-intel-18
 
-NPROC=4
+NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 
 mkdir -p model_target
 mkdir -p DATABASES_MPI
@@ -29,5 +29,5 @@ for SET in set0;do
   echo "Running SET: " $SET
   mpirun -np $NPROC ../../bin/xmeshfem3D
   mpirun -np $NPROC ../../bin/xgenerate_databases
-  # mpirun -np $NPROC ../../bin/xfwat0_forward_data M00 $SET rf
+  mpirun -np $NPROC ../../bin/xfwat0_forward_data M00 $SET rf
 done

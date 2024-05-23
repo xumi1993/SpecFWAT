@@ -2,7 +2,14 @@ bin/
 build/
 OUTPUT_FILES/
 DATABASES_MPI/
-STATIONS_FILTERED
+model_target/
+model_initial/
+fwat_data/
+solver/
+optimize/
+output_*.txt
+misfits/
+STATIONS*_FILTERED
 .DS_Store
 .ipynb_checkpoints
 __pycache__
@@ -23,4 +30,3 @@ ttimes_mod/setbrn
 
 .vscode/
 *.vtk
-model_target/

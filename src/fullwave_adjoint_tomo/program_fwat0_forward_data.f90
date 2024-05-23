@@ -49,6 +49,8 @@
     stop 'Please check simu_type. noise, tele and rf are available'
   endif
 
+  call read_parameter_file(myrank, .true.)
+
 ! run the main program
   call run_forward_data(model,evtset,simu_type)
 
