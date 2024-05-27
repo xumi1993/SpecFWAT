@@ -9,7 +9,9 @@ solver/
 optimize/
 output_*.txt
 misfits/
+figures/
 STATIONS*_FILTERED
+STATIONS*_ADJOINT
 .DS_Store
 .ipynb_checkpoints
 __pycache__

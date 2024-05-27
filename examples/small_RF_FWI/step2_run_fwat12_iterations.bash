@@ -3,6 +3,7 @@
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 
 mkdir -p model_initial
+setpar_fwat DATA/Par_file MODEL gll
 
 for name in vs vp rho; do
   mpirun -np $NPROC ../../bin/xdecompose_h5_gll ${name} ./initial_model.h5 model_initial/

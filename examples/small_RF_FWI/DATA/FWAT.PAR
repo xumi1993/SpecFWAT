@@ -116,7 +116,7 @@ USE_RF: .true.
 # Start and end set name for Noise
 NOISE_SET_RANGE: set0 set0
 # Start and end set name for Tele/RF
-TELE_SET_RANGE: set1 set1
+TELE_SET_RANGE: set0 set0
 # Start and end set name for LEQ
 LEQ_SET_RANGE: set2 set2
 # Weight of the 3 types of datasets
