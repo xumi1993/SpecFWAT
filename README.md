@@ -13,15 +13,13 @@ mkdir build && cd build
 Then, you can use the following command to build the package:
 
 ```bash
-cmake ..
-make -j
+cmake .. && make -j
 ```
 
 Alternatively, you can specify the compiler and MPI compiler by using the following command:
 
 ```bash
-CC=gcc-13 FC=gfortran-13 MPIFC=mpifort cmake ..
-make -j
+CC=gcc-13 FC=gfortran-13 MPIFC=mpifort cmake .. && make -j
 ```
 
 ## Difference from the original SPECFEM3D
