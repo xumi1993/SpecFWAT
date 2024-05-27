@@ -56,15 +56,15 @@ subroutine fullwave_adjoint_tomo_main()
   ! read mesh parameter file
   call read_mesh_parameter_file()
   call synchronize_all()
-
+  ! initialize starting model mesh
+  call meshfem3d_fwat()
 
   !!!##############################################################################################################################
   !!! -------------------------------  different running mode : forward or FWI ----------------------------------------------------
   !!!##############################################################################################################################
   do iter = iter_start, iter_end
     write(model,'("M",I2.2)') iter
-   ! initialize starting model mesh
-    call meshfem3d_fwat()
+
     ! generate database for forward simulation
     call generate_database_fwat()
     ! run forward and adjoint simulation

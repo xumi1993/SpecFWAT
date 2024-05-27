@@ -64,10 +64,10 @@
   ! Mesh Parameter file
   filename = MF_IN_DATA_FILES(1:len_trim(MF_IN_DATA_FILES)) // 'Mesh_Par_file'
 
-  if (myrank == 0) then
-    write(IMAIN,*) 'Reading mesh parameters from file ',trim(filename)
-    call flush_IMAIN()
-  endif
+  ! if (myrank == 0) then
+  !   write(IMAIN,*) 'Reading mesh parameters from file ',trim(filename)
+  !   call flush_IMAIN()
+  ! endif
 
   ! note: please be careful that the order of reading in parameters here
   !       must match the order of appearance in the Mesh_Par_file

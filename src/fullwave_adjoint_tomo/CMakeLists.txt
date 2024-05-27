@@ -59,3 +59,9 @@ add_library(fwat2_postproc_opt_objs OBJECT ${SOURCES_fwat2})
 target_link_libraries(fwat2_postproc_opt_objs PUBLIC
                       read_mesh_interface_objs fwat_opt_objs
                       fwat_shared_objs fwat_interpolation_objs)
+
+# Define fwat_main library
+set(SOURCES_fwat_main "fullwave_adjoint_tomo_main.f90")
+add_library(fullwave_adjoint_tomo_objs OBJECT ${SOURCES_fwat_main})
+target_link_libraries(fullwave_adjoint_tomo_objs PUBLIC mesh_gen_interface_objs
+                      fwat1_fwd_measure_adj_objs fwat2_postproc_opt_objs)

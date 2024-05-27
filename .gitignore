@@ -12,6 +12,7 @@ misfits/
 figures/
 STATIONS*_FILTERED
 STATIONS*_ADJOINT
+fort.*
 .DS_Store
 .ipynb_checkpoints
 __pycache__
