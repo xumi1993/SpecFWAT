@@ -1,6 +1,6 @@
 # objs
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-file(GLOB SOURCES_Fortran "*.f90")
+file(GLOB SOURCES_Fortran "*.[Ff]90")
 file(GLOB SOURCES_C "*.c")
 file(GLOB SOURCES_CUDA "${SOURCE_DIR}/cuda/*.c*")
 include_directories(

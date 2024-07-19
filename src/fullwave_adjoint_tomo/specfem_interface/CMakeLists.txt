@@ -1,4 +1,4 @@
-set(FWAT_SPECFEM_INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/specfem_initialize_simulation_fwat.f90" 
+set(FWAT_SPECFEM_INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/specfem_initialize_simulation_fwat.F90" 
                            "${CMAKE_CURRENT_SOURCE_DIR}/specfem_interface.F90"
                            "${CMAKE_CURRENT_SOURCE_DIR}/specfem_prepare_timerun_fwat.F90"
                            "${CMAKE_CURRENT_SOURCE_DIR}/specfem_save_adjoint_kernels_fwat.f90"
