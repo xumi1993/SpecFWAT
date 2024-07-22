@@ -20,7 +20,7 @@
   character(len=MAX_STRING_LEN)                   :: model 
   character(len=MAX_STRING_LEN)                   :: evtset 
   character(len=MAX_STRING_LEN)                   :: simu_type 
-  character(len=MAX_STRING_LEN)                   :: simu_type_list( 4 )
+  character(len=MAX_STRING_LEN)                   :: simu_type_list( 5 )
   integer :: myrank
  
 ! MPI initialization
@@ -44,6 +44,7 @@
   simu_type_list(2) = 'tele'
   simu_type_list(3) = 'rf'
   simu_type_list(4) = 'leq'
+  simu_type_list(5) = 'telecd'
   
   if (.not. any(trim(simu_type) == simu_type_list)) then
     stop 'Please check simu_type. noise, tele and rf are available'
