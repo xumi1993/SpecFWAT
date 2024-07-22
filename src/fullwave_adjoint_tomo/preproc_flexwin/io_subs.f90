@@ -35,20 +35,20 @@
 
   ! write the header - observed
   write(11,'("# NPTS = ",i10)') npts
-  write(11,'("# PLOT_MAX = ",e12.6)') max_value
+  write(11,'("# PLOT_MAX = ",e13.6)') max_value
   write(11,'("# T_START = ",f10.2)') b
   write(11,'("# T_END = ",f10.2)') b+(npts-1)*dt
 
   ! write the header - synthetic
   write(12,'("# NPTS = ",i10)') npts
-  write(12,'("# PLOT_MAX = ",e12.6)') max_value
+  write(12,'("# PLOT_MAX = ",e13.6)') max_value
   write(12,'("# T_START = ",f10.2)') b
   write(12,'("# T_END = ",f10.2)') b+(npts-1)*dt
 
   ! write the time series
   do i = 1, npts
-    write(11,'(f10.2,2x,e12.6)') b+(i-1)*dt, obs_lp(i)
-    write(12,'(f10.2,2x,e12.6)') b+(i-1)*dt, synt_lp(i)
+    write(11,'(f10.2,2x,e13.6)') b+(i-1)*dt, obs_lp(i)
+    write(12,'(f10.2,2x,e13.6)') b+(i-1)*dt, synt_lp(i)
   end do
 
   ! close the files
@@ -84,20 +84,20 @@
 
   ! write the header - observed envelope
   write(13,'("# NPTS = ",i10)') npts
-  write(13,'("# PLOT_MAX = ",e12.6)') max_value
+  write(13,'("# PLOT_MAX = ",e13.6)') max_value
   write(13,'("# T_START = ",f10.2)') b
   write(13,'("# T_END = ",f10.2)') b+(npts-1)*dt
 
   ! write the header - synthetic envelope
   write(14,'("# NPTS = ",i10)') npts
-  write(14,'("# PLOT_MAX = ",e12.6)') max_value
+  write(14,'("# PLOT_MAX = ",e13.6)') max_value
   write(14,'("# T_START = ",f10.2)') b
   write(14,'("# T_END = ",f10.2)') b+(npts-1)*dt
 
   ! write the time series
   do i = 1, npts
-    write(13,'(f10.2,2x,e12.6)') b+(i-1)*dt, env_obs_lp(i)
-    write(14,'(f10.2,2x,e12.6)') b+(i-1)*dt, env_synt_lp(i)
+    write(13,'(f10.2,2x,e13.6)') b+(i-1)*dt, env_obs_lp(i)
+    write(14,'(f10.2,2x,e13.6)') b+(i-1)*dt, env_synt_lp(i)
   end do
 
   ! close the files
@@ -242,7 +242,7 @@
   write(15,'("# T_END = ",f10.2)') b+(npts-1)*dt
 
   do i = 1, npts
-    write(15,'(f10.2,6(2x,e12.6))') b+(i-1)*dt, STA_LTA(i), STALTA_W_LEVEL(i), &
+    write(15,'(f10.2,6(2x,e13.6))') b+(i-1)*dt, STA_LTA(i), STALTA_W_LEVEL(i), &
     CC_LIMIT(i), TSHIFT_LIMIT(i), DLNA_LIMIT(i), S2N_LIMIT(i)
   end do
 
