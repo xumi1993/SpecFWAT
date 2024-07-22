@@ -868,6 +868,7 @@ subroutine measure_adj()
                                 chan_dat, bandname, window_chi)
     !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
     use interpolation_mod, only : myconvolution, PI
+    use fwat_utils, only : zeros
 
     implicit none
     character(len=10), intent(in)                      :: net, sta,chan_dat
@@ -883,28 +884,26 @@ subroutine measure_adj()
     double precision                                   :: fac
     integer                                            :: n, nc(1), nn, nstart, nend,i
 
-    nc = maxloc(synz)
-    allocate(conv1(npts), conv2(npts), conv_diff(npts))
+    ! nc = maxloc(synz)
+    conv1 = zeros(npts)
+    conv2 = zeros(npts)
+    conv_diff = zeros(npts)
+    conv_full = zeros(npts)
     nn = 2*npts-1
-    allocate(conv_full(nn))
 
-    conv_full(:) = 0.
-    call myconvolution(real(datr),real(synz),npts,npts,conv_full,1)
-    conv1 = conv_full(nc(1):nc(1)+npts-1)
+    call myconvolution(real(datr),real(synz),npts,npts,conv1,0)
 
-    conv_full(:) = 0.
-    call myconvolution(real(datz),real(synr),npts,npts,conv_full,1)
-    conv2 = conv_full(nc(1):nc(1)+npts-1)
+    call myconvolution(real(datz),real(synr),npts,npts,conv2,0)
 
     conv_diff = conv1-conv2
 
-    conv_full(:) = 0.
-    call myconvolution(-real(datz),conv_diff,npts,npts,conv_full,1)
-    adj_r = dble(conv_full(nc(1):nc(1)+npts-1))
+    call myconvolution(-real(datz),conv_diff,npts,npts,conv_full,0)
+    adj_r = dble(conv_full)
+    ! adj_r = dble(conv_full(nc(1):nc(1)+npts-1))
 
-    conv_full(:) = 0.
-    call myconvolution(real(datr),conv_diff,npts,npts,conv_full,1)
-    adj_z = dble(conv_full(nc(1):nc(1)+npts-1))
+    call myconvolution(real(datr),conv_diff,npts,npts,conv_full,0)
+    adj_z = dble(conv_full)
+    ! adj_z = dble(conv_full(nc(1):nc(1)+npts-1))
 
     nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT+1)
     nend = floor((tend + SPECFEM_T0)/SPECFEM_DT+1)

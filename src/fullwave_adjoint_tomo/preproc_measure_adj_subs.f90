@@ -148,7 +148,7 @@ contains
     double precision                                         :: tstart,tend
     double precision, dimension(nrec)                        :: baz_all
     ! real(kind=CUSTOM_REAL), dimension(3,NSTEP)               :: seismo_syn
-    real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_full
+    real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_same
     double precision, dimension(MAX_NDIM)                        :: datr_inp_bp,synr_inp_bp,&
                                                                 datz_inp_bp,synz_inp_bp
 
@@ -162,16 +162,14 @@ contains
     datr_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,2))
     synr_inp_bp(1:NSTEP)=dble(glob_syn_tw(irec,1:NSTEP,2))
     if (VERBOSE_MODE) then
-      allocate(conv1(NSTEP), conv2(NSTEP), conv_full(2*NSTEP-1))
+      conv1 = zeros(NSTEP)
+      conv2 = zeros(NSTEP)
+      ! conv_same = zeros(NSTEP)
       nc = maxloc(synz_inp_bp(1:NSTEP))
-      conv_full = 0.
       call myconvolution(real(datr_inp_bp(1:NSTEP)),real(synz_inp_bp(1:NSTEP)),&
-                          NSTEP,NSTEP,conv_full,1)
-      conv1 = conv_full(nc(1):nc(1)+NSTEP-1)
-      conv_full = 0.
+                          NSTEP,NSTEP,conv1,0)
       call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
-                          NSTEP,NSTEP,conv_full,1)
-      conv2 = conv_full(nc(1):nc(1)+NSTEP-1)
+                          NSTEP,NSTEP,conv2,0)
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'Z.sac'//'.'//trim(bandname)
@@ -205,7 +203,7 @@ contains
     glob_tr_chi(irec,1,1)=misfit *src_weight(ievt)
     glob_am_chi(irec,1,1)=misfit *src_weight(ievt)
     total_misfit = total_misfit+misfit *src_weight(ievt)
-    write(*,*)'stnm,chan,misfit:',trim(net)//'.'//trim(sta), ',conv_diff', real(misfit*src_weight(ievt))
+    write(*,*)'stnm,chan,misfit:',trim(net)//'.'//trim(sta), ',cross_conv_diff', real(misfit*src_weight(ievt))
   end subroutine meas_adj_tele_cd
 
   subroutine meas_adj_rf(ievt, irec, igaus, bandname, glob_dat_tw, glob_syn_tw, glob_syn,&

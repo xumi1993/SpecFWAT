@@ -2,11 +2,20 @@ module fwat_utils
   use constants
   use ma_constants, only: NCHI
   use my_mpi
+  use, intrinsic :: iso_fortran_env
   implicit none
+
+  integer, parameter :: RPRE = CUSTOM_REAL;
+  integer, parameter :: IPRE = SIZE_INTEGER;
 
   interface write_timestamp_log
     module procedure log_str, log_real, log_int, log_double
   end interface
+
+  interface zeros
+    module procedure zeros1, zeros2, zeros3, zeros4
+  end interface zeros
+
 
   type, public :: chi_table
     integer :: n_rows
@@ -285,4 +294,97 @@ contains
       enddo
   
     end subroutine rotate_ZRT_to_ZNE
+
+    !=======================================================================
+! zeros
+!-----------------------------------------------------------------------
+! zeros creates array all of zeros.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! x = zeros(dim1)
+! A = zeros(dim1, dim2)
+! X = zeros(dim1, dim2, dim3)
+!
+! Description
+!-----------------------------------------------------------------------
+! x = zeros(dim1) returns a dim1 vector of zeros.
+!
+! A = zeros(dim1, dim2) returns a dim1-by-dim2 matrix of zeros.
+!
+! X = zeros(dim1, dim2, dim3) returns a dim1-by-dim2-by-dim3
+! 3-dimensional matrix of zeros.
+!
+! Examples
+!-----------------------------------------------------------------------
+! x = zeros(3)
+! x =
+!     0.  0.  0.
+!
+! A = zeros(3, 3)
+! A =
+!     0.  0.  0.
+!     0.  0.  0.
+!     0.  0.  0.
+!=======================================================================
+
+  pure function zeros1(dim1)
+    real(kind = RPRE), dimension(:), allocatable :: zeros1
+    integer(kind = IPRE), intent(in) :: dim1
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros1(dim1), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   stop "Error: in zeros, could not allocate array."
+    ! else
+    zeros1 = 0.0d0
+    ! end if
+    return
+  end function zeros1
+
+  pure function zeros2(dim1, dim2)
+    real(kind = RPRE), dimension(:,:), allocatable :: zeros2
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros2(dim1, dim2), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros2 = 0.0d0
+    ! end if
+    return
+  end function zeros2
+
+  pure function zeros3(dim1, dim2, dim3)
+    real(kind = RPRE), dimension(:,:,:), allocatable :: zeros3
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros3(dim1, dim2, dim3), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros3 = 0.0d0
+    ! end if
+    return
+  end function zeros3
+
+  pure function zeros4(dim1, dim2, dim3, dim4)
+    real(kind = RPRE), dimension(:,:,:,:), allocatable :: zeros4
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros4(dim1, dim2, dim3, dim4), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros4 = 0.0d0
+    ! end if
+    return
+  end function zeros4
+
 end module

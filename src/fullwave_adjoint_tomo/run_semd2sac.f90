@@ -139,7 +139,7 @@ subroutine run_semd2sac(ievt,simu_type)
             geo_sta_lon=stlon(irec)
             geo_sta_lat=stlat(irec)     
           endif
-          if (simu_type /= 'rf' .and. simu_type /= 'tele') then
+          if (simu_type /= 'rf' .and. (.not. (index(simu_type, 'tele') /= 0))) then
             ! call calc_delta_dist_baz(geo_src_lat,geo_src_lon,geo_sta_lat,geo_sta_lon,gcarc,dist,baz)
             call distaz(geo_sta_lat,geo_sta_lon,geo_src_lat,geo_src_lon,az,baz,gcarc,dist)
             ! call disthead(geo_src_lat,geo_src_lon,geo_sta_lat,geo_sta_lon,gcarc,az)
@@ -194,6 +194,7 @@ subroutine run_semd2sac(ievt,simu_type)
               allocate(tmpl(NSTEP))
               call myconvolution(seismo_syn(icomp,:),stf_array(:),NSTEP,NSTEP,tmpl,0) 
               seismo_syn(icomp,:)=tmpl*DT
+              deallocate(tmpl)
             endif
             datafile='./'//trim(acqui_par%in_dat_path(ievt))//'/'//trim(network_name(irec))//'.'&
                     //trim(station_name(irec))//'.'//trim(CH_CODE)//trim(RCOMPS(icomp))//'.sac' 
@@ -201,9 +202,6 @@ subroutine run_semd2sac(ievt,simu_type)
                         trim(network_name(irec)),trim(station_name(irec)),trim(CH_CODE)//trim(RCOMPS(icomp)),&
                         dist,az,baz,geo_sta_lat,geo_sta_lon,geo_src_lat,geo_src_lon,edep)
 
-            if (simu_type=='tele') then
-              deallocate(tmpl)
-            endif
           enddo ! end icomp  
         !====================================================================================================
         endif
