@@ -178,7 +178,7 @@ contains
     if (allocated(SHORT_P)) deallocate(SHORT_P)
     if (allocated(LONG_P)) deallocate(LONG_P)
 
-    if (simu_type == 'rf' .or. simu_type == 'tele') then
+    if (simu_type == 'rf' .or. index(simu_type, 'tele') /= 0) then
       NRCOMP = tele_par%NRCOMP
       allocate(RCOMPS(NRCOMP))
       RCOMPS = tele_par%RCOMPS
@@ -274,7 +274,7 @@ contains
         write(OUT_FWAT_LOG,*) 'NOISE_IMEAS=',noise_par%IMEAS
         write(OUT_FWAT_LOG,*) 'NOISE_ITAPER=',noise_par%ITAPER
       endif
-      if (simu_type == 'rf' .or. simu_type == 'tele') then
+      if (simu_type == 'rf' .or. index(simu_type, 'tele') /= 0) then
         write(OUT_FWAT_LOG,*) '============= Tele parameters ==============='
         write(OUT_FWAT_LOG,*) 'TELE_SHORT_P=',tele_par%SHORT_P(:)
         write(OUT_FWAT_LOG,*) 'TELE_LONG_P=',tele_par%LONG_P(:)

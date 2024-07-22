@@ -68,7 +68,7 @@ subroutine fullwave_adjoint_tomo_main()
     ! generate database for forward simulation
     call generate_database_fwat()
     ! run forward and adjoint simulation
-    do i = 1, 3
+    do i = 1, NUM_INV_TYPE
       if (tomo_par%INV_TYPE(i)) then
         type_name = tomo_par%INV_TYPE_NAME(i)    
         call select_set_range()

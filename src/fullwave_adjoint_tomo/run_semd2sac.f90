@@ -107,7 +107,7 @@ subroutine run_semd2sac(ievt,simu_type)
   endif
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%p%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   if(nrec_local > 0) then
-    !write(*,*) "Rank ",myrank,' has ',nrec_local,' receivers:'
+    ! write(*,*) "Rank ",myrank,' has ',nrec_local,' receivers:'
     do irec_local = 1, nrec_local
       irec = number_receiver_global(irec_local)
       ispec = ispec_selected_rec(irec)
@@ -197,7 +197,7 @@ subroutine run_semd2sac(ievt,simu_type)
               deallocate(tmpl)
             endif
             datafile='./'//trim(acqui_par%in_dat_path(ievt))//'/'//trim(network_name(irec))//'.'&
-                    //trim(station_name(irec))//'.'//trim(CH_CODE)//trim(RCOMPS(icomp))//'.sac' 
+                    //trim(station_name(irec))//'.'//trim(CH_CODE)//trim(RCOMPS(icomp))//'.sac'
             call dwsac0(trim(datafile),dble(seismo_syn(icomp,:)),NSTEP,-dble(t0),dble(DT),&
                         trim(network_name(irec)),trim(station_name(irec)),trim(CH_CODE)//trim(RCOMPS(icomp)),&
                         dist,az,baz,geo_sta_lat,geo_sta_lon,geo_src_lat,geo_src_lon,edep)

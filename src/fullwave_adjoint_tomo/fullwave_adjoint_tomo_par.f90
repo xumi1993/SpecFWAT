@@ -26,7 +26,7 @@ module fullwave_adjoint_tomo_par
   !! log file for inversion
   integer,                       public, parameter  :: OUT_FWAT_LOG=888, FIIN=889, FIOUT=890
   logical,                       public, parameter  :: DEBUG_MODE=.false.
-  integer,                        public, parameter :: NUM_INV_TYPE = 3
+  integer,                        public, parameter :: NUM_INV_TYPE = 3, NUM_TELE_TYPE = 3
   character(len= MAX_STRING_LEN), public, parameter :: FWAT_PAR_FILE = 'DATA/FWAT.PAR'
   logical,                       public             :: VERBOSE_MODE=.false.
   real(kind=CUSTOM_REAL), public, dimension(:), allocatable  :: src_weight
@@ -161,7 +161,8 @@ module fullwave_adjoint_tomo_par
     character(len=MAX_STRING_LEN), public                              :: NORM_TYPE = 'max'
     real(kind=CUSTOM_REAL), public, dimension(NUM_INV_TYPE)            :: JOINT_WEIGHT
     logical,                public, dimension(NUM_INV_TYPE)            :: INV_TYPE ! 1 for NOISE; 2 for TELE/RF; 3 for LEQ;
-    logical,                public                                     :: USE_RF
+    integer,                public                                     :: TELE_TYPE
+    logical,                public                                     :: USE_RF=.false., USE_CD=.false.
     real(kind=CUSTOM_REAL), public, dimension(2)                       :: VPVS_RATIO_RANGE = (1.3, 2.4)
     
     contains
@@ -213,7 +214,7 @@ subroutine fwat_acqui_read_source_set(this,model,evtset,simu_type)
         this%src_solution_file(ievt)='src_rec/FORCESOLUTION_'//trim(evtnm)
       elseif (simu_type=='leq') then
         this%src_solution_file(ievt)='src_rec/CMTSOLUTION_'//trim(evtnm)
-      elseif (simu_type=='tele' .or. simu_type=='rf') then
+      elseif (index(simu_type,'tele')/=0 .or. simu_type=='rf') then
         this%src_solution_file(ievt)='DATA/CMTSOLUTION'
       endif
       this%evtid_names(ievt)=trim(evtnm)
@@ -701,9 +702,15 @@ subroutine fwat_tomo_read_par_file(this)
           read(line(ipos0:ipos1),*) this%TELE_SET_RANGE(:)
         case('LEQ_SET_RANGE')
           read(line(ipos0:ipos1),*) this%LEQ_SET_RANGE(:)
-        case('USE_RF')
-          read(line(ipos0:ipos1),*) this%USE_RF
-          if (this%USE_RF) this%INV_TYPE_NAME(2)='rf'
+        case('TELE_TYPE')
+          read(line(ipos0:ipos1),*) this%TELE_TYPE
+          if (this%TELE_TYPE == 2) then
+            this%INV_TYPE_NAME(2)='rf'
+            this%USE_RF=.true.
+          elseif (this%TELE_TYPE == 3) then
+            this%INV_TYPE_NAME(2)='telecd'
+            this%USE_CD=.true.
+          endif
         case('JOINT_WEIGHT')
           read(line(ipos0:ipos1),*) this%JOINT_WEIGHT(:)
         case('VPVS_RATIO_RANGE')
@@ -722,7 +729,9 @@ subroutine fwat_tomo_read_par_file(this)
   call bcast_all_singlel(this%USE_RHO_SCALING_FWAT)
   call bcast_all_singlel(this%USE_RHO_SCALING_NOISE)
   call bcast_all_singlel(this%IS_SMOOTH)
+  call bcast_all_singlei(this%TELE_TYPE)
   call bcast_all_singlel(this%USE_RF)
+  call bcast_all_singlel(this%USE_CD)
   call bcast_all_singlecr(this%NOISE_SIGMA_H)
   call bcast_all_singlecr(this%NOISE_SIGMA_V)
   call bcast_all_singlecr(this%TELE_SIGMA_H)
