@@ -18,9 +18,10 @@ subroutine cal_fktimes(ievt, ttp, tb, te)
   double precision, dimension(nrec)                    :: tmp_ttp
   integer                                              :: ievt
   character(len=MAX_STRING_LEN)                        :: fname
-  real(kind=CUSTOM_REAL), dimension(:), allocatable    :: stla, stlo, stel
+  real(kind=CUSTOM_REAL), dimension(nrec)              :: stla, stlo, stel
 
   fname = trim(acqui_par%station_file(ievt))//'_FILTERED'
+  print *, 'fname=',trim(fname)
   call read_receiver_file(fname, stla, stlo, stel)
   if (size(stla) /= nrec) then
     write(*,*) 'Number of stations in STATIONS_FILTERED does not match with nrec'
@@ -30,6 +31,10 @@ subroutine cal_fktimes(ievt, ttp, tb, te)
   ttp = real(tmp_ttp)
   tb = tele_par%TW_BEFORE
   te = tele_par%TW_AFTER
+  do irec = 1, nrec
+    print *, 'netwk,stnm,ttp,tb,te=',trim(network_name(irec)),'.',trim(station_name(irec)), &
+                                        ttp(irec),tb(irec),te(irec)
+  enddo
   call synchronize_all()
 end subroutine
 

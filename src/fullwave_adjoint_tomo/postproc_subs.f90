@@ -30,7 +30,7 @@ module postproc_sub
     if (type_name=='noise') then
       set_range = tomo_par%NOISE_SET_RANGE(:)
       PRECOND_TYPE = noise_par%PRECOND_TYPE
-    elseif (type_name=='tele' .or. type_name=='rf') then
+    elseif (index(type_name,'tele')/=0 .or. type_name=='rf') then
       set_range = tomo_par%TELE_SET_RANGE(:)
       PRECOND_TYPE = tele_par%PRECOND_TYPE
     elseif (type_name=='leq') then

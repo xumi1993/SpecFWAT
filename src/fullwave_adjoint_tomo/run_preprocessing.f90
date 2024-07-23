@@ -280,6 +280,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
     !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     !======================= For Convolutional Difference FWI ============================
     if (trim(simu_type) == 'telecd') then
+      write(*,*) "Rank ",myrank,' has ',my_nrec_local,' receivers:'
       !==== Get P arrival time ====
       ! call read_fktimes(ievt, ttp, tb, te)
       call cal_fktimes(ievt, ttp, tb, te)

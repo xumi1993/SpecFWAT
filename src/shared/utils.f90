@@ -49,7 +49,7 @@ module utils
   end interface linspace
 
   interface arange
-    module procedure arange0, arange1_i4, arange1_r8, arange_i4, arange_r8
+    module procedure arange0, arange1_i4, arange1_r8, arange_i4, arange_r8, arange_r4
   end interface arange
 
   interface interp1
@@ -65,7 +65,7 @@ module utils
   end interface
 
   interface append
-    module procedure append_i, append_r8, append_ch_name
+    module procedure append_i, append_r4, append_r8, append_ch_name
   end interface append
 
   interface find_loc
@@ -647,6 +647,16 @@ end function
     return
   end function arange_i4
 
+  pure function arange_r4(first, last, step) result(x)
+    real(kind = RPRE), dimension(:), allocatable :: x
+    real(kind = RPRE), intent(in) :: first, last, step
+    integer(kind = IPRE) :: i, size
+    
+    size = int((last - first) / step) + 1
+    x = [ ( first + i * step, i = 0, size - 1 ) ]
+    return
+  end function arange_r4
+
   pure function arange_r8(first, last, step) result(x)
     real(kind = DPRE), dimension(:), allocatable :: x
     real(kind = DPRE), intent(in) :: first, last, step
@@ -1057,6 +1067,22 @@ end function
     call move_alloc(tmp, list)
     return
   end subroutine append_i
+
+  pure subroutine append_r4(list, value)
+    real(kind = RPRE), dimension(:), allocatable, intent(inout) :: list
+    real(kind = RPRE), intent(in) :: value
+    real(kind = RPRE), dimension(:), allocatable :: tmp
+
+    if (.not. allocated(list)) then
+      allocate(list(1))
+      list(1) = value
+      return
+    end if
+    allocate(tmp(size(list) + 1))
+    tmp = [ list, value ]
+    call move_alloc(tmp, list)
+    return
+  end subroutine append_r4
 
   pure subroutine append_r8(list, value)
     real(kind = DPRE), dimension(:), allocatable, intent(inout) :: list

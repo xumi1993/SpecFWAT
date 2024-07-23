@@ -334,41 +334,46 @@ end subroutine setup_receivers_fwat
 
 subroutine read_receiver_file(filename, stla, stlo, stel)
   use specfem_par, only : nrec, IIN, MAX_STRING_LEN, CUSTOM_REAL, myrank
-  use fwat_utils, only : append
+  use utils, only : append
 
   implicit none
 
   character(len=*) :: filename
   character(len=MAX_STRING_LEN) :: dummystring, station_name, network_name
   real(kind=CUSTOM_REAL) :: junk_lat, junk_lon, junk_ele, junk_bur
-  real(kind=CUSTOM_REAL), dimension(:), allocatable :: stla, stlo, stel 
+  real(kind=CUSTOM_REAL), dimension(nrec) :: stla, stlo, stel 
   integer :: ier
-  integer :: i, this_nrec
+  integer :: i, this_nrec, irec
 
   if (myrank == 0) then
 
     open(unit=IIN, file=trim(filename), status='old', iostat=ier)
     if (ier /= 0) call exit_MPI(myrank, 'No file '//trim(filename)//', exit')
     
+    irec = 0
     do 
-      read(IIN,*,iostat=ier) dummystring
+      read(IIN,'(a)',iostat=ier) dummystring
       if (ier /= 0) exit
-      if (len_trim(dummystring) > 0) then
-        read(IIN,*,iostat=ier) station_name, network_name, junk_lat, junk_lon, junk_ele, junk_bur
-        call append(stla, junk_lat)
-        call append(stlo, junk_lon)
-        call append(stel, junk_ele)
+      if (len(trim(dummystring)) > 0) then
+        irec = irec + 1
+        print *, irec
+        ! read(dummystring,*,iostat=ier) station_name, network_name, junk_lat, junk_lon, junk_ele, junk_bur
+        read(dummystring,*) station_name, network_name, stla(irec), stlo(irec), stel(irec), junk_bur
+        print *, stla(irec), stlo(irec), stel(irec)
+        ! call append(stla, junk_lat)
+        ! call append(stlo, junk_lon)
+        ! call append(stel, junk_ele)
       endif
     enddo
     close (IIN)
+    ! this_nrec = size(stla)
   endif
-  this_nrec = size(stla)
-  call bcast_all_singlei(this_nrec)
-  if (myrank /= 0) then
-    allocate(stla(this_nrec), stlo(this_nrec), stel(this_nrec))
-  endif
-  call bcast_all_cr(stla, this_nrec)
-  call bcast_all_cr(stlo, this_nrec)
-  call bcast_all_cr(stel, this_nrec)
+  ! call bcast_all_singlei(this_nrec)
+  ! if (myrank /= 0) then
+  !   allocate(stla(this_nrec), stlo(this_nrec), stel(this_nrec))
+  ! endif
+  call bcast_all_cr(stla, nrec)
+  call bcast_all_cr(stlo, nrec)
+  call bcast_all_cr(stel, nrec)
 
 end subroutine read_receiver_file

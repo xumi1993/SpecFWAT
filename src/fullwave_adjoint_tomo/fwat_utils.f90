@@ -17,11 +17,6 @@ module fwat_utils
     module procedure zeros1, zeros2, zeros3, zeros4
   end interface zeros
 
-  interface append
-    module procedure append_i, append_r4, append_r8, append_ch_name
-  end interface append
-
-
   type, public :: chi_table
     integer :: n_rows
     integer :: n_cols = 12+NCHI
@@ -391,69 +386,5 @@ contains
     ! end if
     return
   end function zeros4
-
-  pure subroutine append_i(list, value)
-    integer(kind = IPRE), dimension(:), allocatable, intent(inout) :: list
-    integer(kind = IPRE), intent(in) :: value
-    integer(kind = IPRE), dimension(:), allocatable :: tmp
-
-    if (.not. allocated(list)) then
-      allocate(list(1))
-      list(1) = value
-      return
-    end if
-    allocate(tmp(size(list) + 1))
-    tmp = [ list, value ]
-    call move_alloc(tmp, list)
-    return
-  end subroutine append_i
-
-  pure subroutine append_r4(list, value)
-    real(kind = RPRE), dimension(:), allocatable, intent(inout) :: list
-    real(kind = RPRE), intent(in) :: value
-    real(kind = RPRE), dimension(:), allocatable :: tmp
-
-    if (.not. allocated(list)) then
-      allocate(list(1))
-      list(1) = value
-      return
-    end if
-    allocate(tmp(size(list) + 1))
-    tmp = [ list, value ]
-    call move_alloc(tmp, list)
-    return
-  end subroutine append_r4
-
-  pure subroutine append_r8(list, value)
-    real(kind = DPRE), dimension(:), allocatable, intent(inout) :: list
-    real(kind = DPRE), intent(in) :: value
-    real(kind = DPRE), dimension(:), allocatable :: tmp
-
-    if (.not. allocated(list)) then
-      allocate(list(1))
-      list(1) = value
-      return
-    end if
-    allocate(tmp(size(list) + 1))
-    tmp = [ list, value ]
-    call move_alloc(tmp, list)
-    return
-  end subroutine append_r8
-
-  pure subroutine append_ch_name(list, value)
-    character(len = MAX_NAME_LEN), dimension(:), allocatable, intent(inout) :: list
-    character(len = MAX_NAME_LEN), intent(in) :: value
-    character(len = MAX_NAME_LEN), dimension(:), allocatable :: tmp
-
-    if (.not. allocated(list)) then
-      allocate(list(1))
-      list(1) = value
-      return
-    end if
-    allocate(tmp(size(list) + 1))
-    tmp = [ list, value ]
-    call move_alloc(tmp, list)
-    return
-  end subroutine append_ch_name
 
 end module
