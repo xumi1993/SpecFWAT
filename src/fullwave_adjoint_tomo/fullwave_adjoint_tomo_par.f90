@@ -804,13 +804,14 @@ end module fullwave_adjoint_tomo_par
 !################################################# measure_adj ####################################################################
 
 module ma_constants
+  use constants, only: PI
 
   ! number of entries in window_chi output file
   integer, parameter :: N_MEASUREMENT = 5
   integer, parameter :: NCHI = 3*(N_MEASUREMENT-1) + 8
 
   ! constants
-  double precision, parameter :: PI = 3.141592653589793d+00
+  ! double precision, parameter :: PI = 3.141592653589793d+00
   double precision, parameter :: TWOPI = 2.0 * PI
   complex(kind=8), parameter :: CCI = cmplx(0.,1.)
   double precision, parameter :: LARGE_VAL = 1.0d8

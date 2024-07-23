@@ -1,6 +1,7 @@
 file(GLOB SOURCES_FWAT_RECFUNC "${SOURCE_FWAT_DIR}/preproc_recfunc/*.f90" )
 file(GLOB SOURCES_TELESTF "${SOURCE_FWAT_DIR}/teleseis_stf/telestf_mod.f90"
-                          "${SOURCE_FWAT_DIR}/teleseis_stf/spanlib.f90")
+                          "${SOURCE_FWAT_DIR}/teleseis_stf/spanlib.f90"
+                          "${SOURCE_FWAT_DIR}/teleseis_stf/fktimes.f90")
 set(SOURCES_FWAT_SHARED "${SOURCE_FWAT_DIR}/fullwave_adjoint_tomo_par.f90"
                         "${SOURCE_FWAT_DIR}/fwat_input.f90"
                         "${SOURCE_FWAT_DIR}/fwat_utils.f90"

@@ -20,11 +20,12 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
   use fullwave_adjoint_tomo_par
   use fwat_input
   use fwat_utils
+  use FKTimes_mod
   use my_mpi
   use measure_adj_mod, MAX_NDIM => NDIM ! module from preproc_measure_adj
   use telestf_mod      ! module form teleseis_stf
   use collect_data, only: collect_seismograms_d, collect_stf_deconvolution, collect_chi
-  use preproc_subs, only: read_fktimes, get_rf_times, pre_proc_tele_elastic,read_local_stf,&
+  use preproc_subs, only: cal_fktimes, get_rf_times, pre_proc_tele_elastic,read_local_stf,&
                           average_amp_scale, pre_proc_rf_elastic, pre_proc_tele_cd_elastic
   use preproc_measure_adj_subs, only: meas_adj_tele, meas_adj_rf, meas_adj_tele_cd,&
                                       meas_adj_noise, meas_adj_leq, sum_adj_source
@@ -220,7 +221,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
     !================= Calculate STF for TeleFWI =======================================
     if(trim(simu_type)=="tele") then
         !write(*,*) "Rank ",myrank,' has ',nrec_local,' receivers:'
-      call read_fktimes(ievt, ttp, tb, te)    
+      call cal_fktimes(ievt, ttp, tb, te)
       if (my_nrec_local > 0.) then
         do irec_local = 1, my_nrec_local
           irec = myrank*nrec_local_max+irec_local
@@ -280,7 +281,8 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
     !======================= For Convolutional Difference FWI ============================
     if (trim(simu_type) == 'telecd') then
       !==== Get P arrival time ====
-      call read_fktimes(ievt, ttp, tb, te)
+      ! call read_fktimes(ievt, ttp, tb, te)
+      call cal_fktimes(ievt, ttp, tb, te)
       if(my_nrec_local > 0) then
         do irec_local = 1, my_nrec_local
           irec = myrank*nrec_local_max+irec_local

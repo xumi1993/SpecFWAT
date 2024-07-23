@@ -27,6 +27,7 @@ subroutine run_semd2sac(ievt,simu_type)
   use measure_adj_mod, MAX_NDIM => NDIM
   use telestf_mod
   use decon_mod
+  use FKTimes_mod
   
   implicit none
   character(len=MAX_STRING_LEN)                             :: simu_type
@@ -48,8 +49,9 @@ subroutine run_semd2sac(ievt,simu_type)
 !   double precision                                          :: geo_sta_r,geo_sta_lon,geo_sta_lat
   double precision                                          :: geo_sta_lon,geo_sta_lat
   double precision                                          :: src_x,src_y,src_z,sta_x,sta_y,sta_z
-  double precision, dimension(nrec)                         :: stlat,stlon,stele,stbur                                           
+  double precision, dimension(nrec)                         :: stlat,stlon,stele,stbur, tdelay                                         
   character(len=MAX_STRING_LEN)                             :: rec_filename,bandname
+  type(sachead)                                             :: head
   double precision                                          :: gcarc, dist, baz, az
   ! for covert xyz coords to geo coords
   double precision                                          :: lon_center_chunk, lat_center_chunk, chunk_azi
@@ -102,9 +104,11 @@ subroutine run_semd2sac(ievt,simu_type)
   call bcast_all_dp(stlon,nrec)
   call bcast_all_dp(stele,nrec)
   call bcast_all_dp(stbur,nrec)
-  if (simu_type=='tele') then
+  if (index(simu_type,'tele')/=0) then
     call bcast_all_cr(stf_array,NSTEP)
+    call generate_fk_times(ievt, stlat, stlon, stele, tdelay)
   endif
+  call synchronize_all()
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%p%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   if(nrec_local > 0) then
     ! write(*,*) "Rank ",myrank,' has ',nrec_local,' receivers:'
@@ -198,9 +202,28 @@ subroutine run_semd2sac(ievt,simu_type)
             endif
             datafile='./'//trim(acqui_par%in_dat_path(ievt))//'/'//trim(network_name(irec))//'.'&
                     //trim(station_name(irec))//'.'//trim(CH_CODE)//trim(RCOMPS(icomp))//'.sac'
-            call dwsac0(trim(datafile),dble(seismo_syn(icomp,:)),NSTEP,-dble(t0),dble(DT),&
-                        trim(network_name(irec)),trim(station_name(irec)),trim(CH_CODE)//trim(RCOMPS(icomp)),&
-                        dist,az,baz,geo_sta_lat,geo_sta_lon,geo_src_lat,geo_src_lon,edep)
+            call sacio_newhead(head, real(DT), NSTEP, -real(T0))
+            ! convert to single precision
+            head%dist = real(dist)
+            head%az = real(az)
+            head%baz = real(baz)
+            head%stla = real(geo_sta_lat)
+            head%stlo = real(geo_sta_lon)
+            head%stel = real(stele(irec))
+            head%evla = real(geo_src_lat)
+            head%evlo = real(geo_src_lon)
+            head%evdp = real(edep)
+            head%knetwk = trim(network_name(irec))
+            head%kstnm = trim(station_name(irec))
+            head%kcmpnm = trim(CH_CODE)//trim(RCOMPS(icomp))
+            if (index(simu_type,'tele')/=0) then
+              head%t0 = tdelay(irec)
+              head%kt0 = 'FKtime'
+            endif
+            call sacio_writesac(trim(datafile), head, dble(seismo_syn(icomp,:)), ier)
+            ! call dwsac0(trim(datafile),dble(seismo_syn(icomp,:)),NSTEP,-dble(t0),dble(DT),&
+            !             trim(network_name(irec)),trim(station_name(irec)),trim(CH_CODE)//trim(RCOMPS(icomp)),&
+            !             dist,az,baz,geo_sta_lat,geo_sta_lon,geo_src_lat,geo_src_lon,edep)
 
           enddo ! end icomp  
         !====================================================================================================

@@ -1,16 +1,37 @@
 module preproc_subs 
   use specfem_par, only: cr => CUSTOM_REAL, MAX_LEN => MAX_STRING_LEN,&
                               network_name, station_name,nrec,myrank,&
-                              t0,NSTEP,DT,IIN,OUTPUT_FILES
+                              t0,NSTEP,DT,IIN,OUTPUT_FILES, nrec
   use fullwave_adjoint_tomo_par
   use fwat_input
   use fwat_utils, only: rotate_ZNE_to_ZRT
+  use FKTimes_mod
   use measure_adj_mod
   use sacio
 
   implicit none
   integer                                                :: ier,irec
 contains
+
+subroutine cal_fktimes(ievt, ttp, tb, te)
+  real(kind=CUSTOM_REAL), dimension(nrec)              :: ttp,tb,te
+  double precision, dimension(nrec)                    :: tmp_ttp
+  integer                                              :: ievt
+  character(len=MAX_STRING_LEN)                        :: fname
+  real(kind=CUSTOM_REAL), dimension(:), allocatable    :: stla, stlo, stel
+
+  fname = trim(acqui_par%station_file(ievt))//'_FILTERED'
+  call read_receiver_file(fname, stla, stlo, stel)
+  if (size(stla) /= nrec) then
+    write(*,*) 'Number of stations in STATIONS_FILTERED does not match with nrec'
+    stop
+  endif
+  call generate_fk_times(ievt, dble(stla), dble(stlo), dble(stel), tmp_ttp)
+  ttp = real(tmp_ttp)
+  tb = tele_par%TW_BEFORE
+  te = tele_par%TW_AFTER
+  call synchronize_all()
+end subroutine
 
 subroutine read_fktimes(ievt, ttp, tb, te)
   character(len=MAX_LEN)                             :: datafile, dummystring
