@@ -162,7 +162,7 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   logical                                          :: findfile
   character(len=MAX_STRING_LEN)                    :: datafile,adjfile,bandname
   character(len=10)                                :: net,sta,chan_dat
-  integer                                          :: yr,jda,ho,mi, npt1
+  integer                                          :: yr,jda,ho,mi, npt1, ier
   double precision                                 :: t01,dt1,sec,dist,az,baz,slat,slon,&
                                                       fstart0,fend0
   real(kind=cr), dimension(3,NSTEP)                :: seismo_syn
@@ -172,6 +172,7 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   double precision, dimension(NDIM)                :: datr_inp,synr_inp,datz_inp,synz_inp,&
                                                       datr_inp_bp,synr_inp_bp,&
                                                       datz_inp_bp,synz_inp_bp,datarray
+  type(sachead)                                    :: head
   
   ! RCOMPS(1) = Z; RCOMPS(2) = R
   seismo_syn(:,:) = 0.
@@ -231,22 +232,31 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   call bandpass(synz_inp_bp,NDIM_CUT,DT,fstart0,fend0)
   call bandpass(synr_inp_bp,NDIM_CUT,DT,fstart0,fend0)
   if (VERBOSE_MODE) then
+    call sacio_newhead(head, sngl(DT), NDIM_CUT, sngl(-T0))
+    head%knetwk = trim(network_name(irec))
+    head%kstnm = trim(station_name(irec))
+    head%kcmpnm = trim(CH_CODE)//'Z'
     adjfile=trim(OUTPUT_FILES)//'/syn.'//trim(network_name(irec))//'.'&
             //trim(station_name(irec))//'.'//trim(CH_CODE)&
             //'Z.sac'//'.'//trim(bandname) 
-    call dwsac1(trim(adjfile),synz_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
+    call sacio_writesac(adjfile, head, synz_inp_bp(1:NPTS), ier)
+    ! call dwsac1(trim(adjfile),synz_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
     adjfile=trim(OUTPUT_FILES)//'/dat.'//trim(network_name(irec))//'.'&
             //trim(station_name(irec))//'.'//trim(CH_CODE)&
-            //'Z.sac'//'.'//trim(bandname) 
-    call dwsac1(trim(adjfile),datz_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
+            //'Z.sac'//'.'//trim(bandname)
+    call sacio_writesac(adjfile, head, datz_inp_bp(1:NPTS), ier)
+    ! call dwsac1(trim(adjfile),datz_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
+    head%kcmpnm = trim(CH_CODE)//'R'
     adjfile=trim(OUTPUT_FILES)//'/syn.'//trim(network_name(irec))//'.'&
             //trim(station_name(irec))//'.'//trim(CH_CODE)&
-            //'R.sac'//'.'//trim(bandname) 
-    call dwsac1(trim(adjfile),synr_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
+            //'R.sac'//'.'//trim(bandname)
+    call sacio_writesac(adjfile, head, synr_inp_bp(1:NPTS), ier)
+    ! call dwsac1(trim(adjfile),synr_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
     adjfile=trim(OUTPUT_FILES)//'/dat.'//trim(network_name(irec))//'.'&
             //trim(station_name(irec))//'.'//trim(CH_CODE)&
             //'R.sac'//'.'//trim(bandname) 
-    call dwsac1(trim(adjfile),datr_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
+    call sacio_writesac(adjfile, head, datr_inp_bp(1:NPTS), ier)
+    ! call dwsac1(trim(adjfile),datr_inp_bp,NDIM_CUT,dble(-T0),dble(DT))
   endif
   glob_dat_tw(irec,1:NDIM_CUT,1)=datz_inp_bp(1:NDIM_CUT)
   glob_dat_tw(irec,1:NDIM_CUT,2)=datr_inp_bp(1:NDIM_CUT)
