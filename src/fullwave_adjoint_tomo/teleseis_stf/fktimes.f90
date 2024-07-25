@@ -10,6 +10,14 @@ module FKTimes_mod
 
 contains
 
+  subroutine free_fk_arrays() 
+    if (allocated(al_FK)) deallocate(al_FK)
+    if (allocated(be_FK)) deallocate(be_FK)
+    if (allocated(mu_FK)) deallocate(mu_FK)
+    if (allocated(h_FK)) deallocate(h_FK)
+
+  end subroutine free_fk_arrays
+
   subroutine ReadFKModelInput_fwat()
 
     real(kind=CUSTOM_REAL) :: Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box
@@ -291,6 +299,7 @@ contains
       zz = stel(irec)
       call traveltime(xx, yy, zz, tdelay(irec))
     end do
+    call free_fk_arrays()
 
   end subroutine generate_fk_times
 

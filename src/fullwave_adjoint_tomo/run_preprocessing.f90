@@ -298,7 +298,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
       call synchronize_all()
       call bcast_all_cr(glob_dat_tw,nrec*NSTEP*NRCOMP)
       call bcast_all_cr(glob_syn_tw,nrec*NSTEP*NRCOMP)
-      !==== Kai added to obtain a robust average amplitude scaling factor ====
+      !==== Kai added to obtain a robust average amplitude scaling factor of Z comp ====
       call average_amp_scale(glob_dat_tw, 1, avgamp)
       if(myrank==0) write(*,*) 'avgamp of data gather:', avgamp
       if(my_nrec_local > 0) then

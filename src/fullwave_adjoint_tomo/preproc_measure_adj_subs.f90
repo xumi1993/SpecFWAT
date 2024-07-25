@@ -157,27 +157,27 @@ contains
     synr_inp_bp=0.
     datz_inp_bp=0.
     synz_inp_bp=0.
-    datz_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,1))
+    datz_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,1))/avgamp
     synz_inp_bp(1:NSTEP)=dble(glob_syn_tw(irec,1:NSTEP,1))
-    datr_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,2))
+    datr_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,2))/avgamp
     synr_inp_bp(1:NSTEP)=dble(glob_syn_tw(irec,1:NSTEP,2))
     if (VERBOSE_MODE) then
-      conv1 = zeros(NSTEP)
-      conv2 = zeros(NSTEP)
+      ! conv1 = zeros(NSTEP)
+      ! conv2 = zeros(NSTEP)
       ! conv_same = zeros(NSTEP)
       nc = maxloc(synz_inp_bp(1:NSTEP))
       call myconvolution(real(datr_inp_bp(1:NSTEP)),real(synz_inp_bp(1:NSTEP)),&
-                          NSTEP,NSTEP,conv1,0)
+                          NSTEP,NSTEP,conv1,1)
       call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
-                          NSTEP,NSTEP,conv2,0)
+                          NSTEP,NSTEP,conv2,1)
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'Z.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv1),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv1(nc(1):nc(1)+NSTEP-1)),NSTEP,dble(-T0),dble(DT))
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'R.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv2),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv2(nc(1):nc(1)+NSTEP-1)),NSTEP,dble(-T0),dble(DT))
       deallocate(conv1,conv2)
     endif
 
@@ -199,7 +199,7 @@ contains
     glob_tstart(irec,1,1)=tstart
     glob_tend(irec,1,1)=tend
     glob_window_chi(irec,1,1:NCHI,1)=window_chi(1:NCHI)
-    misfit = real(window_chi(15))
+    misfit = real(window_chi(15)) /avgamp/avgamp *DT
     glob_tr_chi(irec,1,1)=misfit *src_weight(ievt)
     glob_am_chi(irec,1,1)=misfit *src_weight(ievt)
     total_misfit = total_misfit+misfit *src_weight(ievt)

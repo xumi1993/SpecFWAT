@@ -368,7 +368,7 @@ module postproc_sub
     if (type_name == 'noise') then
       sigma_h = tomo_par%NOISE_SIGMA_H
       sigma_v = tomo_par%NOISE_SIGMA_V
-    elseif (type_name == 'tele' .or. type_name=='rf') then
+    elseif (index(type_name, 'tele') /= 0 .or. type_name=='rf') then
       sigma_h = tomo_par%TELE_SIGMA_H
       sigma_v = tomo_par%TELE_SIGMA_V
     elseif (type_name == 'leq') then

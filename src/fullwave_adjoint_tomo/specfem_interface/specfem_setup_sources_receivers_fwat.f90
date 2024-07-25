@@ -356,10 +356,8 @@ subroutine read_receiver_file(filename, stla, stlo, stel)
       if (ier /= 0) exit
       if (len(trim(dummystring)) > 0) then
         irec = irec + 1
-        print *, irec
         ! read(dummystring,*,iostat=ier) station_name, network_name, junk_lat, junk_lon, junk_ele, junk_bur
         read(dummystring,*) station_name, network_name, stla(irec), stlo(irec), stel(irec), junk_bur
-        print *, stla(irec), stlo(irec), stel(irec)
         ! call append(stla, junk_lat)
         ! call append(stlo, junk_lon)
         ! call append(stel, junk_ele)

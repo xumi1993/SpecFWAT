@@ -75,7 +75,6 @@ subroutine run_fwat2_postproc_opt(model)
         write(OUT_FWAT_LOG,*) 'DATA TYPE: ',trim(tomo_par%INV_TYPE_NAME(i))
         write(OUT_FWAT_LOG,*) '-- SIGMA_H, SIGMA_V: ', tomo_par%NOISE_SIGMA_H,tomo_par%NOISE_SIGMA_V
         write(OUT_FWAT_LOG,*) '-- WEIGHT: ', tomo_par%JOINT_WEIGHT(i)
-        if (i == 2) write(OUT_FWAT_LOG,*) '-- USE_RF: ', tomo_par%USE_RF
       endif
     enddo
     if (strinv == 'joint') write(OUT_FWAT_LOG,*) 'NORM_TYPE: '//trim(tomo_par%NORM_TYPE)

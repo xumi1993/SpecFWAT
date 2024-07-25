@@ -21,7 +21,6 @@ subroutine cal_fktimes(ievt, ttp, tb, te)
   real(kind=CUSTOM_REAL), dimension(nrec)              :: stla, stlo, stel
 
   fname = trim(acqui_par%station_file(ievt))//'_FILTERED'
-  print *, 'fname=',trim(fname)
   call read_receiver_file(fname, stla, stlo, stel)
   if (size(stla) /= nrec) then
     write(*,*) 'Number of stations in STATIONS_FILTERED does not match with nrec'
@@ -31,10 +30,6 @@ subroutine cal_fktimes(ievt, ttp, tb, te)
   ttp = real(tmp_ttp)
   tb = tele_par%TW_BEFORE
   te = tele_par%TW_AFTER
-  do irec = 1, nrec
-    print *, 'netwk,stnm,ttp,tb,te=',trim(network_name(irec)),'.',trim(station_name(irec)), &
-                                        ttp(irec),tb(irec),te(irec)
-  enddo
   call synchronize_all()
 end subroutine
 
@@ -189,6 +184,8 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
     call get_sacfile_header(trim(datafile),yr,jda,ho,mi,sec,net,sta, &
                               chan_dat,dist,az,baz,slat,slon)
     baz_all(irec)=baz
+  else 
+    call exit_MPI(myrank,'No such sac data file:'//trim(datafile))
   endif
   datz_inp(1:npt1)=datarray(1:npt1)
 
