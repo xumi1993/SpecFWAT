@@ -7,6 +7,7 @@ program sem_model_slice
   use hdf5_interface
   use shared_input_parameters, only: SUPPRESS_UTM_PROJECTION
   use projection_on_FD_grid_fwat, only: find_nearestXY_nonzero,find_nearestZ_nonzero
+  use utils, only: transpose_3
   
   implicit none
   include "precision.h"
