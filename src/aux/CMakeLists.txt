@@ -11,7 +11,7 @@ add_library(aux_objs OBJECT
   "${CMAKE_CURRENT_SOURCE_DIR}/projection_on_FD_grid_mod_fwat.f90"
   "${CMAKE_CURRENT_SOURCE_DIR}/npy.f90"
 )
-target_link_libraries(aux_objs PRIVATE specfem3D_objs)
+target_link_libraries(aux_objs PRIVATE specfem3D_objs shared_objs MPI::MPI_Fortran)
 
 set(APP_SOURCES
   combine_vol_data_vtk.F90

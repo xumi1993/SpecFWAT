@@ -12,7 +12,7 @@ include_directories(
 )
 # Create an object library for the interface
 add_library(specfem_interface_objs OBJECT ${FWAT_SPECFEM_INTERFACE} )
-target_link_libraries(specfem_interface_objs PRIVATE fwat_shared_objs )
+target_link_libraries(specfem_interface_objs PRIVATE fwat_shared_objs MPI::MPI_Fortran)
 
 # Create an object library for the interface
 add_library(mesh_gen_interface_objs OBJECT ${FWAT_mesh_gen_INTERFACE} )
