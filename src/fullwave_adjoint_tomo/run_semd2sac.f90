@@ -28,6 +28,7 @@ subroutine run_semd2sac(ievt,simu_type)
   use telestf_mod
   use decon_mod
   use FKTimes_mod
+  use utils, only : arange, interp1
   
   implicit none
   character(len=MAX_STRING_LEN)                             :: simu_type
@@ -36,7 +37,7 @@ subroutine run_semd2sac(ievt,simu_type)
   character(len=MAX_STRING_LEN)                             :: datafile
   integer                                                   :: npt1
   double precision, dimension(MAX_NDIM)                     :: datarray
-  real(kind=4), dimension(NSTEP)                            :: stf_array
+  real(kind=CUSTOM_REAL), dimension(:), allocatable         :: stf_array
   double precision, dimension(NSTEP)                        :: uin, win, rfi
   real(kind=4), dimension(:), allocatable                   :: tmpl
   double precision                                          :: t01,dt1
@@ -88,12 +89,19 @@ subroutine run_semd2sac(ievt,simu_type)
     if (simu_type=='tele') then
       ! open STF file
       datafile='src_rec/STF_'//trim(acqui_par%evtid_names(ievt))//'.sac'
-      call drsac1(trim(datafile),datarray,npt1,t01,dt1) 
-      if(npt1.ne.NSTEP) then
-        write(*,*) 'npts of STF not match NSTEP of specfem3d!!!'
-        stop
-      endif
-      stf_array(1:NSTEP)=datarray(1:NSTEP)
+      call drsac1(trim(datafile),datarray,npt1,t01,dt1)
+      block
+        double precision, dimension(:), allocatable :: times, new_times
+        integer :: nhalf
+        double precision :: thalf
+        nhalf = npt1/2
+        thalf = nhalf*dt1
+        times = arange(0, npt1-1, 1)*dt1 - thalf
+        nhalf = NSTEP/2
+        thalf = nhalf*DT
+        new_times = arange(0, NSTEP-1, 1)*DT - thalf
+        stf_array = real(interp1(times, datarray, new_times))
+      end block
     endif
   endif  ! end if of myrank
   ! broadcast 
@@ -193,7 +201,7 @@ subroutine run_semd2sac(ievt,simu_type)
               enddo
               exit
             endif
-            if (simu_type=='tele') then
+            if (index(simu_type,'tele')/=0) then
               ! convolve with STF for TeleFWI
               allocate(tmpl(NSTEP))
               call myconvolution(seismo_syn(icomp,:),stf_array(:),NSTEP,NSTEP,tmpl,0) 
