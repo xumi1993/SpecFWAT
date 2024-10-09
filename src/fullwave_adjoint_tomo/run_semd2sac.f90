@@ -37,7 +37,7 @@ subroutine run_semd2sac(ievt,simu_type)
   character(len=MAX_STRING_LEN)                             :: datafile
   integer                                                   :: npt1
   double precision, dimension(MAX_NDIM)                     :: datarray
-  real(kind=CUSTOM_REAL), dimension(:), allocatable         :: stf_array
+  real(kind=4), dimension(:), allocatable                   :: stf_array
   double precision, dimension(NSTEP)                        :: uin, win, rfi
   real(kind=4), dimension(:), allocatable                   :: tmpl
   double precision                                          :: t01,dt1
@@ -86,12 +86,12 @@ subroutine run_semd2sac(ievt,simu_type)
     ! close receiver file
     close(IIN)
     
-    if (simu_type=='tele') then
+    if (index(simu_type,'tele')/=0) then
       ! open STF file
       datafile='src_rec/STF_'//trim(acqui_par%evtid_names(ievt))//'.sac'
       call drsac1(trim(datafile),datarray,npt1,t01,dt1)
       block
-        double precision, dimension(:), allocatable :: times, new_times
+        double precision, dimension(:), allocatable :: times, new_times, tmpdata
         integer :: nhalf
         double precision :: thalf
         nhalf = npt1/2
@@ -100,7 +100,8 @@ subroutine run_semd2sac(ievt,simu_type)
         nhalf = NSTEP/2
         thalf = nhalf*DT
         new_times = arange(0, NSTEP-1, 1)*DT - thalf
-        stf_array = real(interp1(times, datarray, new_times))
+        tmpdata = datarray(1:npt1)
+        stf_array = real(interp1(times, tmpdata, new_times, dble(0.0)))
       end block
     endif
   endif  ! end if of myrank
@@ -112,6 +113,7 @@ subroutine run_semd2sac(ievt,simu_type)
   call bcast_all_dp(stlon,nrec)
   call bcast_all_dp(stele,nrec)
   call bcast_all_dp(stbur,nrec)
+  if (myrank > 0) stf_array = zeros(NSTEP)
   if (index(simu_type,'tele')/=0) then
     call bcast_all_cr(stf_array,NSTEP)
     call generate_fk_times(ievt, stlat, stlon, stele, tdelay)

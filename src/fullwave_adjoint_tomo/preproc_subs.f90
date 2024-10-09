@@ -188,7 +188,10 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   else 
     call exit_MPI(myrank,'No such sac data file:'//trim(datafile))
   endif
-  datz_inp(1:npt1)=datarray(1:npt1)
+  if(abs(dt1-dT)>0.0001 .or. npt1 /= NSTEP) then
+    call interpolate_syn(datarray, t01,dt1,npt1,-dble(t0),dt,NSTEP)
+  endif
+  datz_inp(1:NSTEP)=datarray(1:NSTEP)
 
   ! Rotation
   if (trim(dat_coord)=='ZRT') then
@@ -209,7 +212,10 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   if ( findfile ) then
     call drsac1(trim(datafile),datarray,npt1,t01,dt1)
   endif
-  datr_inp(1:npt1)=datarray(1:npt1)
+  if(abs(dt1-dT)>0.0001 .or. npt1 /= NSTEP) then
+    call interpolate_syn(datarray, t01,dt1,npt1,-dble(t0),dt,NSTEP)
+  endif
+  datr_inp(1:NSTEP)=datarray(1:NSTEP)
 
   ! rtrend
   NDIM_CUT=NSTEP

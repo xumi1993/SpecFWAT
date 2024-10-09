@@ -53,7 +53,7 @@ module utils
   end interface arange
 
   interface interp1
-    module procedure interp1_0, interp1_1
+    module procedure interp1_0, interp1_1, interp1_1_fill
   end interface interp1
 
   interface interp2
@@ -813,7 +813,9 @@ end function
       vr = v( [ x1, x2 ] )
       vq = vr(1) * ( xr(2) - xq ) + vr(2) * ( xq - xr(1) )
       vq = vq / vn
-    else
+    elseif (xq < x(1)) then
+      vq = v(1)
+    elseif (xq > x(size(x))) then
       vq = v(size(v))
     end if
     return
@@ -831,6 +833,22 @@ end function
     end do
     return
   end function interp1_1
+
+  function interp1_1_fill(x, v, xq, fill_value) result(vq)
+    real(kind = DPRE), dimension(:), allocatable :: vq
+    real(kind = DPRE), dimension(:), intent(in) :: xq, x, v
+    real(kind = DPRE), intent(in) :: fill_value
+    integer(kind = IPRE) :: i, n
+
+    n = size(xq)
+    vq = zeros(n)
+    do i = 1, n
+      vq(i) = interp1_0(x, v, xq(i))
+      if (xq(i) < x(1)) vq(i) = fill_value
+      if (xq(i) > x(size(x))) vq(i) = fill_value
+    end do
+    return
+  end function interp1_1_fill
 
   pure function transpose_3_s(x) result(y)
     real(kind = RPRE), dimension(:,:,:), intent(in) :: x
