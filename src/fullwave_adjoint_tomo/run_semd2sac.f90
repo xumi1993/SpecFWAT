@@ -49,10 +49,10 @@ subroutine run_semd2sac(ievt,simu_type)
 !   double precision                                          :: geo_sta_r,geo_sta_lon,geo_sta_lat
   double precision                                          :: geo_sta_lon,geo_sta_lat
   double precision                                          :: src_x,src_y,src_z,sta_x,sta_y,sta_z
-  double precision, dimension(nrec)                         :: stlat,stlon,stele,stbur, tdelay                                         
+  double precision, dimension(nrec)                         :: stlat,stlon,stele,stbur                                         
   character(len=MAX_STRING_LEN)                             :: rec_filename,bandname
   type(sachead)                                             :: head
-  double precision                                          :: gcarc, dist, baz, az
+  double precision                                          :: gcarc, dist, baz, az, tdelay
   ! for covert xyz coords to geo coords
   double precision                                          :: lon_center_chunk, lat_center_chunk, chunk_azi
 !   double precision, dimension(3,3)                          :: rotation_matrix
@@ -89,18 +89,20 @@ subroutine run_semd2sac(ievt,simu_type)
       ! open STF file
       datafile='src_rec/STF_'//trim(acqui_par%evtid_names(ievt))//'.sac'
       call drsac1(trim(datafile),datarray,npt1,t01,dt1)
-      block
-        double precision, dimension(:), allocatable :: times, new_times, tmpdata
-        double precision :: thalf
-        thalf = npt1*dt1/2
-        times = arange(0, npt1-1, 1)*dt1 - thalf
-        thalf = NSTEP*DT/2
-        new_times = arange(0, NSTEP-1, 1)*DT - thalf
-        tmpdata = datarray(1:npt1)
-        stf_array = real(interp1(times, tmpdata, new_times, dble(0.0)))
-        datafile = 'src_rec/STF_'//trim(acqui_par%evtid_names(ievt))//'_out.sac'
-        call dwsac1(trim(datafile), dble(stf_array), NSTEP, -thalf, DT)
-      end block
+      if(abs(dt1-dT)>0.0001 .or. npt1 /= NSTEP) then
+        block
+          double precision, dimension(:), allocatable :: times, new_times, tmpdata
+          double precision :: thalf
+          thalf = npt1*dt1/2
+          times = arange(0, npt1-1, 1)*dt1 - thalf
+          thalf = NSTEP*DT/2
+          new_times = arange(0, NSTEP-1, 1)*DT - thalf
+          tmpdata = datarray(1:npt1)
+          stf_array = real(interp1(times, tmpdata, new_times, dble(0.0)))
+        end block
+      else
+        stf_array = real(datarray(1:npt1), kind=CUSTOM_REAL)
+      endif
     endif
   endif  ! end if of myrank
   ! broadcast 
@@ -114,7 +116,7 @@ subroutine run_semd2sac(ievt,simu_type)
   if (myrank > 0) stf_array = zeros(NSTEP)
   if (index(simu_type,'tele')/=0) then
     call bcast_all_cr(stf_array,NSTEP)
-    call generate_fk_times(ievt, stlat, stlon, stele, tdelay)
+    ! call generate_fk_times(ievt, stlat, stlon, stele, tdelay)
   endif
   call synchronize_all()
   !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%p%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -161,7 +163,7 @@ subroutine run_semd2sac(ievt,simu_type)
             ! if (myrank==0) print*, trim(network_name(irec))//'.'//trim(station_name(irec)),geo_src_lat,geo_src_lon,&
             !             geo_sta_lat,geo_sta_lon,dist,baz
           else
-            print *, 'phi_FK: ', phi_FK
+            tdelay = maxloc(seismograms_d(3,irec_local,:), dim=1) * DT - T0
             baz = -(phi_FK/(acos(-1.d0)/180.d0)) - 90.
             dist = 0.
             gcarc = 0.
@@ -227,7 +229,7 @@ subroutine run_semd2sac(ievt,simu_type)
             head%kstnm = trim(station_name(irec))
             head%kcmpnm = trim(CH_CODE)//trim(RCOMPS(icomp))
             if (index(simu_type,'tele')/=0) then
-              head%t0 = tdelay(irec)
+              head%t0 = tdelay
               head%kt0 = 'FKtime'
             endif
             call sacio_writesac(trim(datafile), head, dble(seismo_syn(icomp,:)), ier)
