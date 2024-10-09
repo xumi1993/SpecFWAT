@@ -4,7 +4,8 @@ module FKTimes_mod
   use specfem_par, only : CUSTOM_REAL, nrec, FKMODEL_FILE, SUPPRESS_UTM_PROJECTION, ILONGLAT2UTM, myrank, IIN
   use specfem_par_coupling
   use fwat_utils, only : zeros
-  use fwat_input, only :acqui_par
+  use fwat_input, only : acqui_par
+  use constants, only : DEG2RAD
 
   implicit none
 
@@ -202,6 +203,9 @@ contains
 
       endif
 
+      ! converts to rad
+      phi_FK   = phi_FK * DEG2RAD
+      theta_FK = theta_FK * DEG2RAD
     endif
     call synchronize_all()
 
@@ -246,12 +250,12 @@ contains
 
     if (kpsv == 1) then
       v_fk_input = al_FK
-      p = sind(theta_FK) / v_fk_input(nlayer)
+      p = sin(theta_FK) / v_fk_input(nlayer)
     else if (kpsv == 2) then
       v_fk_input = be_FK
-      p = sind(theta_FK) / v_fk_input(nlayer)
+      p = sin(theta_FK) / v_fk_input(nlayer)
     endif
-    tdelay = p * (xx - xx0) * cosd(phi_FK) + p * (yy - yy0) * sind(phi_FK)
+    tdelay = p * (xx - xx0) * cos(phi_FK) + p * (yy - yy0) * sin(phi_FK)
 
     z0 = zz0 - Z_ref_for_FK
     zi = zz - Z_ref_for_FK

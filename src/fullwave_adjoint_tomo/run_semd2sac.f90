@@ -37,9 +37,8 @@ subroutine run_semd2sac(ievt,simu_type)
   character(len=MAX_STRING_LEN)                             :: datafile
   integer                                                   :: npt1
   double precision, dimension(MAX_NDIM)                     :: datarray
-  real(kind=4), dimension(:), allocatable                   :: stf_array
+  real(kind=CUSTOM_REAL), dimension(:), allocatable         :: stf_array
   double precision, dimension(NSTEP)                        :: uin, win, rfi
-  real(kind=4), dimension(:), allocatable                   :: tmpl
   double precision                                          :: t01,dt1
   ! for rotation
   real(kind=CUSTOM_REAL), dimension(3,NSTEP)                :: seismo_syn
@@ -92,16 +91,15 @@ subroutine run_semd2sac(ievt,simu_type)
       call drsac1(trim(datafile),datarray,npt1,t01,dt1)
       block
         double precision, dimension(:), allocatable :: times, new_times, tmpdata
-        integer :: nhalf
         double precision :: thalf
-        nhalf = npt1/2
-        thalf = nhalf*dt1
+        thalf = npt1*dt1/2
         times = arange(0, npt1-1, 1)*dt1 - thalf
-        nhalf = NSTEP/2
-        thalf = nhalf*DT
+        thalf = NSTEP*DT/2
         new_times = arange(0, NSTEP-1, 1)*DT - thalf
         tmpdata = datarray(1:npt1)
         stf_array = real(interp1(times, tmpdata, new_times, dble(0.0)))
+        datafile = 'src_rec/STF_'//trim(acqui_par%evtid_names(ievt))//'_out.sac'
+        call dwsac1(trim(datafile), dble(stf_array), NSTEP, -thalf, DT)
       end block
     endif
   endif  ! end if of myrank
@@ -163,6 +161,7 @@ subroutine run_semd2sac(ievt,simu_type)
             ! if (myrank==0) print*, trim(network_name(irec))//'.'//trim(station_name(irec)),geo_src_lat,geo_src_lon,&
             !             geo_sta_lat,geo_sta_lon,dist,baz
           else
+            print *, 'phi_FK: ', phi_FK
             baz = -(phi_FK/(acos(-1.d0)/180.d0)) - 90.
             dist = 0.
             gcarc = 0.
@@ -205,10 +204,11 @@ subroutine run_semd2sac(ievt,simu_type)
             endif
             if (index(simu_type,'tele')/=0) then
               ! convolve with STF for TeleFWI
-              allocate(tmpl(NSTEP))
-              call myconvolution(seismo_syn(icomp,:),stf_array(:),NSTEP,NSTEP,tmpl,0) 
-              seismo_syn(icomp,:)=tmpl*DT
-              deallocate(tmpl)
+              block 
+                real(kind=CUSTOM_REAL), dimension(:), allocatable :: tmpl
+                call myconvolution(seismo_syn(icomp,:),stf_array(:),NSTEP,NSTEP,tmpl,0) 
+                seismo_syn(icomp,:)=tmpl*DT
+              end block
             endif
             datafile='./'//trim(acqui_par%in_dat_path(ievt))//'/'//trim(network_name(irec))//'.'&
                     //trim(station_name(irec))//'.'//trim(CH_CODE)//trim(RCOMPS(icomp))//'.sac'
