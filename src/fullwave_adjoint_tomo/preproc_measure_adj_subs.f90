@@ -133,7 +133,7 @@ contains
     ! logical                                                  :: findfile
     character(len=MAX_STRING_LEN)                            :: adjfile,bandname
     character(len=10)                                        :: net,sta,chan_dat
-    integer                                                  :: irec, ievt, nc
+    integer                                                  :: irec, ievt, nc, nmax
     real(kind=CUSTOM_REAL)                                   :: win_tb, win_te,total_misfit,&
                                                                 misfit,avgamp
     character(len=256),dimension(nrec)                       :: glob_net,glob_sta
@@ -149,7 +149,7 @@ contains
     double precision, dimension(nrec)                        :: baz_all
     ! real(kind=CUSTOM_REAL), dimension(3,NSTEP)               :: seismo_syn
     real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_same
-    double precision, dimension(MAX_NDIM)                        :: datr_inp_bp,synr_inp_bp,&
+    double precision, dimension(MAX_NDIM)                    :: datr_inp_bp,synr_inp_bp,&
                                                                 datz_inp_bp,synz_inp_bp
 
     ! setup data and syn
@@ -168,16 +168,18 @@ contains
       nc = maxloc(synz_inp_bp(1:NSTEP), dim=1)
       call myconvolution(real(datr_inp_bp(1:NSTEP)),real(synz_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv1,1)
-      call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
-                          NSTEP,NSTEP,conv2,1)
+      nmax = maxloc(conv1, dim=1) - nc
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'Z.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv1(nc:nc+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv1(nmax:nmax+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
+      call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
+                          NSTEP,NSTEP,conv2,1)
+      nmax = maxloc(conv2, dim=1) - nc
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'R.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv2(nc:nc+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv2(nmax:nmax+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
       deallocate(conv1,conv2)
     endif
 

@@ -6,7 +6,7 @@ module measure_adj_mod
   use ma_sub         ! mt_measure(), mt_adj()
   use ma_weighting
 
-  use specfem_par, only: OUTPUT_FILES,MAX_STRING_LEN, SPECFEM_T0 => T0 
+  use specfem_par, only: OUTPUT_FILES,MAX_STRING_LEN, SPECFEM_T0 => T0, CUSTOM_REAL
   use shared_input_parameters, only: NSTEP, SPECFEM_DT => DT 
 
 contains
@@ -880,9 +880,9 @@ subroutine measure_adj()
     double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
     double precision, intent(in)                       :: tstart, tend
     character(len=MAX_STRING_LEN)                      :: adj_file_prefix
-    real, dimension(:), allocatable                    :: conv_full, conv_diff, conv1, conv2
+    real(kind=CUSTOM_REAL), dimension(:), allocatable  :: conv_full, conv_diff, conv1, conv2
     double precision                                   :: fac
-    integer                                            :: n, nc, nn, nstart, nend,i, nmax1, nmax2
+    integer                                            :: n, nc, nn, nstart, nend,i, nmax1, nmax2, nconv
 
     nc = maxloc(synz, dim=1)
     ! conv1 = zeros(npts)
@@ -901,15 +901,16 @@ subroutine measure_adj()
     nmax2 = maxloc(conv2, dim=1)-nc
 
     conv_diff = conv1-conv2
+    nconv = size(conv_diff)
 
-    call myconvolution(-real(datz),conv_diff,npts,npts,conv_full,1)
+    call myconvolution(-real(datz),conv_diff,npts,nconv,conv_full,1)
     nn = nmax2*2
-    adj_r = dble(conv_full(nn: nn+npts-1))
+    adj_r = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
+    deallocate(conv_full)
 
-    conv_full = zeros(2*npts-1)
-    call myconvolution(real(datr),conv_diff,npts,npts,conv_full,1)
+    call myconvolution(real(datr),conv_diff,npts,nconv,conv_full,1)
     nn = nmax1*2
-    adj_z = dble(conv_full(nn: nn+npts-1))
+    adj_z = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
 
     conv1 = conv1(nmax1:nmax1+npts-1)
     conv2 = conv2(nmax2:nmax2+npts-1)
@@ -935,9 +936,14 @@ subroutine measure_adj()
     adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
     call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
                 '.'//trim(bandname),adj_r_tw,npts,-SPECFEM_T0,SPECFEM_DT)
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
+                ! '.'//trim(bandname),adj_r,npts,-SPECFEM_T0,SPECFEM_DT)
     adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
     call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
                 '.'//trim(bandname),adj_z_tw,npts,-SPECFEM_T0,SPECFEM_DT)
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
+                ! '.'//trim(bandname),adj_z,npts,-SPECFEM_T0,SPECFEM_DT)
+
     window_chi(:) = 0.
 
     ! compute integrated waveform difference, normalized by duration of the record
