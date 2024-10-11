@@ -106,7 +106,7 @@ end subroutine
 
 subroutine get_rf_times(glob_sem_disp, ttp, tb, te)
   real(kind=4)                                     :: ttp(nrec),tb(nrec),te(nrec)
-  integer                                          :: irec, mloc(1)
+  integer                                          :: irec
   real(kind=cr), dimension(nrec,NSTEP,3)           :: glob_sem_disp
   real(kind=cr), dimension(NSTEP)                  :: seismo_z
   ! real(kind=4), dimension(:), allocatable          :: corr1, corr2
@@ -114,20 +114,12 @@ subroutine get_rf_times(glob_sem_disp, ttp, tb, te)
 
   if (myrank == 0) then
     do irec = 1, nrec
-      !---- Need lowpass filter here? -----
       seismo_z(:)=glob_sem_disp(irec,:,3)
-      ! allocate(corr1(NSTEP))
-      ! allocate(corr2(NSTEP))
-      ! call mycorrelation(seismo_z,seismo_z,NSTEP,NSTEP,corr1,0)
-      ! call mycorrelation(seismo_z,corr1,NSTEP,NSTEP,corr2,0)
-      mloc = maxloc(seismo_z)
-      ttp(irec) = mloc(1) * dt - t0
-      if (ttp(irec) + t0 < rf_par%rf_tshift) stop 'Time length before P arrival must be greater than RF_TSHIFT.'
-      write(*,*) trim(network_name(irec))//'.'//trim(station_name(irec)),', RF times=',ttp(irec)
+      ttp(irec) = maxloc(seismo_z, dim=1) * dt - t0
+      ! if (ttp(irec) + t0 < rf_par%rf_tshift) stop 'Time length before P arrival must be greater than RF_TSHIFT.'
+      write(*,*) trim(network_name(irec))//'.'//trim(station_name(irec)),', FK times=',ttp(irec)
       tb(irec)=tele_par%TW_BEFORE
       te(irec)=tele_par%TW_AFTER
-      ! deallocate(corr1)
-      ! deallocate(corr2)
     enddo
   endif
   call bcast_all_cr(ttp,nrec)
@@ -155,7 +147,7 @@ subroutine read_local_stf(ievt, stf_array)
 end subroutine read_local_stf
 
 subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, bandname, &
-                                     baz_all, glob_dat_tw, glob_syn_tw)
+                                     baz_all, glob_dat_tw, glob_syn_tw, ttp)
   implicit None
 
   integer                                          :: ievt, irec, NDIM_CUT
@@ -164,10 +156,11 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   character(len=10)                                :: net,sta,chan_dat
   integer                                          :: yr,jda,ho,mi, npt1, ier
   double precision                                 :: t01,dt1,sec,dist,az,baz,slat,slon,&
-                                                      fstart0,fend0
+                                                      fstart0,fend0, tfk
   real(kind=cr), dimension(3,NSTEP)                :: seismo_syn
   double precision, dimension(nrec)                :: baz_all
-  real(kind=4), dimension(nrec,NSTEP,NRCOMP)       :: glob_dat_tw,glob_syn_tw
+  real(kind=cr), dimension(nrec)                   :: ttp
+  real(kind=cr), dimension(nrec,NSTEP,NRCOMP)      :: glob_dat_tw,glob_syn_tw
   real(kind=cr), dimension(nrec,NSTEP,3)           :: glob_sem_disp
   double precision, dimension(NDIM)                :: datr_inp,synr_inp,datz_inp,synz_inp,&
                                                       datr_inp_bp,synr_inp_bp,&
@@ -182,28 +175,17 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   inquire(file=trim(datafile),exist=findfile)
   if ( findfile ) then
     call drsac1(trim(datafile),datarray,npt1,t01,dt1)
-    call get_sacfile_header(trim(datafile),yr,jda,ho,mi,sec,net,sta, &
-                              chan_dat,dist,az,baz,slat,slon)
-    baz_all(irec)=baz
+    call sacio_readhead(datafile, head, ier)
+    ! call get_sacfile_header(trim(datafile),yr,jda,ho,mi,sec,net,sta, &
+                              ! chan_dat,dist,az,baz,slat,slon)
+    baz_all(irec)=head%baz
+    tfk = head%t0
   else 
     call exit_MPI(myrank,'No such sac data file:'//trim(datafile))
   endif
-  if(abs(dt1-dT)>0.0001 .or. npt1 /= NSTEP) then
-    call interpolate_syn(datarray, t01,dt1,npt1,-dble(t0),dt,NSTEP)
-  endif
+  t01 = t01 - (tfk - ttp(irec))
+  call interpolate_syn(datarray, t01,dt1,npt1,-dble(t0),dt,NSTEP)
   datz_inp(1:NSTEP)=datarray(1:NSTEP)
-
-  ! Rotation
-  if (trim(dat_coord)=='ZRT') then
-    call rotate_ZNE_to_ZRT(glob_sem_disp(irec,:,3),glob_sem_disp(irec,:,2),&
-    glob_sem_disp(irec,:,1),seismo_syn(1,:),seismo_syn(2,:),seismo_syn(3,:),NSTEP,real(baz)) 
-  else
-    seismo_syn(1,:)=glob_sem_disp(irec,:,3)
-    seismo_syn(2,:)=glob_sem_disp(irec,:,2)
-    seismo_syn(3,:)=glob_sem_disp(irec,:,1)
-  endif
-  synz_inp(1:NSTEP)=dble(seismo_syn(1,1:NSTEP))
-  synr_inp(1:NSTEP)=dble(seismo_syn(2,1:NSTEP))
 
   ! Read component 2
   datafile='./'//trim(acqui_par%in_dat_path(ievt))//'/'//trim(network_name(irec))//'.'&
@@ -212,10 +194,21 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
   if ( findfile ) then
     call drsac1(trim(datafile),datarray,npt1,t01,dt1)
   endif
-  if(abs(dt1-dT)>0.0001 .or. npt1 /= NSTEP) then
-    call interpolate_syn(datarray, t01,dt1,npt1,-dble(t0),dt,NSTEP)
-  endif
+  t01 = t01 - (tfk - ttp(irec))
+  call interpolate_syn(datarray, t01,dt1,npt1,-dble(t0),dt,NSTEP)
   datr_inp(1:NSTEP)=datarray(1:NSTEP)
+
+  ! Rotation
+  if (trim(dat_coord)=='ZRT') then
+    call rotate_ZNE_to_ZRT(glob_sem_disp(irec,:,3),glob_sem_disp(irec,:,2),&
+    glob_sem_disp(irec,:,1),seismo_syn(1,:),seismo_syn(2,:),seismo_syn(3,:),NSTEP,real(baz_all(irec))) 
+  else
+    seismo_syn(1,:)=glob_sem_disp(irec,:,3)
+    seismo_syn(2,:)=glob_sem_disp(irec,:,2)
+    seismo_syn(3,:)=glob_sem_disp(irec,:,1)
+  endif
+  synz_inp(1:NSTEP)=dble(seismo_syn(1,1:NSTEP))
+  synr_inp(1:NSTEP)=dble(seismo_syn(2,1:NSTEP))
 
   ! rtrend
   NDIM_CUT=NSTEP

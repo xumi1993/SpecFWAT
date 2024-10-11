@@ -282,14 +282,13 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
     if (trim(simu_type) == 'telecd') then
       write(*,*) "Rank ",myrank,' has ',my_nrec_local,' receivers:'
       !==== Get P arrival time ====
-      ! call read_fktimes(ievt, ttp, tb, te)
-      call cal_fktimes(ievt, ttp, tb, te)
+      call get_rf_times(glob_sem_disp, ttp, tb, te)
       if(my_nrec_local > 0) then
         do irec_local = 1, my_nrec_local
           irec = myrank*nrec_local_max+irec_local
           if (ELASTIC_SIMULATION) then
             call pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, bandname, &
-                                          baz_all, glob_dat_tw, glob_syn_tw)
+                                          baz_all, glob_dat_tw, glob_syn_tw, ttp)
           endif
         enddo
       endif

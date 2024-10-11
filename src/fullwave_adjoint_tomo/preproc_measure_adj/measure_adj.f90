@@ -882,32 +882,38 @@ subroutine measure_adj()
     character(len=MAX_STRING_LEN)                      :: adj_file_prefix
     real, dimension(:), allocatable                    :: conv_full, conv_diff, conv1, conv2
     double precision                                   :: fac
-    integer                                            :: n, nc(1), nn, nstart, nend,i
+    integer                                            :: n, nc, nn, nstart, nend,i, nmax1, nmax2
 
-    nc = maxloc(synz)
+    nc = maxloc(synz, dim=1)
     ! conv1 = zeros(npts)
     ! conv2 = zeros(npts)
     ! conv_diff = zeros(npts)
     ! conv_full = zeros(npts)
     conv1_tw = 0.
     conv2_tw = 0.
-    nn = 2*npts-1
 
     call myconvolution(real(datr),real(synz),npts,npts,conv1,1)
-
+    conv1 = conv1 * SPECFEM_DT
+    nmax1 = maxloc(conv1, dim=1)-nc
+  
     call myconvolution(real(datz),real(synr),npts,npts,conv2,1)
+    conv2 = conv2 * SPECFEM_DT
+    nmax2 = maxloc(conv2, dim=1)-nc
 
     conv_diff = conv1-conv2
-    conv_diff = conv_diff(nc(1): nc(1)+npts-1)
-    conv1 = conv1(nc(1): nc(1)+npts-1)
-    conv2 = conv2(nc(1): nc(1)+npts-1)
 
     call myconvolution(-real(datz),conv_diff,npts,npts,conv_full,1)
-    adj_r = dble(conv_full(nc(1): nc(1)+npts-1))
+    nn = nmax2*2
+    adj_r = dble(conv_full(nn: nn+npts-1))
 
     conv_full = zeros(2*npts-1)
     call myconvolution(real(datr),conv_diff,npts,npts,conv_full,1)
-    adj_z = dble(conv_full(nc(1): nc(1)+npts-1))
+    nn = nmax1*2
+    adj_z = dble(conv_full(nn: nn+npts-1))
+
+    conv1 = conv1(nmax1:nmax1+npts-1)
+    conv2 = conv2(nmax2:nmax2+npts-1)
+    conv_diff = conv1-conv2
 
     nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT+1)
     nend = floor((tend + SPECFEM_T0)/SPECFEM_DT+1)

@@ -133,7 +133,7 @@ contains
     ! logical                                                  :: findfile
     character(len=MAX_STRING_LEN)                            :: adjfile,bandname
     character(len=10)                                        :: net,sta,chan_dat
-    integer                                                  :: irec, ievt, nc(1)
+    integer                                                  :: irec, ievt, nc
     real(kind=CUSTOM_REAL)                                   :: win_tb, win_te,total_misfit,&
                                                                 misfit,avgamp
     character(len=256),dimension(nrec)                       :: glob_net,glob_sta
@@ -165,7 +165,7 @@ contains
       ! conv1 = zeros(NSTEP)
       ! conv2 = zeros(NSTEP)
       ! conv_same = zeros(NSTEP)
-      nc = maxloc(synz_inp_bp(1:NSTEP))
+      nc = maxloc(synz_inp_bp(1:NSTEP), dim=1)
       call myconvolution(real(datr_inp_bp(1:NSTEP)),real(synz_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv1,1)
       call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
@@ -173,11 +173,11 @@ contains
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'Z.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv1(nc(1):nc(1)+NSTEP-1)),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv1(nc:nc+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'R.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv2(nc(1):nc(1)+NSTEP-1)),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv2(nc:nc+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
       deallocate(conv1,conv2)
     endif
 
@@ -199,7 +199,7 @@ contains
     glob_tstart(irec,1,1)=tstart
     glob_tend(irec,1,1)=tend
     glob_window_chi(irec,1,1:NCHI,1)=window_chi(1:NCHI)
-    misfit = real(window_chi(15)) /avgamp/avgamp *DT
+    misfit = real(window_chi(15))
     glob_tr_chi(irec,1,1)=misfit *src_weight(ievt)
     glob_am_chi(irec,1,1)=misfit *src_weight(ievt)
     total_misfit = total_misfit+misfit *src_weight(ievt)
