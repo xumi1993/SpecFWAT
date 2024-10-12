@@ -947,6 +947,24 @@ end module my_mpi
 
   end subroutine sum_all_1Darray_dp
 
+
+  subroutine sum_all_1Darray_cr(sendbuf, recvbuf, nx)
+
+  use my_mpi
+  use constants, only: CUSTOM_REAL
+
+  implicit none
+
+  include "precision.h"
+
+  integer :: nx
+  real(kind=CUSTOM_REAL), dimension(nx) :: sendbuf, recvbuf
+  integer :: ier
+
+  call MPI_REDUCE(sendbuf,recvbuf,nx,CUSTOM_MPI_TYPE,MPI_SUM,0,my_local_mpi_comm_world,ier)
+
+  end subroutine sum_all_1Darray_cr
+
 !
 !-------------------------------------------------------------------------------------------------
 !

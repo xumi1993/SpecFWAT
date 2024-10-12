@@ -169,7 +169,7 @@ end subroutine read_fd_grid_parameters_for_projection
 !--------------------------------------------------------------------------------------------------------------------
 !  pre-compute interpolation coeffs for projection on FD GRID
 !--------------------------------------------------------------------------------------------------------------------
-  subroutine compute_interpolation_coeff_FD_SEM(projection_fd, fname, myrank)
+  subroutine compute_interpolation_coeff_FD_SEM(projection_fd, myrank)
 
     type(profd)  ,                          intent(inout)  :: projection_fd
     integer,                                intent(in)     :: myrank
@@ -196,10 +196,10 @@ end subroutine read_fd_grid_parameters_for_projection
     integer                                                :: nb_fd_point_loc, ier
     integer, dimension(:,:,:), allocatable                 :: point_already_found
     double precision, dimension(:,:,:), allocatable        :: xi_in_fd, eta_in_fd, gamma_in_fd
-    character(len=MAX_STRING_LEN)                          :: fname
+   !  character(len=MAX_STRING_LEN)                          :: fname
 
     ! read fd grid parameters !!
-    call read_fd_grid_parameters_for_projection(fname)
+   !  call read_fd_grid_parameters_for_projection(fname)
 
     ! get mesh properties (mandatory before calling locate_point_in_mesh_simple)
     call usual_hex_nodes(NGNOD,iaddx,iaddy,iaddz)
@@ -536,28 +536,27 @@ end subroutine read_fd_grid_parameters_for_projection
             enddo
          enddo
         endif
-        !write(*,*) ifd, projection_fd%nx
+      !   write(*,*) ifd, projection_fd%nx, myrank
         model_on_FD_grid_tmp(ifd, jfd, kfd) = val
         valence_tmp(ifd, jfd, kfd) =  valence_tmp(ifd, jfd, kfd) + 1
 
       !   if (DEBUG_MODE) then
-         !   write(*, *) igrid, ifd, jfd, kfd, valence_tmp(ifd, jfd, kfd)
+         ! write(*, *) igrid, ifd, jfd, kfd, valence_tmp(ifd, jfd, kfd)
       !   endif
 
      enddo
      call synchronize_all()
      
      model_on_FD_grid(:,:,:)=0.
-     call sum_all_all_cr_array(model_on_FD_grid_tmp(1,1,1),  model_on_FD_grid(1,1,1), &
+     call sum_all_1Darray_cr(model_on_FD_grid_tmp,  model_on_FD_grid, &
                                projection_fd%nx*projection_fd%ny*projection_fd%nz)
      valence(:,:,:) = 0.
-     call sum_all_all_cr_array(valence_tmp(1,1,1), valence(1,1,1), projection_fd%nx*projection_fd%ny*projection_fd%nz)
-     call synchronize_all()
+     call sum_all_1Darray_cr(valence_tmp, valence, projection_fd%nx*projection_fd%ny*projection_fd%nz)
      !! check if valence is not == 0
      if (myrank == 0) then
-      !   write(IIDD, *)
-      !   write(IIDD, *) 'Check interp'
-      !   write(IIDD, *)
+      !   write(*, *)
+      !   write(*, *) 'Check interp'
+      !   write(*, *)
         do kfd = 1, projection_fd%nz
            do jfd = 1, projection_fd%ny
               do ifd = 1, projection_fd%nx

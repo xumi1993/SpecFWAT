@@ -51,11 +51,18 @@
   real,dimension(:,:,:,:),allocatable :: data_sp
   integer :: i, j, k, ier
   character(len=MAX_STRING_LEN) :: arg(9), indir, outdir, replace_zero
-  character(len=MAX_STRING_LEN) :: prname, prname_lp, data_filename, fname, grid_file, model_name
+  character(len=MAX_STRING_LEN) :: prname, prname_lp, data_filename, fname, grid_file, model_name, hstr
   character(len=MAX_STRING_LEN*2) :: local_data_file
   logical :: BROADCAST_AFTER_READ
   integer :: myrank
   integer :: sizeprocs, NSPEC_IRREGULAR
+  real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob, &
+                            elemsize_min_glob,elemsize_max_glob, &
+                            x_min_glob, x_max_glob, &
+                            y_min_glob, y_max_glob, &
+                            z_min_glob, z_max_glob, &
+                            x_min, y_min, z_min, &
+                            x_max, y_max, z_max
 
   type(profd)  :: projection_fd
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: model_on_FD_grid
@@ -81,7 +88,7 @@
   ! parse command line arguments
   if (command_argument_count() ==0) then
     if (myrank == 0) then
-      print *,'USAGE:  mpirun -np NPROC bin/xcombine_vol_data_on_regular_grid grid_file &
+      print *,'USAGE:  mpirun -np NPROC bin/xcombine_vol_data_on_regular_grid dx dy dz &
                data_filename input_dir output_dir model_name is_replace_zero'
       stop 'Please check command line arguments'
     endif
@@ -92,16 +99,22 @@
   !   call get_command_argument(i,arg(i))
   ! enddo
 
-  call get_command_argument(1,grid_file)
-  call get_command_argument(2,data_filename)
-  call get_command_argument(3,indir)
-  call get_command_argument(4,outdir)
-  call get_command_argument(5,model_name)
-  if (command_argument_count() == 6) then
-    call get_command_argument(6,replace_zero)
-  elseif (command_argument_count() == 5) then
+  call get_command_argument(1,arg(1))
+  call get_command_argument(2,arg(2))
+  call get_command_argument(3,arg(3))
+  call get_command_argument(4,data_filename)
+  call get_command_argument(5,indir)
+  call get_command_argument(6,outdir)
+  call get_command_argument(7,model_name)
+  if (command_argument_count() == 8) then
+    call get_command_argument(8,replace_zero)
+  elseif (command_argument_count() == 7) then
     replace_zero = 'true'
   endif
+
+  read(arg(1), *) hx_fd_proj
+  read(arg(2), *) hy_fd_proj
+  read(arg(3), *) hz_fd_proj
 
   if (myrank==0) print *, 'Reading GLL mesh...'
   ! Get dimensions of current model, stored in proc******_external_mesh.bin
@@ -128,8 +141,33 @@
   call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
   call zwgljd(yigll,wygll,NGLLY,GAUSSALPHA,GAUSSBETA)
   call zwgljd(zigll,wzgll,NGLLZ,GAUSSALPHA,GAUSSBETA)
+  call check_mesh_distances(myrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
+         x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
+         elemsize_min_glob,elemsize_max_glob, &
+         distance_min_glob,distance_max_glob)
+  call min_all_all_cr(x_min_glob, x_min)
+  call min_all_all_cr(y_min_glob, y_min)
+  call min_all_all_cr(z_min_glob, z_min)
+  call max_all_all_cr(x_max_glob, x_max)
+  call max_all_all_cr(y_max_glob, y_max)
+  call max_all_all_cr(z_max_glob, z_max)
+  ! z_max = 0._CUSTOM_REAL
+  if (myrank == 0) then
+    print *, 'x_min_glob = ', x_min
+    print *, 'x_max_glob = ', x_max
+    print *, 'y_min_glob = ', y_min
+    print *, 'y_max_glob = ', y_max
+    print *, 'z_min_glob = ', z_min
+    print *, 'z_max_glob = ', z_max
+  endif
+  ox_fd_proj = x_min
+  oy_fd_proj = y_min
+  oz_fd_proj = z_min
+  nx_fd_proj = nint((x_max - x_min) / hx_fd_proj) + 1
+  ny_fd_proj = nint((y_max - y_min) / hy_fd_proj) + 1
+  nz_fd_proj = nint((z_max - z_min) / hz_fd_proj) + 1
   if (myrank==0) print *, 'Initialize regular grid...'
-  call compute_interpolation_coeff_FD_SEM(projection_fd, grid_file, myrank)
+  call compute_interpolation_coeff_FD_SEM(projection_fd, myrank)
   allocate(model_on_FD_grid(projection_fd%nx, projection_fd%ny, projection_fd%nz),stat=ier)
   allocate(xfd(projection_fd%nx))
   allocate(yfd(projection_fd%ny))
