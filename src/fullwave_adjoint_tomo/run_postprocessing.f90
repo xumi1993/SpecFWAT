@@ -1776,7 +1776,7 @@ subroutine smooth_sem_fwat(sigma_h,sigma_v,kernel_names_comma_delimited,input_di
             do k=1,NGLLZ
               do j=1,NGLLY
                 do i=1,NGLLX
-                  if (ispec_irreg /= 0) jacobianl = jacobian(i,j,k,ispec)
+                  if (ispec_irreg /= 0) jacobianl = jacobian(i,j,k,ispec_irreg)
                   factor(i,j,k) = jacobianl * wgll_cube(i,j,k)
                 enddo
               enddo

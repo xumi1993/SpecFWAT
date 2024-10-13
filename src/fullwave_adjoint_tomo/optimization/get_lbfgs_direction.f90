@@ -62,7 +62,7 @@
   integer :: ival,NSPEC_IRREGULAR,s1_jac,s2_jac,s3_jac,s4_jac!BinHe
   character(len=MAX_STRING_LEN) :: m_file!BinHe
   ! if normalization is applied 
-  logical :: USE_NORM=.false.
+  logical :: USE_NORM=.true.
   !!!
   
  
@@ -504,107 +504,113 @@ end subroutine get_gll_model
 ! src/inverse_problem_for_model/inversion_scheme/inversion_scheme_mod.f90 
 !---------------------------------------------------------------------------------------------
 
-  subroutine Parallel_ComputeInnerProduct(vect1, vect2, Niv, qp)
+subroutine Parallel_ComputeInnerProduct(vect1, vect2, Niv, qp)
+
+  use tomography_par
+  use specfem_par, only: wxgll, wygll, wzgll, irregular_element_number, NSPEC_AB, jacobian, jacobian_regular
+
+  real(kind=CUSTOM_REAL), dimension(NKERNEL*NGLOB)     :: vect1, vect2
+  real(kind=CUSTOM_REAL)                               :: qp
+  integer                                              :: Niv
+  real(kind=CUSTOM_REAL)                                                   :: qp_tmp_single
+  ! try double precision
+  real(kind=8)                                                             :: jacobianl, weight, qp_tmp
+  integer                                                                  :: ipar, i, j, k, ispec,ispec_irreg
+  real(kind=CUSTOM_REAL)                                                   :: coeff, coeff_n1, coeff_n2
+  real(kind=8)                                                             :: coeff_n1_dp, coeff_n2_dp
+  integer :: iglob
+
+  !! try normalization to avoid numerical errors
+  !call Parallel_ComputeL2normSquare(vect1 , Niv, coeff_n1)
+  !call Parallel_ComputeL2normSquare(vect2 , Niv, coeff_n2)
+
+  coeff=maxval(abs(vect1(:)))
+  call max_all_all_cr(coeff, coeff_n1)
+  if (coeff_n1 == 0._CUSTOM_REAL) coeff_n1=1._CUSTOM_REAL
+  vect1(:) = vect1(:) / coeff_n1
+
+  coeff=maxval(abs(vect2(:)))
+  call max_all_all_cr(coeff, coeff_n2)
+  if (coeff_n2 == 0._CUSTOM_REAL) coeff_n2=1._CUSTOM_REAL
+  vect2(:) = vect2(:) / coeff_n2
+
+  coeff_n1_dp = coeff_n1
+  coeff_n2_dp = coeff_n2
+
+  qp_tmp=0._CUSTOM_REAL
+
+  do ipar=1, Niv
+      do ispec = 1, NSPEC
+      ispec_irreg = irregular_element_number(ispec)
+      if (ispec_irreg == 0) jacobianl = jacobian_regular
+        do k=1,NGLLZ
+            do j=1,NGLLY
+              do i=1,NGLLX
+                  iglob=ibool(i,j,k,ispec)
+                  weight = wxgll(i)*wygll(j)*wzgll(k)
+                !  jacobianl = jacobian(i,j,k,ispec)
+                  if (ispec_irreg /= 0) jacobianl = jacobian(i,j,k,ispec_irreg)
+                  qp_tmp = qp_tmp + jacobianl * weight * vect1(iglob+(ipar-1)*NGLOB) * vect2(iglob+(ipar-1)*NGLOB)
+                  !qp = qp + jacobianl * weight * vect1(i,j,k,ispec,ipar) * vect2(i,j,k,ispec,ipar)
+              enddo
+            enddo
+        enddo
+      enddo
+  enddo
+
+  qp_tmp_single = qp_tmp * coeff_n1_dp * coeff_n2_dp
+  qp=0.
+  call sum_all_all_cr(qp_tmp_single, qp)
+
+end subroutine Parallel_ComputeInnerProduct
+!---------------------------------------------------------------------------------------------
+
+
+  subroutine Parallel_ComputeL2normSquare(vect1 , Niv, qp)
 
     use tomography_par
-    use specfem_par, only: jacobian, wxgll, wygll, wzgll
+    use specfem_par, only: wxgll, wygll, wzgll, irregular_element_number, NSPEC_AB, jacobian, jacobian_regular
 
-    real(kind=CUSTOM_REAL), dimension(NKERNEL*NGLOB)     :: vect1, vect2
-    real(kind=CUSTOM_REAL)                               :: qp
-    integer                                              :: Niv
-    real(kind=CUSTOM_REAL)                                                   :: qp_tmp_single
-    ! try double precision
-    real(kind=8)                                                             :: jacobianl, weight, qp_tmp
-    integer                                                                  :: ipar, i, j, k, ispec
-    real(kind=CUSTOM_REAL)                                                   :: coeff, coeff_n1, coeff_n2
-    real(kind=8)                                                             :: coeff_n1_dp, coeff_n2_dp
-    integer :: iglob
+    real(kind=CUSTOM_REAL), dimension(NKERNEL*NGLOB)           :: vect1
+    real(kind=CUSTOM_REAL)                                     :: qp
+    integer                                                    :: Niv
+    real(kind=CUSTOM_REAL) :: coeff, coeff_n1
+    real(kind=CUSTOM_REAL) :: qp_tmp
+    real(kind=8) :: jacobianl, weight, qp_dp, coeff_n1_dp
+    integer :: ipar, i, j, k, ispec,iglob,ispec_irreg
 
-    !! try normalization to avoid numerical errors
-    !call Parallel_ComputeL2normSquare(vect1 , Niv, coeff_n1)
-    !call Parallel_ComputeL2normSquare(vect2 , Niv, coeff_n2)
+    qp=0.d0
+    qp_dp=0.d0
 
     coeff=maxval(abs(vect1(:)))
     call max_all_all_cr(coeff, coeff_n1)
+
     if (coeff_n1 == 0._CUSTOM_REAL) coeff_n1=1._CUSTOM_REAL
+
     vect1(:) = vect1(:) / coeff_n1
+    coeff_n1_dp=coeff_n1
 
-    coeff=maxval(abs(vect2(:)))
-    call max_all_all_cr(coeff, coeff_n2)
-    if (coeff_n2 == 0._CUSTOM_REAL) coeff_n2=1._CUSTOM_REAL
-    vect2(:) = vect2(:) / coeff_n2
-
-    coeff_n1_dp = coeff_n1
-    coeff_n2_dp = coeff_n2
-
-    qp_tmp=0._CUSTOM_REAL
-
-    do ipar=1, Niv
-       do ispec = 1, NSPEC
+    do ipar=1,Niv
+      do ispec = 1, NSPEC
+          ispec_irreg = irregular_element_number(ispec)
+          if (ispec_irreg == 0) jacobianl = jacobian_regular
           do k=1,NGLLZ
-             do j=1,NGLLY
+            do j=1,NGLLY
                 do i=1,NGLLX
-                   iglob=ibool(i,j,k,ispec)
-                   weight = wxgll(i)*wygll(j)*wzgll(k)
-                   jacobianl = jacobian(i,j,k,ispec)
-                   qp_tmp = qp_tmp + jacobianl * weight * vect1(iglob+(ipar-1)*NGLOB) * vect2(iglob+(ipar-1)*NGLOB)
-                   !qp = qp + jacobianl * weight * vect1(i,j,k,ispec,ipar) * vect2(i,j,k,ispec,ipar)
+                  iglob=ibool(i,j,k,ispec)
+                  weight = wxgll(i)*wygll(j)*wzgll(k)
+                  ! jacobianl = jaco/bian(i,j,k,ispec)
+                  if (ispec_irreg /= 0) jacobianl = jacobian(i,j,k,ispec_irreg)
+                  qp_dp = qp_dp + jacobianl * weight * vect1(iglob+(ipar-1)*NGLOB) **2
                 enddo
-             enddo
+            enddo
           enddo
-       enddo
+      enddo
     enddo
 
-    qp_tmp_single = qp_tmp * coeff_n1_dp * coeff_n2_dp
+    qp_tmp = qp_dp * coeff_n1_dp * coeff_n1_dp
     qp=0.
-    call sum_all_all_cr(qp_tmp_single, qp)
+    call sum_all_all_cr(qp_tmp, qp)
 
-  end subroutine Parallel_ComputeInnerProduct
-  !---------------------------------------------------------------------------------------------
-
-
-   subroutine Parallel_ComputeL2normSquare(vect1 , Niv, qp)
- 
-     use tomography_par
-     use specfem_par, only: jacobian, wxgll, wygll, wzgll
-
-     real(kind=CUSTOM_REAL), dimension(NKERNEL*NGLOB)           :: vect1
-     real(kind=CUSTOM_REAL)                                     :: qp
-     integer                                                    :: Niv
-     real(kind=CUSTOM_REAL) :: coeff, coeff_n1
-     real(kind=CUSTOM_REAL) :: qp_tmp
-     real(kind=8) :: jacobianl, weight, qp_dp, coeff_n1_dp
-     integer :: ipar, i, j, k, ispec,iglob
-
-     qp=0.d0
-     qp_dp=0.d0
-
-     coeff=maxval(abs(vect1(:)))
-     call max_all_all_cr(coeff, coeff_n1)
-
-     if (coeff_n1 == 0._CUSTOM_REAL) coeff_n1=1._CUSTOM_REAL
-
-     vect1(:) = vect1(:) / coeff_n1
-     coeff_n1_dp=coeff_n1
-
-     do ipar=1,Niv
-        do ispec = 1, NSPEC
-           do k=1,NGLLZ
-              do j=1,NGLLY
-                 do i=1,NGLLX
-                    iglob=ibool(i,j,k,ispec)
-                    weight = wxgll(i)*wygll(j)*wzgll(k)
-                    jacobianl = jacobian(i,j,k,ispec)
-                    qp_dp = qp_dp + jacobianl * weight * vect1(iglob+(ipar-1)*NGLOB) **2
-                 enddo
-              enddo
-           enddo
-        enddo
-     enddo
-
-     qp_tmp = qp_dp * coeff_n1_dp * coeff_n1_dp
-     qp=0.
-     call sum_all_all_cr(qp_tmp, qp)
-
-  end subroutine Parallel_ComputeL2normSquare
+end subroutine Parallel_ComputeL2normSquare
   !---------------------------------------------------------------------------------------------
