@@ -197,10 +197,10 @@ module postproc_sub
             zstore(NGLOB_AB),stat=ier)
     if (ier /= 0) stop 'Error allocating arrays for mesh nodes'
 
-    ! material properties
-    allocate(kappastore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-            mustore(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
-    if (ier /= 0) stop 'Error allocating arrays for material properties'
+    ! ! material properties
+    ! allocate(kappastore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+    !         mustore(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
+    ! if (ier /= 0) stop 'Error allocating arrays for material properties'
 
     ! material flags
     allocate(ispec_is_acoustic(NSPEC_AB), &
@@ -222,57 +222,8 @@ module postproc_sub
                               x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
                               elemsize_min_glob,elemsize_max_glob, &
                               distance_min_glob,distance_max_glob)
+    call synchronize_all()
 
-    ! outputs infos
-    if (myrank == 0) then
-      print *,'mesh dimensions:'
-      print *,'  Xmin and Xmax of the model = ',x_min_glob,x_max_glob
-      print *,'  Ymin and Ymax of the model = ',y_min_glob,y_max_glob
-      print *,'  Zmin and Zmax of the model = ',z_min_glob,z_max_glob
-      print *
-      print *,'  Max GLL point distance = ',distance_max_glob
-      print *,'  Min GLL point distance = ',distance_min_glob
-      print *,'  Max/min ratio = ',distance_max_glob/distance_min_glob
-      print *
-      print *,'  Max element size = ',elemsize_max_glob
-      print *,'  Min element size = ',elemsize_min_glob
-      print *,'  Max/min ratio = ',elemsize_max_glob/elemsize_min_glob
-      print *
-    endif
-    if (myrank == 0 .and. IMAIN /= 6) &
-      open(unit=IMAIN,file=trim(OUTPUT_FILES)//'/output_mesh_resolution.txt',status='unknown')
-
-    if (ELASTIC_SIMULATION) then
-      call check_mesh_resolution(myrank,NSPEC_AB,NGLOB_AB, &
-                                ibool,xstore,ystore,zstore, &
-                                kappastore,mustore,rho_vp,rho_vs, &
-                                DT,model_speed_max,min_resolved_period, &
-                                LOCAL_PATH,SAVE_MESH_FILES)
-
-    else if (POROELASTIC_SIMULATION) then
-      allocate(rho_vp(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
-      allocate(rho_vs(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
-      rho_vp = 0.0_CUSTOM_REAL
-      rho_vs = 0.0_CUSTOM_REAL
-      call check_mesh_resolution_poro(myrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
-                                      DT,model_speed_max,min_resolved_period, &
-                                      phistore,tortstore,rhoarraystore,rho_vpI,rho_vpII,rho_vsI, &
-                                      LOCAL_PATH,SAVE_MESH_FILES)
-      deallocate(rho_vp,rho_vs)
-    else if (ACOUSTIC_SIMULATION) then
-      allocate(rho_vp(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
-      if (ier /= 0) stop 'Error allocating array rho_vp'
-      allocate(rho_vs(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
-      if (ier /= 0) stop 'Error allocating array rho_vs'
-      rho_vp = sqrt( kappastore / rhostore ) * rhostore
-      rho_vs = 0.0_CUSTOM_REAL
-      call check_mesh_resolution(myrank,NSPEC_AB,NGLOB_AB, &
-                                ibool,xstore,ystore,zstore, &
-                                kappastore,mustore,rho_vp,rho_vs, &
-                                DT,model_speed_max,min_resolved_period, &
-                                LOCAL_PATH,SAVE_MESH_FILES)
-      deallocate(rho_vp,rho_vs)
-    endif    
   end subroutine read_database
 
   subroutine kernel_taper(input_dir)
