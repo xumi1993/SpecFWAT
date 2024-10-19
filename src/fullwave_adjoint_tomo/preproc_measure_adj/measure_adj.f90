@@ -886,7 +886,6 @@ subroutine measure_adj()
 
     nc = maxloc(synz, dim=1)
     ! Todo: cross-correlation for time shift
-    nmax = maxloc(datz, dim=1)
     ! conv1 = zeros(npts)
     ! conv2 = zeros(npts)
     ! conv_diff = zeros(npts)
@@ -894,24 +893,23 @@ subroutine measure_adj()
     conv1_tw = 0.
     conv2_tw = 0.
 
-    call myconvolution(real(datr),real(synz),npts,npts,conv1,1)
+    call myconvolution(real(datz),real(synr),npts,npts,conv1,1)
     conv1 = conv1 * SPECFEM_DT
-    ! nmax1 = maxloc(conv1, dim=1)-nc
+    nmax = maxloc(conv1, dim=1)-nc
   
-    call myconvolution(real(datz),real(synr),npts,npts,conv2,1)
+    call myconvolution(real(datr),real(synz),npts,npts,conv2,1)
     conv2 = conv2 * SPECFEM_DT
     ! nmax2 = maxloc(conv2, dim=1)-nc
 
     conv_diff = conv1-conv2
     nconv = size(conv_diff)
 
-    call myconvolution(-real(datz),conv_diff,npts,nconv,conv_full,1)
+    call myconvolution(real(datz),conv_diff,npts,nconv,conv_full,1)
     nn = nmax*2
     adj_r = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
     deallocate(conv_full)
 
-    call myconvolution(real(datr),conv_diff,npts,nconv,conv_full,1)
-    nn = nmax*2
+    call myconvolution(-real(datr),conv_diff,npts,nconv,conv_full,1)
     adj_z = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
 
     conv1 = conv1(nmax:nmax+npts-1)

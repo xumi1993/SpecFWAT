@@ -80,6 +80,10 @@ subroutine fullwave_adjoint_tomo_main()
     enddo
     ! run postprocessing
     call run_fwat2_postproc_opt(model)
+
+    ! line search
+    call run_optim()
+    
   end do
 end subroutine fullwave_adjoint_tomo_main
 

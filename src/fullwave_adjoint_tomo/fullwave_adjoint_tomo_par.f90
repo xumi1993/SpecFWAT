@@ -38,7 +38,8 @@ module fullwave_adjoint_tomo_par
   character(len= MAX_STRING_LEN)                                   :: source_fname
   character(len= MAX_STRING_LEN)                                   :: station_fname
   character(len=MAX_STRING_LEN), public                            :: PRECOND_TYPE
-  logical,                       public                             :: is_read_database = .true.
+  logical,                       public                            :: is_read_database = .true.
+  real(kind=CUSTOM_REAL)                                           :: alpha 
 
 !################################################# WORKFLOW ######################################################################
   type fwat_acqui
@@ -164,6 +165,8 @@ module fullwave_adjoint_tomo_par
     integer,                public                                     :: TELE_TYPE
     logical,                public                                     :: USE_RF=.false., USE_CD=.false.
     real(kind=CUSTOM_REAL), public, dimension(2)                       :: VPVS_RATIO_RANGE = (1.3, 2.4)
+    integer                                                            :: MAX_SUB_ITERS = 10
+    real(kind=CUSTOM_REAL)                                             :: MAX_SHRINK = 0.618
     
     contains
     procedure :: read_tomo_par_file => fwat_tomo_read_par_file
@@ -715,6 +718,10 @@ subroutine fwat_tomo_read_par_file(this)
           read(line(ipos0:ipos1),*) this%JOINT_WEIGHT(:)
         case('VPVS_RATIO_RANGE')
           read(line(ipos0:ipos1),*) this%VPVS_RATIO_RANGE(:)
+        case('MAX_SUB_ITERS')
+          read(line(ipos0:ipos1),*) this%MAX_SUB_ITERS
+        case('MAX_SHRINK')
+          read(line(ipos0:ipos1),*) this%MAX_SHRINK
       end select
     enddo
   endif
@@ -741,6 +748,8 @@ subroutine fwat_tomo_read_par_file(this)
   call bcast_all_ch_array(this%OPT_METHOD, 1, MAX_STRING_LEN)
   call bcast_all_singlel(this%DO_LS)
   call bcast_all_singlecr(this%MAX_SLEN)
+  call bcast_all_singlei(this%MAX_SUB_ITERS)
+  call bcast_all_singlecr(this%MAX_SHRINK)
   if (myrank /= 0) then
     allocate(this%STEP_LENS(this%NUM_STEP))
   endif

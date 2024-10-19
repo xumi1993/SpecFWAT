@@ -29,7 +29,8 @@ subroutine run_fwat2_postproc_opt(model)
   use tomography_kernels_iso
   use taper3d
   use constants, only: IMAIN
-  use postproc_sub, only: post_proc, sum_joint_kernels, read_database, get_kernel_names, type_name,this_model=>model
+  use postproc_sub, only: post_proc, sum_joint_kernels, read_database, get_kernel_names, type_name, this_model=>model, &
+                          model_prev, model_next
   implicit none
 
   ! real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
@@ -39,7 +40,7 @@ subroutine run_fwat2_postproc_opt(model)
   ! real(kind=CUSTOM_REAL) :: z_min_glob,z_max_glob
 
 
-  character(len=MAX_STRING_LEN)                   :: model,model_prev,model_next 
+  character(len=MAX_STRING_LEN)                   :: model
   ! character(len=MAX_STRING_LEN)                   :: evtsetb,evtsete,is_smooth 
   character(len=MAX_STRING_LEN)                   :: strstep,strinv
   ! character(len=MAX_STRING_LEN) :: input_dir,output_dir,ekernel_dir_list
@@ -91,15 +92,7 @@ subroutine run_fwat2_postproc_opt(model)
     if(imod_current==0) then
       call system('mkdir -p optimize/MODEL_M00 && cp model_initial/* optimize/MODEL_M00/')
     endif
-    if (tomo_par%DO_LS) then
-      do istep=1,tomo_par%NUM_STEP
-        step_fac=tomo_par%STEP_LENS(istep)
-        write(strstep,'(F5.3)') step_fac
-        call system('mkdir -p optimize/MODEL_'//trim(model)//'_step'//trim(strstep))
-      enddo
-    else
-        call system('mkdir -p optimize/MODEL_'//trim(model_next))
-    endif
+    call system('mkdir -p optimize/MODEL_'//trim(model_next))
   endif 
   call synchronize_all()
 ! -----------------------------------------------------------------
@@ -126,43 +119,43 @@ subroutine run_fwat2_postproc_opt(model)
   endif
   call synchronize_all()
 !------------------------------------------------------------------
-! optimize (SD, CG or LBFGS)
-  if(myrank==0) then
-    call write_timestamp_log(OUT_FWAT_LOG, 'This is optimize ...')
-    flush(OUT_FWAT_LOG)
-  endif
-  INPUT_MODEL_DIR='optimize/MODEL_'//trim(model)//'/'
-  if (imod_down<tomo_par%ITER_START) then
-    KERNEL_OLD_DIR='none'
-  else
-    KERNEL_OLD_DIR='optimize/SUM_KERNELS_'//trim(model_prev)//'/'
-  endif
-  INPUT_KERNELS_DIR='optimize/SUM_KERNELS_'//trim(model)//'/'
-  PRINT_STATISTICS_FILES=.false.
-  INPUT_DATABASES_DIR=trim(LOCAL_PATH)//'/'
-  iter_start=tomo_par%ITER_START
-  iter_current=imod_current
-  if (tomo_par%DO_LS) then
-    do istep=1,tomo_par%NUM_STEP
-      step_fac=tomo_par%STEP_LENS(istep)
-      write(strstep,'(F5.3)') step_fac
-      OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model)//'_step'//trim(strstep)//'/'
-      if (myrank == 0) call write_timestamp_log(OUT_FWAT_LOG, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
-      call model_update_opt()
-    enddo
-  else
-    step_fac=tomo_par%MAX_SLEN
-    OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model_next)//'/'
-    if (myrank == 0) call write_timestamp_log(OUT_FWAT_LOG, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
-    call model_update_opt() ! run first time to save model 
-    if (trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model) .and. &
-        trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model)//'/' .and. &
-        trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model) .and. &
-        trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model)//'/') then
-      OUTPUT_MODEL_DIR=trim(LOCAL_PATH)//'/' ! run second time to be called for next iteration
-      call model_update_opt()
-    endif
-  endif 
+! ! optimize (SD, CG or LBFGS)
+!   if(myrank==0) then
+!     call write_timestamp_log(OUT_FWAT_LOG, 'This is optimize ...')
+!     flush(OUT_FWAT_LOG)
+!   endif
+!   INPUT_MODEL_DIR='optimize/MODEL_'//trim(model)//'/'
+!   if (imod_down<tomo_par%ITER_START) then
+!     KERNEL_OLD_DIR='none'
+!   else
+!     KERNEL_OLD_DIR='optimize/SUM_KERNELS_'//trim(model_prev)//'/'
+!   endif
+!   INPUT_KERNELS_DIR='optimize/SUM_KERNELS_'//trim(model)//'/'
+!   PRINT_STATISTICS_FILES=.false.
+!   INPUT_DATABASES_DIR=trim(LOCAL_PATH)//'/'
+!   iter_start=tomo_par%ITER_START
+!   iter_current=imod_current
+!   if (tomo_par%DO_LS) then
+!     do istep=1,tomo_par%NUM_STEP
+!       step_fac=tomo_par%STEP_LENS(istep)
+!       write(strstep,'(F5.3)') step_fac
+!       OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model)//'_step'//trim(strstep)//'/'
+!       if (myrank == 0) call write_timestamp_log(OUT_FWAT_LOG, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
+!       call model_update_opt()
+!     enddo
+!   else
+!     step_fac=tomo_par%MAX_SLEN
+!     OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model_next)//'/'
+!     if (myrank == 0) call write_timestamp_log(OUT_FWAT_LOG, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
+!     call model_update_opt() ! run first time to save model 
+!     if (trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model) .and. &
+!         trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model)//'/' .and. &
+!         trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model) .and. &
+!         trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model)//'/') then
+!       OUTPUT_MODEL_DIR=trim(LOCAL_PATH)//'/' ! run second time to be called for next iteration
+!       call model_update_opt()
+!     endif
+!   endif 
 ! -----------------------------------------------------------------
   
   if(myrank==0)  write(OUT_FWAT_LOG,*) '*******************************************************'

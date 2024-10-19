@@ -45,6 +45,7 @@
  
   ! call run_fwat2_postproc_opt(model,evtsetb,evtsete,is_smooth)
   call run_fwat2_postproc_opt(model)
+  call run_optim_man()
   call cpu_time(t2)
 
   if(myrank==0) print *,'Computation time with CPU:',t2-t1

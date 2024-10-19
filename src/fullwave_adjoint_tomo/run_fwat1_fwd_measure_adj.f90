@@ -94,13 +94,12 @@ subroutine run_fwat1_fwd_measure_adj(model,evtset,simu_type,run_opt_num)
   SAVE_FORWARD=.false.
   MOVIE_VOLUME=.false.
   SAVE_MESH_FILES=.false.
-  read(model(2:),'(I2.2)') imod_current
-  if (tomo_par%DO_LS .and. imod_current>0) then
-    LOCAL_PATH='optimize/MODEL_'//trim(model)
-  endif
+  ! read(model(2:),'(I2.2)') imod_current
+  ! if (tomo_par%DO_LS .and. imod_current>0) then
+    ! LOCAL_PATH='optimize/MODEL_'//trim(model)
+  ! endif
   old_local_path = LOCAL_PATH
-  if(myrank==0) write(OUT_FWAT_LOG,*) 'model from  ',trim(LOCAL_PATH)
-  if(myrank==0) write(*,*) 'model from  ',trim(LOCAL_PATH)
+  if(myrank==0) write(OUT_FWAT_LOG,*) 'Read database from ',trim(LOCAL_PATH)
   ! reads in external mesh
   if (ADIOS_FOR_MESH) then
     call read_mesh_databases_adios()

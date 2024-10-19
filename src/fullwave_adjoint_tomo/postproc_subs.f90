@@ -12,7 +12,7 @@ module postproc_sub
 
 
   character(len=MAX_STRING_LEN), public, dimension(2)  :: set_range
-  character(len=MAX_STRING_LEN), public                :: type_name, sum_dir, model
+  character(len=MAX_STRING_LEN), public                :: type_name, sum_dir, model, model_prev,model_next 
   character(len=MAX_STRING_LEN), public                :: ekernel_dir_list='optimize/ekernel_dir.lst'
   real(kind=CUSTOM_REAL), public                       :: distance_min_glob,distance_max_glob
   real(kind=CUSTOM_REAL), public                       :: elemsize_min_glob,elemsize_max_glob
@@ -494,9 +494,11 @@ module postproc_sub
   subroutine read_misfit(simu_type, model_name, sum_chi, nchan)
     implicit none
 
+    integer, intent(out)                               :: nchan
+    double precision, intent(out)                      :: sum_chi
     type(chi_table)                                    :: chi
     integer                                            :: setb,sete,iset,nflt,&
-                                                          iband,nchan,i,nevt
+                                                          iband,i,nevt
     integer, parameter                                 :: col = 29, max_ndim=100000
     character(len=MAX_STRING_LEN), dimension(:), allocatable  :: evtnames
     character(len=MAX_STRING_LEN)                      :: fname,strset,bandname
@@ -504,7 +506,7 @@ module postproc_sub
     double precision, dimension(:), allocatable        :: array
     double precision, dimension(max_ndim)              :: chi_non_zero
     real(kind=CUSTOM_REAL), dimension(:), allocatable  :: weight
-    double precision                                   :: mean_chi,std_chi,sum_chi
+    double precision                                   :: mean_chi,std_chi
 
     call setup_common_variables(simu_type)
     read(set_range(1)(4:),'(I3)') setb 
@@ -516,38 +518,42 @@ module postproc_sub
     endif
     nchan = 0
     chi_non_zero = 0
-    do iset=setb,sete
-      write(strset,'("set",I0)') iset
-      call read_evt_weight(strset, nevt, evtnames, weight)
-      do iband=1, nflt
-        if (simu_type == 'rf') then
-          write(bandname,'(a1,f3.1)') 'F',rf_par%f0(iband)
-        else
-          call get_band_name(SHORT_P(iband),LONG_P(iband),bandname)
-          ! write(bandname,'(a1,i3.3,a2,i3.3)') 'T',int(SHORT_P(iband)),'_T',int(LONG_P(iband))
-        endif
-        fname = 'misfits/'//trim(model_name)//'.'//trim(strset)//&
-                '_'//trim(bandname)//'_window_chi'
-        call chi%read_misfits(fname)
-        allocate(array(chi%n_rows))
-        ! fname = 'src_rec/sources'//trim(strset)//'.dat'
-        ! call chi%apply_weight(col, nevt, evtnames, weight,array)
-        ! print *, chi%tr_chi
-        array = chi%get_column(col)
-        do i = 1, chi%n_rows
-          if (array(i) > 1.d-15) then
-            chi_non_zero(nchan+1) = array(i)
-            nchan = nchan + 1
+    if (myrank == 0) then
+      do iset=setb,sete
+        write(strset,'("set",I0)') iset
+        call read_evt_weight(strset, nevt, evtnames, weight)
+        do iband=1, nflt
+          if (simu_type == 'rf') then
+            write(bandname,'(a1,f3.1)') 'F',rf_par%f0(iband)
+          else
+            call get_band_name(SHORT_P(iband),LONG_P(iband),bandname)
+            ! write(bandname,'(a1,i3.3,a2,i3.3)') 'T',int(SHORT_P(iband)),'_T',int(LONG_P(iband))
           endif
+          fname = 'misfits/'//trim(model_name)//'.'//trim(strset)//&
+                  '_'//trim(bandname)//'_window_chi'
+          call chi%read_misfits(fname)
+          allocate(array(chi%n_rows))
+          ! fname = 'src_rec/sources'//trim(strset)//'.dat'
+          ! call chi%apply_weight(col, nevt, evtnames, weight,array)
+          ! print *, chi%tr_chi
+          array = chi%get_column(col)
+          do i = 1, chi%n_rows
+            if (array(i) > 1.d-15) then
+              chi_non_zero(nchan+1) = array(i)
+              nchan = nchan + 1
+            endif
+          enddo
+          deallocate(array)
+          call chi%distory()
         enddo
-        deallocate(array)
-        call chi%distory()
+        deallocate(evtnames, weight)
       enddo
-      deallocate(evtnames, weight)
-    enddo
-    sum_chi = sum( chi_non_zero(1:nchan) )
-    mean_chi = sum_chi / nchan
-    std_chi = dsqrt( (sum( chi_non_zero(1:nchan)**2)/nchan - mean_chi**2 )*nchan)
+      sum_chi = sum( chi_non_zero(1:nchan) )
+      mean_chi = sum_chi / nchan
+      std_chi = dsqrt( (sum( chi_non_zero(1:nchan)**2)/nchan - mean_chi**2 )*nchan)
+    endif
+    call bcast_all_singledp(sum_chi)
+    call bcast_all_singlei(nchan)
   end subroutine
 
 end module

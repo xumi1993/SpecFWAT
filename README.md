@@ -22,6 +22,12 @@ Alternatively, you can specify the compiler and MPI compiler by using the follow
 CC=gcc-13 FC=gfortran-13 MPIFC=mpifort cmake .. && make -j
 ```
 
+For Intel compilers, you can use the following command:
+
+```bash
+CC=icc FC=ifort MPIFC=mpiifort cmake .. && make -j
+```
+
 ## Difference from the original SPECFEM3D
 
 In this package, we have made some changes to the original SPECFEM3D code. The main changes are:
