@@ -40,7 +40,7 @@ subroutine run_fwat1_fwd_measure_adj(model,evtset,simu_type,run_opt_num)
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: sum_mu_kl 
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: sum_kappa_kl 
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: sum_hess_kl 
-  integer :: imod_current,iband,chi_fileid,win_fileid
+  ! integer :: imod_current,iband,chi_fileid,win_fileid
 
   
   !**************** Build directories for the storage ****************************
@@ -323,13 +323,24 @@ subroutine run_fwat1_fwd_measure_adj(model,evtset,simu_type,run_opt_num)
     endif ! end of run_opt
     if(myrank==0)  write(OUT_FWAT_LOG,*) '----------------------------------------'
   enddo ! end loop of ievt
-  do iband=1,NUM_FILTER
+
+  ! close misfit file
+  block
+    integer :: nflt, iband, chi_fileid, win_fileid
     if(myrank==0) then
-      chi_fileid=30+iband;win_fileid=100+iband
-      close(chi_fileid)
-      close(win_fileid)
+      if (simu_type == 'rf') then
+        nflt = rf_par%NGAUSS
+      else
+        nflt = NUM_FILTER
+      endif
+      do iband=1,NUM_FILTER
+        chi_fileid=30+iband;win_fileid=100+iband
+        close(chi_fileid)
+        close(win_fileid)
+      enddo
     endif
-  enddo
+  end block
+
   !=================================================================================
   if (run_opt_num.gt.2) then
     !!! Save summed kernels into file

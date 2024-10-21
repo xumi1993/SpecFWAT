@@ -22,7 +22,7 @@ subroutine run_optim()
   integer                                                         :: nchan, i, j, sit
   integer                                                         :: imod_current,imod_up, imod_down
   integer,                               parameter                :: LOG_UNIT = 898
-  character(len=MAX_STRING_LEN)                                   :: model_ls, evtset, msg, strstep
+  character(len=MAX_STRING_LEN)                                   :: model_ls, evtset, msg, strstep, model_start
 
 ! ------------------------------------------------------------------
 ! optimize (SD, CG or LBFGS)
@@ -52,12 +52,13 @@ subroutine run_optim()
     step_fac = tomo_par%MAX_SLEN
     misfit = 0.0
     misfit0 = 0.0
+    write(model_start, '("M",I2.2)') tomo_par%ITER_START
     do i = 1, NUM_INV_TYPE
       if (tomo_par%INV_TYPE(i)) then
         call read_misfit(tomo_par%INV_TYPE_NAME(i), model, chi, nchan)
-        call read_misfit(tomo_par%INV_TYPE_NAME(i), 'M00', chi0, nchan)
-        misfit0(i) = chi0
-        misfit = misfit + chi / misfit0(i)
+        call read_misfit(tomo_par%INV_TYPE_NAME(i), model_start, chi0, nchan)
+        misfit0(i) = chi0 * tomo_par%JOINT_WEIGHT(i)
+        misfit = misfit + (chi * tomo_par%JOINT_WEIGHT(i) / misfit0(i))
       endif
     enddo
     call synchronize_all()
@@ -93,22 +94,27 @@ subroutine run_optim()
             call run_linesearch(model_ls, evtset, type_name)
           enddo
           call read_misfit(type_name, model_ls, chi, nchan)
-          this_misfit = this_misfit + chi / misfit0(i)
+          this_misfit = this_misfit + chi * tomo_par%JOINT_WEIGHT(i) / misfit0(i)
         endif
       enddo
       call synchronize_all()
 
       ! check misfit
       if (this_misfit < misfit) then
-        write(msg, '("Norm misfit reduced from ",F20.6," to ",F20.6)') misfit, this_misfit
-        call write_timestamp_log(LOG_UNIT, msg)
-        call write_timestamp_log(LOG_UNIT, 'Accept model')
-        flush(LOG_UNIT)
+        if (myrank == 0) then
+          write(msg, '("Norm misfit reduced from ",F20.6," to ",F20.6)') misfit, this_misfit
+          call write_timestamp_log(LOG_UNIT, msg)
+          call write_timestamp_log(LOG_UNIT, 'Accept model')
+          flush(LOG_UNIT)
+        endif
         exit
       else
-        write(msg, '("Norm misfit increased from ",F20.6," to ",F20.6)') misfit, this_misfit
-        call write_timestamp_log(LOG_UNIT, msg)
-        flush(LOG_UNIT)
+        if (myrank == 0) then
+          write(msg, '("Norm misfit increased from ",F20.6," to ",F20.6)') misfit, this_misfit
+          call write_timestamp_log(LOG_UNIT, msg)
+          flush(LOG_UNIT)
+        endif
+        step_fac = step_fac * tomo_par%MAX_SHRINK
       endif
     enddo
   else
@@ -153,17 +159,21 @@ subroutine run_optim_man()
 
   implicit none
 
-  integer                                         :: i,istep,imod_current,imod_up, imod_down
-  character(len=MAX_STRING_LEN)                   :: strstep
+  integer,                               parameter                :: LOG_UNIT = 898
+  integer                                                         :: i,istep,imod_current,imod_up, imod_down
+  character(len=MAX_STRING_LEN)                                   :: strstep
 
+  call world_rank(myrank)
   read(model(2:),'(I2.2)') imod_current
   imod_up=imod_current+1
   imod_down=imod_current-1
   ! optimize (SD, CG or LBFGS)
-  ! if(myrank==0) then
-    ! call write_timestamp_log(OUT_FWAT_LOG, 'This is optimize ...')
-    ! flush(OUT_FWAT_LOG)
-  ! endif
+  if(myrank==0) then
+    open(unit=LOG_UNIT,file='output_fwat3_log_'//trim(model)//'.txt')
+    write(LOG_UNIT,*) '*******************************************************'
+    call write_timestamp_log(LOG_UNIT, 'This is optimize ...')
+    flush(LOG_UNIT)
+  endif
   INPUT_MODEL_DIR='optimize/MODEL_'//trim(model)//'/'
   if (imod_down<tomo_par%ITER_START) then
     KERNEL_OLD_DIR='none'
@@ -181,20 +191,24 @@ subroutine run_optim_man()
       write(strstep,'(F5.3)') step_fac
       OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model)//'_step'//trim(strstep)//'/'
       call system('mkdir -p '//trim(OUTPUT_MODEL_DIR))
-      ! if (myrank == 0) call write_timestamp_log(OUT_FWAT_LOG, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
+      if (myrank == 0) call write_timestamp_log(LOG_UNIT, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
       call model_update_opt()
     enddo
   else
     step_fac=tomo_par%MAX_SLEN
     OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model_next)//'/'
-    ! if (myrank == 0) call write_timestamp_log(OUT_FWAT_LOG, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
+    if (myrank == 0) call write_timestamp_log(LOG_UNIT, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
     call model_update_opt() ! run first time to save model 
     if (trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model) .and. &
         trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model)//'/' .and. &
         trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model) .and. &
         trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model)//'/') then
-      OUTPUT_MODEL_DIR=trim(LOCAL_PATH)//'/' ! run second time to be called for next iteration
+      OUTPUT_MODEL_DIR=trim(LOCAL_PATH)//'/' ! run second time to be called for next iteratio
+      if (myrank == 0) call write_timestamp_log(LOG_UNIT, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
       call model_update_opt()
     endif
   endif 
+  if (myrank==0) write(LOG_UNIT,*) '*******************************************************'
+  if (myrank==0) write(LOG_UNIT,*) 'Finish stage3 optimization'
+  if (myrank==0) close(LOG_UNIT)
 end subroutine run_optim_man

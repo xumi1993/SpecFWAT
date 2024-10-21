@@ -29,6 +29,7 @@ subroutine run_linesearch(model,evtset,simu_type)
   character(len=MAX_STRING_LEN)                                 :: fwd_dir 
   integer                                                       :: ier
   integer                                                       :: ievt
+  logical                                         :: VERBOSE_MODE_copy
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: rmass_copy
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: rmass_acoustic_copy
@@ -37,6 +38,8 @@ subroutine run_linesearch(model,evtset,simu_type)
   !**************** Build directories for the storage ****************************
   call world_rank(myrank)  
   call setup_common_variables(simu_type)
+  VERBOSE_MODE_copy = VERBOSE_MODE
+  VERBOSE_MODE = .false. ! turn off verbose mode for line search
   if (myrank == 0) then
     open(unit=OUT_FWAT_LOG,file='output_fwat3_log_'//trim(model)//'.'//trim(evtset)//'.txt')
     write(OUT_FWAT_LOG,*) 'This is run_linesearch !!!'
@@ -201,12 +204,29 @@ subroutine run_linesearch(model,evtset,simu_type)
     call run_preprocessing(model,evtset,ievt,simu_type,0)
 
     LOCAL_PATH = old_local_path
+    VERBOSE_MODE = VERBOSE_MODE_copy
     if(myrank==0) then
       write(OUT_FWAT_LOG,*) '----------------------------------------'
       flush(OUT_FWAT_LOG)
     endif
-
   enddo ! end loop of ievt
+
+  ! close misfit file
+  block
+    integer :: nflt, iband, chi_fileid, win_fileid
+    if(myrank==0) then
+      if (simu_type == 'rf') then
+        nflt = rf_par%NGAUSS
+      else
+        nflt = NUM_FILTER
+      endif
+      do iband=1,NUM_FILTER
+        chi_fileid=30+iband;win_fileid=100+iband
+        close(chi_fileid)
+        close(win_fileid)
+      enddo
+    endif
+  end block
   !=================================================================================
  
   !********************* end  ******************************************************
