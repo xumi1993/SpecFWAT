@@ -164,13 +164,6 @@ subroutine run_linesearch(model,evtset,simu_type)
     SIMULATION_TYPE=1
     SAVE_FORWARD=.false.
 
-    ! ! save STRAIN when use attenuation
-    ! if (ATTENUATION) then
-    !   COMPUTE_AND_STORE_STRAIN = .true.
-    ! else
-    !   COMPUTE_AND_STORE_STRAIN = .false.
-    ! endif
-
     ! Initialize variable for solver
     call InitSpecfem()
     ! prepares sources and receivers

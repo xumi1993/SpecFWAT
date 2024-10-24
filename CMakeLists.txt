@@ -147,6 +147,7 @@ foreach(execsourcefile ${APP_SOURCES})
 
 endforeach()
 
+add_subdirectory(${SOURCE_FWAT_DIR}/post_processing)
 add_subdirectory(${SOURCE_DIR}/aux)
 
 # if(BUILD_TESTING)
