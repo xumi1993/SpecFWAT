@@ -4,7 +4,10 @@ set(FWAT_SPECFEM_INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/specfem_initialize_simul
                            "${CMAKE_CURRENT_SOURCE_DIR}/specfem_save_adjoint_kernels_fwat.f90"
                            "${CMAKE_CURRENT_SOURCE_DIR}/specfem_setup_sources_receivers_fwat.f90"
                            )
-set(FWAT_mesh_gen_INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/specfem_meshfem3D.f90" )
+set(FWAT_mesh_gen_INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/specfem_meshfem3D.f90"
+                            "${CMAKE_CURRENT_SOURCE_DIR}/read_mesh_parameter_file_fwat.f90"
+                            "${CMAKE_CURRENT_SOURCE_DIR}/create_regions_mesh_fwat.f90"
+                            )
 set(FWAT_read_mesh_INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/specfem_read_mesh_database.f90" )
 
 include_directories(

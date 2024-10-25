@@ -549,21 +549,18 @@ xdynmbat_sele_ctrlgrp_SHARED_OBJECTS = \
 	$(EMPTY_MACRO)
 grid_and_combine_vol_data_OBJECTS = \
 	$O/fullwave_adjoint_tomo_par.fwat_par.o \
-	$O/npy.fwat_aux.o \
 	$O/specfem3D_par.spec_module.o \
 	$O/projection_on_FD_grid_mod_fwat.fwat_aux.o \
 	$O/model_grid.fwat_aux.o \
 	$(EMPTY_MACRO)
 grid_and_combine_vol_data_cert_OBJECTS = \
 	$O/fullwave_adjoint_tomo_par.fwat_par.o \
-	$O/npy.fwat_aux.o \
 	$O/specfem3D_par.spec_module.o \
 	$O/projection_on_FD_grid_mod_fwat.fwat_aux.o \
 	$O/model_grid_cert.fwat_aux.o \
 	$(EMPTY_MACRO)
 decomp_grid2gll_OBJECTS = \
 	$O/fullwave_adjoint_tomo_par.fwat_par.o \
-	$O/npy.fwat_aux.o \
 	$O/specfem3D_par.spec_module.o \
 	$O/projection_on_FD_grid_mod_fwat.fwat_aux.o \
 	$O/model_gll.fwat_aux.o \

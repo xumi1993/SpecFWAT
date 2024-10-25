@@ -289,7 +289,8 @@ subroutine setup_mesh_fwat()
   call synchronize_all()
   
   call crm_ext_deallocate_arrays()
-  call create_regions_mesh()
+  ! call create_regions_mesh()
+  call create_regions_mesh_fwat()
 
   ! print min and max of topography included
   min_elevation = HUGEVAL

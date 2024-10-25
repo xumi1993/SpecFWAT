@@ -27,6 +27,7 @@ include_directories(
 add_subdirectory(preproc_measure_adj)
 add_subdirectory(preproc_flexwin)
 add_subdirectory(specfem_interface)
+add_subdirectory(grid_interface)
 
 
 add_library(fwat_interpolation_objs OBJECT ${SOURCE_FWAT_DIR}/teleseis_stf/interpolation_mod.f90)

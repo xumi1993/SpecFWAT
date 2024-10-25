@@ -53,11 +53,7 @@ subroutine fullwave_adjoint_tomo_main()
   call read_parameter_file(myrank,.true.)
   call read_fwat_par_file()
   is_read_database = .false.
-  ! read mesh parameter file
-  call read_mesh_parameter_file()
-  call synchronize_all()
-  ! initialize starting model mesh
-  call meshfem3d_fwat()
+  call init_inversion()
 
   !!!##############################################################################################################################
   !!! -------------------------------  different running mode : forward or FWI ----------------------------------------------------
@@ -65,12 +61,18 @@ subroutine fullwave_adjoint_tomo_main()
   do iter = iter_start, iter_end
     write(model,'("M",I2.2)') iter
 
-    ! generate database for forward simulation
-    call generate_database_fwat()
     ! run forward and adjoint simulation
     do i = 1, NUM_INV_TYPE
       if (tomo_par%INV_TYPE(i)) then
+        ! read mesh parameter file
+        call read_mesh_parameter_file_fwat(get_mesh_file_path(i))
+        ! initialize starting model mesh
+        call meshfem3d_fwat()
+        ! generate database for forward simulation
+        call generate_database_fwat()
+        
         type_name = tomo_par%INV_TYPE_NAME(i)    
+        
         call select_set_range()
         do j = isetb, isete
           write(evtset,'("set",I0)') j
@@ -86,4 +88,40 @@ subroutine fullwave_adjoint_tomo_main()
     
   end do
 end subroutine fullwave_adjoint_tomo_main
+
+subroutine init_inversion()
+
+  use fullwave_adjoint_tomo_par
+  use generate_databases_par, only: IMODEL 
+  use fwat_utils, only :: get_mesh_file_path
+
+  implicit none
+
+  integer :: itype
+
+  if (myrank == 0) then
+    ! check IMODEL
+    if (IMODEL /= 7 .and. IMODEL /= 6) then
+      print *, 'ERROR: MODEL must be gll or external'
+      stop
+    endif
+
+    ! check for joint
+    if (count(tomo_par%INV_TYPE) > 1) then
+      is_joint = .true.
+      if (IMODEL /= 6) then
+        print *, 'ERROR: Joint inversion only supports external model'
+        stop
+      do itype = 1, NUM_INV_TYPE
+        if (tomo_par%INV_TYPE(itype)) then
+          if (.not. inquire(get_mesh_file_path(itype))) then
+            print *, 'ERROR: No found mesh file of ', trim(get_mesh_file_path(itype))
+            stop
+          endif
+        endif
+      end do
+    endif ! is_joint
+  endif ! myrank == 0
+
+end subroutine
 

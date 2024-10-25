@@ -2,7 +2,6 @@ program sem_model_slice
 
   use constants
   use shared_parameters
-  use m_npy
   use my_mpi             !! module from specfem
   use hdf5_interface
   use shared_input_parameters, only: SUPPRESS_UTM_PROJECTION

@@ -7,12 +7,6 @@ include_directories(
 )
 find_package(MPI REQUIRED)
 
-add_library(aux_objs OBJECT
-  "${CMAKE_CURRENT_SOURCE_DIR}/projection_on_FD_grid_mod_fwat.f90"
-  "${CMAKE_CURRENT_SOURCE_DIR}/npy.f90"
-)
-target_link_libraries(aux_objs PRIVATE specfem3D_objs shared_objs MPI::MPI_Fortran)
-
 set(APP_SOURCES
   combine_vol_data_vtk.F90
   add_pert_gaus.f90
@@ -31,7 +25,7 @@ foreach(execsourcefile ${APP_SOURCES})
     add_executable(${EXEC_NAME} ${execsourcefile})
   endif()
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
-  target_link_libraries(${EXEC_NAME} PRIVATE shared_objs aux_objs)
+  target_link_libraries(${EXEC_NAME} PRIVATE shared_objs grid_interface_objs)
   target_link_libraries(${EXEC_NAME} PRIVATE MPI::MPI_Fortran)
   target_link_libraries(${EXEC_NAME} PRIVATE specfem3D_objs fwat_shared_objs)
   target_link_libraries(${EXEC_NAME} PUBLIC ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})

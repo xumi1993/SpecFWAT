@@ -38,8 +38,10 @@ module fullwave_adjoint_tomo_par
   character(len= MAX_STRING_LEN)                                   :: source_fname
   character(len= MAX_STRING_LEN)                                   :: station_fname
   character(len=MAX_STRING_LEN), public                            :: PRECOND_TYPE
-  logical,                       public                            :: is_read_database = .true.
+  character(len=MAX_STRING_LEN), public                            :: GRID_PATH
+  logical,                       public                            :: is_read_database = .true., is_joint
   real(kind=CUSTOM_REAL)                                           :: alpha 
+  real(kind=CUSTOM_REAL),        public                            :: xmin, xmax, ymin, ymax, zmin, zmax
 
 !################################################# WORKFLOW ######################################################################
   type fwat_acqui
@@ -67,6 +69,7 @@ module fullwave_adjoint_tomo_par
     integer, public                                                   :: NUM_FILTER, NSTEP
     character(len= MAX_STRING_LEN), public                            :: CH_CODE, dat_coord
     character(len= MAX_STRING_LEN), public                            :: PRECOND_TYPE = 'default'
+    character(len= MAX_STRING_LEN), public                            :: MESH_FILE_PATH = 'DATA/meshfem3D_files/Mesh_Par_file'
     real(kind=CUSTOM_REAL), public                                    :: DT
     real(kind=CUSTOM_REAL), public, dimension(:),       allocatable   :: SHORT_P
     real(kind=CUSTOM_REAL), public, dimension(:),       allocatable   :: LONG_P
@@ -91,6 +94,7 @@ module fullwave_adjoint_tomo_par
     real(kind=CUSTOM_REAL), public                                    :: DT
     character(len= MAX_STRING_LEN), public                            :: CH_CODE, dat_coord
     character(len= MAX_STRING_LEN), public                            :: PRECOND_TYPE = 'z_precond'
+    character(len= MAX_STRING_LEN), public                            :: MESH_FILE_PATH = 'DATA/meshfem3D_files/Mesh_Par_file'
     real(kind=CUSTOM_REAL), public, dimension(:),       allocatable   :: SHORT_P
     real(kind=CUSTOM_REAL), public, dimension(:),       allocatable   :: LONG_P
     real(kind=CUSTOM_REAL), public                                    :: TW_BEFORE, TW_AFTER ! time window before and after ttp
@@ -121,7 +125,8 @@ module fullwave_adjoint_tomo_par
     integer, public                                                    :: NRCOMP
     character(len= MAX_STRING_LEN), public, dimension(:), allocatable  :: RCOMPS
     character(len= MAX_STRING_LEN), public                             :: CH_CODE, dat_coord
-    character(len= MAX_STRING_LEN), public                            :: PRECOND_TYPE = 'default'
+    character(len= MAX_STRING_LEN), public                             :: PRECOND_TYPE = 'default'
+    character(len= MAX_STRING_LEN), public                             :: MESH_FILE_PATH = 'DATA/meshfem3D_files/Mesh_Par_file'
     integer, public                                                    :: NUM_FILTER,NSTEP
     real(kind=CUSTOM_REAL), public                                     :: DT
     real(kind=CUSTOM_REAL), public, dimension(:),       allocatable    :: SHORT_P
@@ -330,6 +335,8 @@ subroutine fwat_noise_read_par_file(this)
               this%dat_coord='ZNE'
             endif
           enddo
+        case('NOISE_MESH_FILE_PATH')
+          read(line(ipos0:ipos1),*) this%MESH_FILE_PATH
         case('NOISE_CH_CODE')
           read(line(ipos0:ipos1),*) this%CH_CODE
         case('NOISE_NSTEP')
@@ -382,6 +389,7 @@ subroutine fwat_noise_read_par_file(this)
   call bcast_all_ch_array(this%RCOMPS, this%NRCOMP, MAX_STRING_LEN)
   call bcast_all_ch_array(this%dat_coord, 1, MAX_STRING_LEN)
   call bcast_all_ch_array(this%CH_CODE, 1, MAX_STRING_LEN)
+  call bcast_all_ch_array(this%MESH_FILE_PATH, 1, MAX_STRING_LEN)
   call bcast_all_cr(this%SHORT_P, this%NUM_FILTER)
   call bcast_all_cr(this%LONG_P, this%NUM_FILTER)
   call bcast_all_cr(this%GROUPVEL_MIN, this%NUM_FILTER)!BinHe added Kai changed int to real
@@ -435,6 +443,8 @@ subroutine fwat_tele_read_par_file(this)
               this%dat_coord='ZNE'
             endif
           enddo
+        case ('TELE_MESH_FILE_PATH')
+          read(line(ipos0:ipos1),*) this%MESH_FILE_PATH
         case('TELE_CH_CODE')
           read(line(ipos0:ipos1),*) this%CH_CODE
         case('TELE_NSTEP')
@@ -476,6 +486,7 @@ subroutine fwat_tele_read_par_file(this)
   call bcast_all_ch_array(this%RCOMPS,this%NRCOMP, MAX_STRING_LEN)
   call bcast_all_ch_array(this%dat_coord, 1, MAX_STRING_LEN)
   call bcast_all_ch_array(this%CH_CODE, 1, MAX_STRING_LEN)
+  call bcast_all_ch_array(this%MESH_FILE_PATH, 1, MAX_STRING_LEN)
   call bcast_all_cr(this%SHORT_P, this%NUM_FILTER)
   call bcast_all_cr(this%LONG_P, this%NUM_FILTER)
   call bcast_all_singlecr(this%TW_BEFORE)
@@ -577,6 +588,8 @@ subroutine fwat_leq_read_par_file(this)
               this%dat_coord='ZNE'
             endif
           enddo
+        case('LEQ_MESH_FILE_PATH')
+          read(line(ipos0:ipos1),*) this%MESH_FILE_PATH
         case('LEQ_CH_CODE')
           read(line(ipos0:ipos1),*) this%CH_CODE
         case('LEQ_NSTEP')
@@ -615,6 +628,9 @@ subroutine fwat_leq_read_par_file(this)
   call bcast_all_cr(this%SHORT_P, this%NUM_FILTER)
   call bcast_all_cr(this%LONG_P, this%NUM_FILTER)
   call bcast_all_ch_array(this%PRECOND_TYPE, 1, MAX_STRING_LEN)
+  call bcast_all_ch_array(this%dat_coord, 1, MAX_STRING_LEN)
+  call bcast_all_ch_array(this%CH_CODE, 1, MAX_STRING_LEN)
+  call bcast_all_ch_array(this%MESH_FILE_PATH, 1, MAX_STRING_LEN)
 
 end subroutine fwat_leq_read_par_file
 

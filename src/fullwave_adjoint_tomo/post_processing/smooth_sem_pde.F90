@@ -2,8 +2,8 @@
 
 program smooth_sem_pde
   use constants, only: HUGEVAL
-  use postprocess_par, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
-    MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI
+  ! use postprocess_par, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
+  !   MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI
   use specfem_par
   use specfem_par_elastic, only: ispec_is_elastic, &
       nspec_inner_elastic,nspec_outer_elastic,phase_ispec_inner_elastic
