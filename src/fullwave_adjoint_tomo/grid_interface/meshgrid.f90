@@ -140,14 +140,14 @@ subroutine gridmodel(this, indir, dataname, model_on_FD_grid)
 
   call this%griddata(indir, dataname, model_on_FD_grid)
 
-  do i=1, rg%nx
-    do j=1, rg%ny
-      do k=1, rg%nz
+  do i=1, this%nx
+    do j=1, this%ny
+      do k=1, this%nz
         if (model_on_FD_grid(i,j,k) == 0) then
-          if (rg%zfd(k)>0) then
-            call find_nearestZ_nonzero(model_on_FD_grid,i,j,k,rg%nx,rg%ny,rg%nz) 
+          if (this%zfd(k)>0) then
+            call find_nearestZ_nonzero(model_on_FD_grid,i,j,k,this%nx,this%ny,this%nz) 
           else
-            call find_nearestXY_nonzero(model_on_FD_grid,i,j,k,rg%nx,rg%ny,rg%nz)
+            call find_nearestXY_nonzero(model_on_FD_grid,i,j,k,this%nx,this%ny,this%nz)
           endif
         endif
       enddo

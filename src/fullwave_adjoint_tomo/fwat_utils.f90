@@ -402,7 +402,7 @@ contains
     case(3)
       mesh_file_path = leq_par%mesh_file_path
     case default
-      stop 'Error: invalid mesh file type'
+      mesh_file_path = 'DATA/meshfem3D_files/Mesh_Par_file'
     end select
 
   end function get_mesh_file_path

@@ -380,11 +380,13 @@ end subroutine create_regions_mesh_fwat
 
 ! reads in material parameters from external binary files
 
+  use generate_databases_par, only: IMAIN, IMODEL, IMODEL_GLL,IMODEL_IPATI,IMODEL_IPATI_WATER,&
+                                    IMODEL_SEP, ADIOS_FOR_MESH, IMODEL_USER_EXTERNAL
 
   use create_regions_mesh_ext_par
 
   use model_ipati_adios_mod, only: model_ipati_adios
-  use fullwave_adjoint_tomo_par: GRID_PATH
+  use fullwave_adjoint_tomo_par, only: GRID_PATH
 
   implicit none
 
@@ -454,7 +456,7 @@ end subroutine create_regions_mesh_fwat
 
   ! local parameters
   real(kind=CUSTOM_REAL), dimension(:,:,:),allocatable :: vp_read,vs_read,rho_read, qmu_read, qkappa_read
-  real(kind=CUSTOM_REAL), dimension(:,:,:),allocatable :: vp_gll, vs_gll, rho_gll
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: vp_gll, vs_gll, rho_gll
   real(kind=CUSTOM_REAL), dimension(:),allocatable :: x, y, z
   integer :: ier
   character(len=*), intent(in) :: filename
@@ -512,21 +514,21 @@ end subroutine create_regions_mesh_fwat
   allocate(vs_gll(NGLLX,NGLLY,NGLLZ,nspec))
   allocate(rho_gll(NGLLX,NGLLY,NGLLZ,nspec))
 
-  Project_model_FD_grid2SEM(vp_gll, vp_read, myrank)
-  Project_model_FD_grid2SEM(vs_gll, vs_read, myrank)
-  Project_model_FD_grid2SEM(rho_gll, rho_read, myrank)
+  call Project_model_FD_grid2SEM(vp_gll, vp_read, myrank)
+  call Project_model_FD_grid2SEM(vs_gll, vs_read, myrank)
+  call Project_model_FD_grid2SEM(rho_gll, rho_read, myrank)
 
-  rhostore(:,:,:,:) = rho_read(:,:,:,:)
-  kappastore(:,:,:,:) = rhostore(:,:,:,:) * ( vp_read(:,:,:,:) * vp_read(:,:,:,:) &
-                                              - FOUR_THIRDS * vs_read(:,:,:,:) * vs_read(:,:,:,:) )
-  mustore(:,:,:,:) = rhostore(:,:,:,:) * vs_read(:,:,:,:) * vs_read(:,:,:,:)
+  rhostore(:,:,:,:) = rho_gll(:,:,:,:)
+  kappastore(:,:,:,:) = rhostore(:,:,:,:) * ( vp_gll(:,:,:,:) * vp_gll(:,:,:,:) &
+                                              - FOUR_THIRDS * vs_gll(:,:,:,:) * vs_gll(:,:,:,:) )
+  mustore(:,:,:,:) = rhostore(:,:,:,:) * vs_gll(:,:,:,:) * vs_gll(:,:,:,:)
 
-  rho_vp(:,:,:,:) = rhostore(:,:,:,:) * vp_read(:,:,:,:)
-  rho_vs(:,:,:,:) = rhostore(:,:,:,:) * vs_read(:,:,:,:)
+  rho_vp(:,:,:,:) = rhostore(:,:,:,:) * vp_gll(:,:,:,:)
+  rho_vs(:,:,:,:) = rhostore(:,:,:,:) * vs_gll(:,:,:,:)
 
   if (ATTENUATION) then
-    Project_model_FD_grid2SEM(qmu_attenuation_store, qmu_read, myrank)
-    Project_model_FD_grid2SEM(qkappa_attenuation_store, qkappa_read, myrank)
+    call Project_model_FD_grid2SEM(qmu_attenuation_store, qmu_read, myrank)
+    call Project_model_FD_grid2SEM(qkappa_attenuation_store, qkappa_read, myrank)
   endif
 
   end subroutine

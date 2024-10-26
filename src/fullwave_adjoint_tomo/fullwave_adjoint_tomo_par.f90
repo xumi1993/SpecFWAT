@@ -810,11 +810,14 @@ subroutine fwat_common_read_par_file()
       select case (trim(keyw))
         case('VERBOSE_MODE')
           read(line(ipos0:ipos1),*) VERBOSE_MODE
+        case('INITIAL_MODEL_PATH')
+          read(line(ipos0:ipos1),*) GRID_PATH
       end select
     enddo
   endif
 99 close(666) ! close par file
   call bcast_all_singlel(VERBOSE_MODE)
+  call bcast_all_ch_array(GRID_PATH, 1, MAX_STRING_LEN)
 end subroutine fwat_common_read_par_file
 
 logical function is_blank_line(line)

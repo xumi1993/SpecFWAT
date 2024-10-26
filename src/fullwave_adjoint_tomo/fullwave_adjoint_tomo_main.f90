@@ -15,6 +15,7 @@ subroutine fullwave_adjoint_tomo_main()
   use fullwave_adjoint_tomo_par
   use fwat_input
   use postproc_sub, only: select_set_range, type_name, isetb, isete
+  use fwat_utils, only: get_mesh_file_path
   
   implicit none
 
@@ -23,7 +24,6 @@ subroutine fullwave_adjoint_tomo_main()
   character(len=MAX_STRING_LEN)                   :: model
   character(len=MAX_STRING_LEN)                   :: evtset
   integer :: myrank, maxit, iter_start, iter_end, iter, i, j
-
   ! initialize MPI
   call world_rank(myrank)
   !!!##############################################################################################################################
@@ -92,12 +92,15 @@ end subroutine fullwave_adjoint_tomo_main
 subroutine init_inversion()
 
   use fullwave_adjoint_tomo_par
+  use fwat_input
   use generate_databases_par, only: IMODEL 
-  use fwat_utils, only :: get_mesh_file_path
+  use fwat_utils, only: get_mesh_file_path
+  use specfem_par
 
   implicit none
 
   integer :: itype
+  logical :: exist
 
   if (myrank == 0) then
     ! check IMODEL
@@ -112,9 +115,11 @@ subroutine init_inversion()
       if (IMODEL /= 6) then
         print *, 'ERROR: Joint inversion only supports external model'
         stop
+      endif
       do itype = 1, NUM_INV_TYPE
         if (tomo_par%INV_TYPE(itype)) then
-          if (.not. inquire(get_mesh_file_path(itype))) then
+          inquire(file=get_mesh_file_path(itype), exist=exist)
+          if (.not. exist) then
             print *, 'ERROR: No found mesh file of ', trim(get_mesh_file_path(itype))
             stop
           endif
@@ -123,5 +128,5 @@ subroutine init_inversion()
     endif ! is_joint
   endif ! myrank == 0
 
-end subroutine
+end subroutine init_inversion
 
