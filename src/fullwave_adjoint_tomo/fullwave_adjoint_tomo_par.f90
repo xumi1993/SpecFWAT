@@ -811,7 +811,8 @@ subroutine fwat_common_read_par_file()
         case('VERBOSE_MODE')
           read(line(ipos0:ipos1),*) VERBOSE_MODE
         case('INITIAL_MODEL_PATH')
-          read(line(ipos0:ipos1),*) GRID_PATH
+          read(line(ipos0:ipos1),'(a)') GRID_PATH
+          GRID_PATH=trim(adjustl(GRID_PATH))
       end select
     enddo
   endif

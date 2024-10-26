@@ -25,7 +25,7 @@
 !
 !=====================================================================
 
-  subroutine create_regions_mesh_fwat()
+  subroutine create_regions_mesh_fwat(from_h5)
 
 ! create the different regions of the mesh
 
@@ -62,6 +62,7 @@
 ! memory size needed by the solver
   double precision :: memory_size
   real(kind=CUSTOM_REAL) :: model_speed_max,min_resolved_period
+  logical :: from_h5
 
 ! initializes arrays
   call synchronize_all()
@@ -235,6 +236,13 @@
     write(IMAIN,*) '  ...external binary models '
     call flush_IMAIN()
   endif
+  if (from_h5) then
+    block
+      use fullwave_adjoint_tomo_par, only: GRID_PATH
+      use meshgrid, only: togllmodel
+      call togllmodel(nspec)
+    end block
+  endif
   call get_model_binaries(myrank,nspec,LOCAL_PATH)
 
 ! calculates damping profiles and auxiliary coefficients on all C-PML points
@@ -402,8 +410,6 @@ end subroutine create_regions_mesh_fwat
   !          here, the ordering in **_vp.bin etc. can be permuted as they are outputted when saving mesh files
 
   select case (IMODEL)
-  case (IMODEL_USER_EXTERNAL)
-    call model_grid(myrank,nspec,LOCAL_PATH, GRID_PATH)
   case (IMODEL_GLL)
     ! note:
     ! import the model from files in SPECFEM format

@@ -24,10 +24,10 @@ include_directories(
 )
 
 # Add submodules
+add_subdirectory(grid_interface)
 add_subdirectory(preproc_measure_adj)
 add_subdirectory(preproc_flexwin)
 add_subdirectory(specfem_interface)
-add_subdirectory(grid_interface)
 
 
 add_library(fwat_interpolation_objs OBJECT ${SOURCE_FWAT_DIR}/teleseis_stf/interpolation_mod.f90)
@@ -73,12 +73,12 @@ target_link_libraries(fwat2_postproc_opt_objs PUBLIC
 
 set(SOURCES_fwat3 "run_fwat3_optim.f90")
 add_library(fwat3_linesearch_objs OBJECT ${SOURCES_fwat3})
-target_link_libraries(fwat3_linesearch_objs PUBLIC mesh_gen_interface_objs
+target_link_libraries(fwat3_linesearch_objs PUBLIC fwat_mesh_database_objs
                       fwat_opt_objs fwat_post_proc_objs fwat_telestf_objs
                       fwat_pre_proc_objs  MPI::MPI_Fortran)
 
 # Define fwat_main library
 set(SOURCES_fwat_main "fullwave_adjoint_tomo_main.f90")
 add_library(fullwave_adjoint_tomo_objs OBJECT ${SOURCES_fwat_main})
-target_link_libraries(fullwave_adjoint_tomo_objs PUBLIC mesh_gen_interface_objs
+target_link_libraries(fullwave_adjoint_tomo_objs PUBLIC fwat_mesh_database_objs
                       fwat1_fwd_measure_adj_objs fwat2_postproc_opt_objs fwat3_linesearch_objs)

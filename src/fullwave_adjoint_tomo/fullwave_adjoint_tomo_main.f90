@@ -69,7 +69,7 @@ subroutine fullwave_adjoint_tomo_main()
         ! initialize starting model mesh
         call meshfem3d_fwat()
         ! generate database for forward simulation
-        call generate_database_fwat()
+        call generate_database_fwat(.true.)
         
         type_name = tomo_par%INV_TYPE_NAME(i)    
         

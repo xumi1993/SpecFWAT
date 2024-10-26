@@ -203,11 +203,12 @@ subroutine meshfem3d_fwat()
   call synchronize_all()
 end subroutine meshfem3d_fwat
 
-subroutine generate_database_fwat()
+subroutine generate_database_fwat(from_h5)
   use adios_manager_mod
   use generate_databases_par
 
   implicit none
+  logical, intent(in) :: from_h5
 
   ! open main output file, only written to by process 0
   call world_rank(myrank)
@@ -237,7 +238,7 @@ subroutine generate_database_fwat()
   call initialize_partition_arrays()
   call read_partition_files()
   ! external mesh creation
-  call setup_mesh_fwat()
+  call setup_mesh_fwat(from_h5)
 
   ! finalize mesher
   call finalize_databases()
@@ -252,10 +253,11 @@ subroutine generate_database_fwat()
   
 end subroutine generate_database_fwat
 
-subroutine setup_mesh_fwat()
+subroutine setup_mesh_fwat(from_h5)
   use generate_databases_par
   use create_regions_mesh_ext_par
   implicit none
+  logical, intent(in) :: from_h5
 
   ! compute maximum number of points
   npointot = NSPEC_AB * NGLLX * NGLLY * NGLLZ
@@ -290,7 +292,7 @@ subroutine setup_mesh_fwat()
   
   call crm_ext_deallocate_arrays()
   ! call create_regions_mesh()
-  call create_regions_mesh_fwat()
+  call create_regions_mesh_fwat(from_h5)
 
   ! print min and max of topography included
   min_elevation = HUGEVAL

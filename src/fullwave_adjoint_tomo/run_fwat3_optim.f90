@@ -79,7 +79,7 @@ subroutine run_optim()
       endif
       call model_update_opt()
       call synchronize_all()
-      call generate_database_fwat()
+      call generate_database_fwat(.false.)
       call synchronize_all()
 
       ! sub-iterations
