@@ -21,10 +21,22 @@ module postproc_sub
   real(kind=CUSTOM_REAL), public                       :: z_min_glob,z_max_glob
   type(taper_cls), public                              :: taper_3d
   character(len=MAX_STRING_LEN), public, dimension(:), allocatable :: fwat_kernel_names
-  integer, public                                      :: kernel_num, isetb, isete
+  integer, public                                      :: kernel_num, isetb, isete, imod_current, imod_up,imod_down
 
 
   contains
+
+  subroutine get_model_idx()
+    read(model(2:),'(I2.2)') imod_current
+    imod_up=imod_current+1
+    imod_down=imod_current-1
+    write(model_next,'(A1,I2.2)') 'M',imod_up
+    if (imod_down < tomo_par%ITER_START) then
+      model_prev='none'
+    else
+      write(model_prev,'(A1,I2.2)') 'M',imod_down
+    endif
+  end subroutine get_model_idx
 
   subroutine select_set_range()
     if (type_name=='noise') then
@@ -507,8 +519,11 @@ module postproc_sub
     double precision, dimension(max_ndim)              :: chi_non_zero
     real(kind=CUSTOM_REAL), dimension(:), allocatable  :: weight
     double precision                                   :: mean_chi,std_chi
+    logical                                            :: exist
 
     call setup_common_variables(simu_type)
+    type_name = simu_type
+    call select_set_range()
     read(set_range(1)(4:),'(I3)') setb 
     read(set_range(2)(4:),'(I3)') sete
     if (simu_type == 'rf') then
@@ -531,6 +546,8 @@ module postproc_sub
           endif
           fname = 'misfits/'//trim(model_name)//'.'//trim(strset)//&
                   '_'//trim(bandname)//'_window_chi'
+          inquire(file=trim(fname), exist=exist)
+          if (.not. exist) cycle
           call chi%read_misfits(fname)
           allocate(array(chi%n_rows))
           ! fname = 'src_rec/sources'//trim(strset)//'.dat'

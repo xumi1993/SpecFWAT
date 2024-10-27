@@ -67,6 +67,7 @@ set(APP_SOURCES
   ${SOURCE_FWAT_DIR}/program_fwat0_forward_data.f90
   ${SOURCE_FWAT_DIR}/program_fwat1_fwd_measure_adj.f90
   ${SOURCE_FWAT_DIR}/program_fwat2_postproc_opt.f90
+  ${SOURCE_FWAT_DIR}/program_fwat3_linesearch.f90
   ${SOURCE_FWAT_DIR}/program_fullwave_adjoint_tomo.f90
   )
 foreach(execsourcefile ${APP_SOURCES})
@@ -81,6 +82,8 @@ foreach(execsourcefile ${APP_SOURCES})
     set(EXEC_NAME "fwat1_fwd_measure_adj")
   elseif(EXEC_NAME STREQUAL "program_fwat2_postproc_opt")
     set(EXEC_NAME "fwat2_postproc_opt")
+  elseif(EXEC_NAME STREQUAL "program_fwat3_linesearch")
+    set(EXEC_NAME "fwat3_linesearch")
   elseif(EXEC_NAME STREQUAL "program_fullwave_adjoint_tomo")
     set(EXEC_NAME "fullwave_adjoint_tomo")
   else()
@@ -113,6 +116,14 @@ foreach(execsourcefile ${APP_SOURCES})
                           measadj_objs flexwin_objs fwat_telestf_objs
                           fwat_recfunc_objs mesh_gen_interface_objs
                           generate_databases_objs
+                          )
+  elseif(${EXEC_NAME} STREQUAL "fwat3_linesearch")
+    target_link_libraries(${EXEC_NAME} PUBLIC mesh_gen_interface_objs
+                          fwat_opt_objs fwat_post_proc_objs
+                          fwat_pre_proc_objs fwat_shared_objs read_mesh_interface_objs
+                          specfem3D_objs meshfem3D_objs fwat_interpolation_objs
+                          fwat_recfunc_objs fwat_telestf_objs measadj_objs flexwin_objs 
+                          specfem_interface_objs generate_databases_objs
                           )
   elseif(${EXEC_NAME} STREQUAL "fullwave_adjoint_tomo")
     target_link_libraries(${EXEC_NAME} PUBLIC  measadj_objs flexwin_objs 

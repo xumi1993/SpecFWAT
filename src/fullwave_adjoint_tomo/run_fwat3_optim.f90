@@ -20,16 +20,13 @@ subroutine run_optim()
 
   double precision                                                :: misfit, chi, chi0, this_misfit, misfit0(NUM_INV_TYPE)
   integer                                                         :: nchan, i, j, sit
-  integer                                                         :: imod_current,imod_up, imod_down
   integer,                               parameter                :: LOG_UNIT = 898
   character(len=MAX_STRING_LEN)                                   :: model_ls, evtset, msg, strstep, model_start
 
 ! ------------------------------------------------------------------
 ! optimize (SD, CG or LBFGS)
   call world_rank(myrank)
-  read(model(2:),'(I2.2)') imod_current
-  imod_up=imod_current+1
-  imod_down=imod_current-1
+  call get_model_idx()
   if(myrank==0) then
     open(unit=LOG_UNIT,file='output_fwat3_log_'//trim(model)//'.txt')
     write(LOG_UNIT,*) '*******************************************************'
@@ -55,10 +52,10 @@ subroutine run_optim()
     write(model_start, '("M",I2.2)') tomo_par%ITER_START
     do i = 1, NUM_INV_TYPE
       if (tomo_par%INV_TYPE(i)) then
-        call read_misfit(tomo_par%INV_TYPE_NAME(i), model, chi, nchan)
         call read_misfit(tomo_par%INV_TYPE_NAME(i), model_start, chi0, nchan)
-        misfit0(i) = chi0 * tomo_par%JOINT_WEIGHT(i)
-        misfit = misfit + (chi * tomo_par%JOINT_WEIGHT(i) / misfit0(i))
+        misfit0(i) = chi0/nchan * tomo_par%JOINT_WEIGHT(i)
+        call read_misfit(tomo_par%INV_TYPE_NAME(i), model, chi, nchan)
+        misfit = misfit + (chi/nchan * tomo_par%JOINT_WEIGHT(i) / misfit0(i))
       endif
     enddo
     call synchronize_all()
@@ -94,7 +91,7 @@ subroutine run_optim()
             call run_linesearch(model_ls, evtset, type_name)
           enddo
           call read_misfit(type_name, model_ls, chi, nchan)
-          this_misfit = this_misfit + chi * tomo_par%JOINT_WEIGHT(i) / misfit0(i)
+          this_misfit = this_misfit + chi/nchan * tomo_par%JOINT_WEIGHT(i) / misfit0(i)
         endif
       enddo
       call synchronize_all()
@@ -119,13 +116,8 @@ subroutine run_optim()
     enddo
   else
     step_fac=tomo_par%MAX_SLEN
-    if (trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model) .and. &
-        trim(LOCAL_PATH) /= 'optimize/MODEL_'//trim(model)//'/' .and. &
-        trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model) .and. &
-        trim(LOCAL_PATH) /= './optimize/MODEL_'//trim(model)//'/') then
-      OUTPUT_MODEL_DIR=trim(LOCAL_PATH)//'/' ! run second time to be called for next iteration
-      call model_update_opt()
-    endif
+    OUTPUT_MODEL_DIR=trim(LOCAL_PATH)//'/' ! run second time to be called for next iteration
+    call model_update_opt()
   endif
   OUTPUT_MODEL_DIR='optimize/MODEL_'//trim(model_next)//'/'
   if (myrank == 0) call write_timestamp_log(LOG_UNIT, 'Write model to: '//trim(OUTPUT_MODEL_DIR))
@@ -160,7 +152,7 @@ subroutine run_optim_man()
   implicit none
 
   integer,                               parameter                :: LOG_UNIT = 898
-  integer                                                         :: i,istep,imod_current,imod_up, imod_down
+  integer                                                         :: i,istep
   character(len=MAX_STRING_LEN)                                   :: strstep
 
   call world_rank(myrank)

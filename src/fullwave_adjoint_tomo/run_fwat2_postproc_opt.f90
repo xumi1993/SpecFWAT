@@ -30,7 +30,7 @@ subroutine run_fwat2_postproc_opt(model)
   use taper3d
   use constants, only: IMAIN
   use postproc_sub, only: post_proc, sum_joint_kernels, read_database, get_kernel_names, type_name, this_model=>model, &
-                          model_prev, model_next
+                          model_prev, model_next, imod_current,imod_up, imod_down, get_model_idx
   implicit none
 
   ! real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
@@ -44,21 +44,14 @@ subroutine run_fwat2_postproc_opt(model)
   ! character(len=MAX_STRING_LEN)                   :: evtsetb,evtsete,is_smooth 
   character(len=MAX_STRING_LEN)                   :: strstep,strinv
   ! character(len=MAX_STRING_LEN) :: input_dir,output_dir,ekernel_dir_list
-  integer                                         :: i,istep,imod_current,imod_up, imod_down
+  integer                                         :: i,istep
   !real :: t1, t2
   ! logical :: USE_GPU ! TODO: Smoothing using GPU
   
   call world_rank(myrank)
   this_model=model
-  read(model(2:),'(I2.2)') imod_current
-  imod_up=imod_current+1
-  imod_down=imod_current-1
-  write(model_next,'(A1,I2.2)') 'M',imod_up
-  if (imod_down < tomo_par%ITER_START) then
-    model_prev='none'
-  else
-    write(model_prev,'(A1,I2.2)') 'M',imod_down
-  endif
+  call get_model_idx()
+  
   ! read(evtsetb(4:),'(I3)') setb 
   ! read(evtsete(4:),'(I3)') sete
   ! ekernel_dir_list='optimize/ekernel_dir.lst'
