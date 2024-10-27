@@ -119,12 +119,12 @@ foreach(execsourcefile ${APP_SOURCES})
                           generate_databases_objs grid_interface_objs
                           )
   elseif(${EXEC_NAME} STREQUAL "fwat3_linesearch")
-    target_link_libraries(${EXEC_NAME} PUBLIC mesh_gen_interface_objs
+    target_link_libraries(${EXEC_NAME} PUBLIC fwat_mesh_database_objs
                           fwat_opt_objs fwat_post_proc_objs
                           fwat_pre_proc_objs fwat_shared_objs read_mesh_interface_objs
                           specfem3D_objs meshfem3D_objs fwat_interpolation_objs
                           fwat_recfunc_objs fwat_telestf_objs measadj_objs flexwin_objs 
-                          specfem_interface_objs generate_databases_objs
+                          specfem_interface_objs generate_databases_objs grid_interface_objs
                           )
   elseif(${EXEC_NAME} STREQUAL "fullwave_adjoint_tomo")
     target_link_libraries(${EXEC_NAME} PUBLIC  measadj_objs flexwin_objs 
