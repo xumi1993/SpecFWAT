@@ -50,7 +50,8 @@ subroutine fullwave_adjoint_tomo_main()
   !!! -------------------------------------------  initialize starting model -----------------------------------------------------
   !!!##############################################################################################################################
   ! read parameter file
-  call read_parameter_file(myrank,.true.)
+  call read_parameter_file(myrank, .true.)
+  call prepare_inversion()
   call read_fwat_par_file()
   is_read_database = .false.
   call init_inversion()
@@ -69,7 +70,7 @@ subroutine fullwave_adjoint_tomo_main()
         ! initialize starting model mesh
         call meshfem3d_fwat()
         ! generate database for forward simulation
-        call generate_database_fwat(.true.)
+        call generate_database_fwat(USE_H5)
         
         type_name = tomo_par%INV_TYPE_NAME(i)    
         
@@ -89,11 +90,22 @@ subroutine fullwave_adjoint_tomo_main()
   end do
 end subroutine fullwave_adjoint_tomo_main
 
+
+subroutine prepare_inversion()
+  use constants
+  use shared_parameters
+
+  call system('mkdir -p optimize')
+  call system('mkdir -p '//trim(OUTPUT_FILES_BASE))
+  call system('mkdir -p '//trim(LOCAL_PATH))
+end subroutine prepare_inversion
+
+
 subroutine init_inversion()
 
   use fullwave_adjoint_tomo_par
   use fwat_input
-  use generate_databases_par, only: IMODEL 
+  use generate_databases_par, only: IMODEL
   use fwat_utils, only: get_mesh_file_path
   use specfem_par
 
@@ -127,6 +139,40 @@ subroutine init_inversion()
       end do
     endif ! is_joint
   endif ! myrank == 0
+  call bcast_all_singlel(is_joint)
+  
+  call read_mesh_parameter_file_fwat(get_mesh_file_path(2))
+  call meshfem3d_fwat()
+  call generate_database_fwat(USE_H5)
+  block
+    use meshfem3D_par, only: NEX_XI, NEX_ETA, NER
+    use generate_databases_par, only: xstore, ystore, zstore
+    real(kind=CUSTOM_REAL) :: x_min_loc, x_max_loc, y_min_loc, y_max_loc, z_min_loc, z_max_loc
+    real(kind=CUSTOM_REAL) :: x_min, x_max, y_min, y_max, z_min, z_max, deltax, deltay, deltaz
+
+    x_min_loc = minval(xstore)
+    x_max_loc = maxval(xstore)
+    y_min_loc = minval(ystore)
+    y_max_loc = maxval(ystore)
+    z_min_loc = minval(zstore)
+    z_max_loc = maxval(zstore)
+    call min_all_all_cr(x_min_loc, x_min)
+    call max_all_all_cr(x_max_loc, x_max)
+    call min_all_all_cr(y_min_loc, y_min)
+    call max_all_all_cr(y_max_loc, y_max)
+    call min_all_all_cr(z_min_loc, z_min)
+    call max_all_all_cr(z_max_loc, z_max)
+
+    deltax = (x_max - x_min) / NEX_XI / NGLLX
+    deltay = (y_max - y_min) / NEX_ETA / NGLLY
+    deltaz = (z_max - z_min) / NER / NGLLZ
+
+    call rg%init(x_min, x_max, y_min, y_max, z_min, z_max, deltax, deltay, deltaz)
+  
+  end block
+  call synchronize_all()
+
+
 
 end subroutine init_inversion
 

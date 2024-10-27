@@ -4,6 +4,7 @@ module MeshGrid
   use specfem_par
   use utils
   use projection_on_FD_grid_fwat
+  use hdf5_interface
 
   implicit none
   
@@ -12,7 +13,7 @@ module MeshGrid
     real(kind=CUSTOM_REAL), dimension(:), allocatable :: xfd, yfd, zfd
     integer :: nx, ny, nz
     contains
-    procedure :: init, griddata, read_mesh, gridmodel
+    procedure :: init, griddata, read_mesh, gridmodel, semdata
   end type
 
 contains
@@ -156,6 +157,26 @@ subroutine gridmodel(this, indir, dataname, model_on_FD_grid)
 
 end subroutine gridmodel
 
+subroutine semdata(this, indir, dataname, model_on_SEM_mesh)
+  class (ReglGrid), intent(inout) :: this
+
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: model_on_FD_grid
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable, intent(out) :: model_on_SEM_mesh
+  character(len=*), intent(in) :: indir, dataname
+
+  if (myrank == 0) then
+    call h5read(trim(indir)//'/'//trim(dataname)//'.h5', '/vp', model_on_FD_grid)
+  endif
+  if (myrank /= 0) then
+    allocate(model_on_FD_grid(nx_fd_proj, ny_fd_proj, nz_fd_proj))
+  endif
+  call bcast_all_cr(model_on_FD_grid, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+
+  allocate(model_on_SEM_mesh(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
+  call Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank)
+
+end subroutine semdata
+
 subroutine togllmodel(nspec)
   use constants
   use utils
@@ -166,7 +187,6 @@ subroutine togllmodel(nspec)
   use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs,qkappa_attenuation_store,qmu_attenuation_store
   use projection_on_FD_grid_fwat
   use fullwave_adjoint_tomo_par, only: GRID_PATH
-  use hdf5_interface
 
   implicit none
 
@@ -174,9 +194,17 @@ subroutine togllmodel(nspec)
   real(kind=CUSTOM_REAL), dimension(:,:,:),allocatable :: vp_read,vs_read,rho_read, qmu_read, qkappa_read
   real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: vp_gll, vs_gll, rho_gll
   real(kind=CUSTOM_REAL), dimension(:),allocatable :: x, y, z
+  real(kind=CUSTOM_REAL) :: ox_back, hx_back, oy_back, hy_back, oz_back, hz_back
+  integer :: nx_back, ny_back, nz_back
   character(len=MAX_STRING_LEN) :: prname_lp
   integer :: ier, FID=28, nspec, i, j, k, ispec
   logical :: exist
+
+
+  ! backup the original grid
+  ox_back = ox_fd_proj; hx_back = hx_fd_proj; nx_back = nx_fd_proj
+  oy_back = oy_fd_proj; hy_back = hy_fd_proj; ny_back = ny_fd_proj
+  oz_back = oz_fd_proj; hz_back = hz_fd_proj; nz_back = nz_fd_proj
 
   ! read h5file
   if (myrank == 0) then
@@ -246,7 +274,6 @@ subroutine togllmodel(nspec)
     ystore(ibool(i,j,k,ispec)) = ystore_db(i,j,k,ispec)
     zstore(ibool(i,j,k,ispec)) = zstore_db(i,j,k,ispec)
   enddo; enddo; enddo; enddo
-
   call Project_model_FD_grid2SEM(vp_gll, vp_read, myrank)
   call Project_model_FD_grid2SEM(vs_gll, vs_read, myrank)
   call Project_model_FD_grid2SEM(rho_gll, rho_read, myrank)
@@ -281,6 +308,17 @@ subroutine togllmodel(nspec)
     write(FID) qkappa_attenuation_store
     close(FID)
   endif
+
+  deallocate(vp_gll, vs_gll, rho_gll)
+  deallocate(vp_read, vs_read, rho_read)
+  if (ATTENUATION) then
+    deallocate(qmu_read, qkappa_read)
+  endif
+
+  ! restore the original grid
+  ox_fd_proj = ox_back; hx_fd_proj = hx_back; nx_fd_proj = nx_back
+  oy_fd_proj = oy_back; hy_fd_proj = hy_back; ny_fd_proj = ny_back
+  oz_fd_proj = oz_back; hz_fd_proj = hz_back; nz_fd_proj = nz_back
 
   call synchronize_all()
 

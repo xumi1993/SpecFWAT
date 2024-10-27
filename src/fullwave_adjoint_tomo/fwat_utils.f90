@@ -393,6 +393,7 @@ contains
   
     integer, intent(in) :: itype
     character(len=MAX_STRING_LEN) :: mesh_file_path
+    logical :: exist
 
     select case(itype)
     case(1)
@@ -404,6 +405,11 @@ contains
     case default
       mesh_file_path = 'DATA/meshfem3D_files/Mesh_Par_file'
     end select
+    inquire(file=trim(mesh_file_path), exist=exist)
+    if (.not. exist) then
+      print *, 'ERROR: No found mesh file of ', trim(mesh_file_path)
+      stop
+    endif
 
   end function get_mesh_file_path
 

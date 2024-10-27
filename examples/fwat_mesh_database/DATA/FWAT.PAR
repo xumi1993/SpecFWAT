@@ -7,6 +7,7 @@ VERBOSE_MODE: .true.
 INITIAL_MODEL_PATH: ./DATA/initial_model.h5
 
 ###################### FWAT PAR for Noise tomo #####################
+NOISE_MESH_FILE_PATH: ./DATA/meshfem3D_files/Mesh_Par_file.noise
 # Number of source components
 NOISE_NSCOMP: 1 
 # Names of source components
@@ -45,6 +46,7 @@ NOISE_SUPPRESS_EGF: .false.
 NOISE_PRECOND_TYPE: default
 
 ###################### FWAT PAR for Teleseismic FWI #####################
+NOISE_MESH_FILE_PATH: ./DATA/meshfem3D_files/Mesh_Par_file.noise
 # Number of receiver components
 TELE_NRCOMP: 2
 # Names of receiver components, in order of Z R T

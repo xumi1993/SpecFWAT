@@ -126,7 +126,22 @@ module postproc_sub
     endif
     call smooth_kernel()
     call kernel_taper(sum_dir)
+    if (USE_H5) then
+      call grid_kernel()
+    endif
   end subroutine post_proc
+
+  subroutine grid_kernel()
+    use hdf5_interface
+
+    real(kind=CUSTOM_REAL), dimension(:,:,:),allocatable :: kernel_data
+    integer :: i
+
+    do i = 1, kernel_num
+      call rg%griddata(sum_dir, fwat_kernel_names(i), kernel_data)
+      call h5write(trim(sum_dir)//trim(fwat_kernel_names(i))//'.h5', '/'//trim(fwat_kernel_names(i)), kernel_data)
+    enddo
+  end subroutine grid_kernel
 
   subroutine read_database()
     use specfem_par_elastic, only: ELASTIC_SIMULATION,ispec_is_elastic,rho_vp,rho_vs,min_resolved_period
@@ -379,7 +394,11 @@ module postproc_sub
         type_name = tomo_par%INV_TYPE_NAME(j)
         call select_set_range()
         output_dir = 'optimize/SUM_KERNELS_'//trim(model)//'_'//trim(type_name)
-        call read_smoothed_kernel(output_dir, fwat_kernel_names(i), kernel1)
+        if (USE_H5) then
+          call rg%semdata(output_dir, fwat_kernel_names(i), kernel1)        
+        else
+          call read_smoothed_kernel(output_dir, fwat_kernel_names(i), kernel1)
+        endif
         kernel1 = kernel1/norm_val(j)
         norm = maxval( abs(kernel1))
         call max_all_dp(norm, norm_sum)

@@ -113,7 +113,7 @@ foreach(execsourcefile ${APP_SOURCES})
                           fwat_pre_proc_objs fwat3_linesearch_objs
                           measadj_objs flexwin_objs fwat_telestf_objs
                           fwat_recfunc_objs fwat_mesh_database_objs
-                          generate_databases_objs
+                          generate_databases_objs grid_interface_objs
                           )
   elseif(${EXEC_NAME} STREQUAL "fullwave_adjoint_tomo")
     target_link_libraries(${EXEC_NAME} PUBLIC  measadj_objs flexwin_objs 

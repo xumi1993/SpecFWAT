@@ -15,6 +15,7 @@ module fullwave_adjoint_tomo_par
 
   !! IMPORT VARIABLES ------------------------------------------------------------------------------------------------
   use specfem_par, only: CUSTOM_REAL, MAX_STRING_LEN, MAX_LENGTH_STATION_NAME, MAX_LENGTH_NETWORK_NAME
+  use meshgrid, only: ReglGrid
   use my_mpi
 
   !-------------------------------------------------------------------------------------------------------------------
@@ -39,9 +40,9 @@ module fullwave_adjoint_tomo_par
   character(len= MAX_STRING_LEN)                                   :: station_fname
   character(len=MAX_STRING_LEN), public                            :: PRECOND_TYPE
   character(len=MAX_STRING_LEN), public                            :: GRID_PATH
-  logical,                       public                            :: is_read_database = .true., is_joint
+  logical,                       public                            :: is_read_database = .true., is_joint, USE_H5=.false.
   real(kind=CUSTOM_REAL)                                           :: alpha 
-  real(kind=CUSTOM_REAL),        public                            :: xmin, xmax, ymin, ymax, zmin, zmax
+  type(ReglGrid),                public                            :: rg
 
 !################################################# WORKFLOW ######################################################################
   type fwat_acqui
@@ -336,7 +337,8 @@ subroutine fwat_noise_read_par_file(this)
             endif
           enddo
         case('NOISE_MESH_FILE_PATH')
-          read(line(ipos0:ipos1),*) this%MESH_FILE_PATH
+          read(line(ipos0:ipos1),'(a)') this%MESH_FILE_PATH
+          this%MESH_FILE_PATH = trim(adjustl(this%MESH_FILE_PATH))
         case('NOISE_CH_CODE')
           read(line(ipos0:ipos1),*) this%CH_CODE
         case('NOISE_NSTEP')
@@ -444,7 +446,8 @@ subroutine fwat_tele_read_par_file(this)
             endif
           enddo
         case ('TELE_MESH_FILE_PATH')
-          read(line(ipos0:ipos1),*) this%MESH_FILE_PATH
+          read(line(ipos0:ipos1),'(a)') this%MESH_FILE_PATH
+          this%MESH_FILE_PATH = trim(adjustl(this%MESH_FILE_PATH))
         case('TELE_CH_CODE')
           read(line(ipos0:ipos1),*) this%CH_CODE
         case('TELE_NSTEP')
@@ -589,7 +592,8 @@ subroutine fwat_leq_read_par_file(this)
             endif
           enddo
         case('LEQ_MESH_FILE_PATH')
-          read(line(ipos0:ipos1),*) this%MESH_FILE_PATH
+          read(line(ipos0:ipos1),'(a)') this%MESH_FILE_PATH
+          this%MESH_FILE_PATH = trim(adjustl(this%MESH_FILE_PATH))
         case('LEQ_CH_CODE')
           read(line(ipos0:ipos1),*) this%CH_CODE
         case('LEQ_NSTEP')
@@ -813,12 +817,15 @@ subroutine fwat_common_read_par_file()
         case('INITIAL_MODEL_PATH')
           read(line(ipos0:ipos1),'(a)') GRID_PATH
           GRID_PATH=trim(adjustl(GRID_PATH))
+        case('USE_H5')
+          read(line(ipos0:ipos1),*) USE_H5
       end select
     enddo
   endif
 99 close(666) ! close par file
   call bcast_all_singlel(VERBOSE_MODE)
   call bcast_all_ch_array(GRID_PATH, 1, MAX_STRING_LEN)
+  call bcast_all_singlel(USE_H5)
 end subroutine fwat_common_read_par_file
 
 logical function is_blank_line(line)

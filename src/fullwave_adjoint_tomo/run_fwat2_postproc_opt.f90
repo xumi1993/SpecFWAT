@@ -97,17 +97,31 @@ subroutine run_fwat2_postproc_opt(model)
   call synchronize_all()
 ! -----------------------------------------------------------------
 ! Sum and smooth kernels
-  if (is_read_database) call read_database()
+  if (is_read_database .and. .not. is_joint) call read_database()
   call get_kernel_names()
   call synchronize_all()
 
   do i = 1,NUM_INV_TYPE
     if (tomo_par%INV_TYPE(i)) then
-      type_name = tomo_par%INV_TYPE_NAME(i)
+      if (is_joint) then
+        type_name = tomo_par%INV_TYPE_NAME(i)
+        ! read mesh parameter file
+        call read_mesh_parameter_file_fwat(get_mesh_file_path(i))
+        ! initialize starting model mesh
+        call meshfem3d_fwat()
+        ! generate database for forward simulation
+        call generate_database_fwat(USE_H5)
+      endif
       call post_proc()
     endif
   enddo
   if (count(tomo_par%INV_TYPE)>1) then
+    ! read mesh parameter file
+    call read_mesh_parameter_file_fwat(get_mesh_file_path(2))
+    ! initialize starting model mesh
+    call meshfem3d_fwat()
+    ! generate database for forward simulation
+    call generate_database_fwat(USE_H5)
     call sum_joint_kernels()
     if ((.not. VERBOSE_MODE) .and. imod_current /= tomo_par%ITER_START .and. myrank == 0) then
       do i = 1,NUM_INV_TYPE

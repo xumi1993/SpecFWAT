@@ -39,7 +39,9 @@ target_link_libraries(fwat_telestf_objs PRIVATE fwat_shared_objs fwat_interpolat
 add_library(fwat_opt_objs OBJECT ${SOURCES_FWAT_OPT})
 target_link_libraries(fwat_opt_objs PRIVATE fwat_shared_objs shared_objs MPI::MPI_Fortran)
 add_library(fwat_post_proc_objs OBJECT ${SOURCE_POST_PROC})
-target_link_libraries(fwat_post_proc_objs PRIVATE fwat_shared_objs shared_objs fwat_interpolation_objs MPI::MPI_Fortran)
+target_link_libraries(fwat_post_proc_objs PRIVATE fwat_shared_objs shared_objs
+                      fwat_interpolation_objs grid_interface_objs
+                      MPI::MPI_Fortran)
 add_library(fwat_pre_proc_objs OBJECT ${SOURCES_PRE_PROC})
 target_link_libraries(fwat_pre_proc_objs PUBLIC fwat_shared_objs shared_objs
                       measadj_objs fwat_recfunc_objs flexwin_objs specfem_interface_objs
@@ -69,7 +71,7 @@ add_library(fwat2_postproc_opt_objs OBJECT ${SOURCES_fwat2})
 target_link_libraries(fwat2_postproc_opt_objs PUBLIC
                       read_mesh_interface_objs fwat_opt_objs measadj_objs flexwin_objs 
                       fwat_post_proc_objs fwat_interpolation_objs fwat_telestf_objs
-                      fwat_pre_proc_objs MPI::MPI_Fortran)
+                      fwat_pre_proc_objs grid_interface_objs MPI::MPI_Fortran)
 
 set(SOURCES_fwat3 "run_fwat3_optim.f90")
 add_library(fwat3_linesearch_objs OBJECT ${SOURCES_fwat3})
