@@ -18,7 +18,8 @@ subroutine run_optim()
 
   implicit none
 
-  double precision                                                :: misfit, chi, chi0, this_misfit, misfit0(NUM_INV_TYPE)
+  double precision                                                :: chi, chi0
+  double precision, dimension(NUM_INV_TYPE)                       :: misfit, this_misfit, misfit0
   integer                                                         :: nchan, i, j, sit
   integer,                               parameter                :: LOG_UNIT = 898
   character(len=MAX_STRING_LEN)                                   :: model_ls, evtset, msg, strstep, model_start
@@ -47,15 +48,13 @@ subroutine run_optim()
   if (tomo_par%DO_LS) then
     ! read current misfit
     step_fac = tomo_par%MAX_SLEN
-    misfit = 0.0
-    misfit0 = 0.0
     write(model_start, '("M",I2.2)') tomo_par%ITER_START
     do i = 1, NUM_INV_TYPE
       if (tomo_par%INV_TYPE(i)) then
         call read_misfit(tomo_par%INV_TYPE_NAME(i), model_start, chi0, nchan)
         misfit0(i) = chi0/nchan * tomo_par%JOINT_WEIGHT(i)
         call read_misfit(tomo_par%INV_TYPE_NAME(i), model, chi, nchan)
-        misfit = misfit + (chi/nchan * tomo_par%JOINT_WEIGHT(i) / misfit0(i))
+        misfit(i) = chi/nchan * tomo_par%JOINT_WEIGHT(i) / misfit0(i)
       endif
     enddo
     call synchronize_all()
@@ -80,7 +79,6 @@ subroutine run_optim()
       call synchronize_all()
 
       ! sub-iterations
-      this_misfit = 0.0
       do i = 1, NUM_INV_TYPE
         model_ls =  trim(model)//'_step'//trim(strstep)
         if (tomo_par%INV_TYPE(i)) then
@@ -91,15 +89,25 @@ subroutine run_optim()
             call run_linesearch(model_ls, evtset, type_name)
           enddo
           call read_misfit(type_name, model_ls, chi, nchan)
-          this_misfit = this_misfit + chi/nchan * tomo_par%JOINT_WEIGHT(i) / misfit0(i)
+          this_misfit(i) = chi/nchan * tomo_par%JOINT_WEIGHT(i) / misfit0(i)
         endif
       enddo
       call synchronize_all()
 
+      if (myrank == 0) then
+        call write_timestamp_log(LOG_UNIT, 'Misfit change:')
+        do i = 1, NUM_INV_TYPE
+          if (tomo_par%INV_TYPE(i)) then
+            write(msg, '("    ",A," : ",F20.6)') tomo_par%INV_TYPE_NAME(i), this_misfit(i)
+            call write_timestamp_log(LOG_UNIT, msg)
+          endif
+        enddo
+      endif
+
       ! check misfit
-      if (this_misfit < misfit) then
+      if (sum(this_misfit) < sum(misfit)) then
         if (myrank == 0) then
-          write(msg, '("Norm misfit reduced from ",F20.6," to ",F20.6)') misfit, this_misfit
+          write(msg, '("Sum of misfit reduced from ",F20.6," to ",F20.6)') sum(misfit), sum(this_misfit)
           call write_timestamp_log(LOG_UNIT, msg)
           call write_timestamp_log(LOG_UNIT, 'Accept model')
           flush(LOG_UNIT)
@@ -107,7 +115,7 @@ subroutine run_optim()
         exit
       else
         if (myrank == 0) then
-          write(msg, '("Norm misfit increased from ",F20.6," to ",F20.6)') misfit, this_misfit
+          write(msg, '("Sum of misfit increased from ",F20.6," to ",F20.6)') sum(misfit), sum(this_misfit)
           call write_timestamp_log(LOG_UNIT, msg)
           flush(LOG_UNIT)
         endif
