@@ -50,6 +50,9 @@ subroutine read_mesh_parameter_file_fwat(filename)
   fname = filename
   call open_parameter_file_mesh(fname)
 
+  ! MX added to deallocate arrays before reading new values
+  call initial_arrays()
+
   call read_value_dble_precision_mesh(IIN,IGNORE_JUNK,LATITUDE_MIN, 'LATITUDE_MIN', ier)
   if (ier /= 0) stop 'Error reading Mesh parameter LATITUDE_MIN'
   call read_value_dble_precision_mesh(IIN,IGNORE_JUNK,LATITUDE_MAX, 'LATITUDE_MAX', ier)
@@ -344,3 +347,15 @@ subroutine read_mesh_parameter_file_fwat(filename)
   call synchronize_all()
 
 end subroutine read_mesh_parameter_file_fwat
+
+subroutine initial_arrays()
+  use constants
+  use meshfem3D_par, only: ner_doublings, material_properties, subregions
+
+  implicit none
+
+  if (allocated(ner_doublings)) deallocate(ner_doublings)
+  if (allocated(material_properties)) deallocate(material_properties)
+  if (allocated(subregions)) deallocate(subregions)
+
+end subroutine initial_arrays

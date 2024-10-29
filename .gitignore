@@ -4,6 +4,7 @@ OUTPUT_FILES/
 DATABASES_MPI/
 model_target/
 model_initial/
+model_pert/
 fwat_data/
 solver/
 optimize/
@@ -33,3 +34,4 @@ ttimes_mod/setbrn
 
 .vscode/
 *.vtk
+target_model.h5

@@ -4,7 +4,9 @@
 #
 #-----------------------------------------------------------
 VERBOSE_MODE: .true.
-INITIAL_MODEL_PATH: ./DATA/initial_model.h5
+# INITIAL_MODEL_PATH: ./DATA/initial_model.h5
+INITIAL_MODEL_PATH: ./DATA/target_model.h5
+USE_H5: .true.
 
 ###################### FWAT PAR for Noise tomo #####################
 NOISE_MESH_FILE_PATH: ./DATA/meshfem3D_files/Mesh_Par_file.noise
@@ -46,7 +48,7 @@ NOISE_SUPPRESS_EGF: .false.
 NOISE_PRECOND_TYPE: default
 
 ###################### FWAT PAR for Teleseismic FWI #####################
-NOISE_MESH_FILE_PATH: ./DATA/meshfem3D_files/Mesh_Par_file.noise
+TELE_MESH_FILE_PATH: ./DATA/meshfem3D_files/Mesh_Par_file.tele
 # Number of receiver components
 TELE_NRCOMP: 2
 # Names of receiver components, in order of Z R T
@@ -54,7 +56,7 @@ TELE_RCOMPS: Z R
 # Channel code
 TELE_CH_CODE: BX
 # Number of time steps
-TELE_NSTEP: 2500
+TELE_NSTEP: 1800
 # Time interval
 TELE_DT: 0.05
 # Number of filters (Only 1 available for RF)

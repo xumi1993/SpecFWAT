@@ -21,6 +21,8 @@ target_link_libraries(specfem_interface_objs PRIVATE fwat_shared_objs MPI::MPI_F
 add_library(fwat_mesh_database_objs OBJECT ${FWAT_mesh_gen_INTERFACE} )
 target_link_libraries(fwat_mesh_database_objs PRIVATE meshfem3D_objs generate_databases_objs
                       grid_interface_objs shared_objs specfem3D_objs MPI::MPI_Fortran)
+target_link_libraries(fwat_mesh_database_objs PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
+
 
 # Create an object library for the interface
 add_library(read_mesh_interface_objs OBJECT ${FWAT_read_mesh_INTERFACE})
