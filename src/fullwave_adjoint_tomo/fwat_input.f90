@@ -14,6 +14,7 @@ module fwat_input
   use constants, only :MAX_STRING_LEN 
   use fullwave_adjoint_tomo_par
   use ma_variables
+  use meshgrid, only: ReglGrid
 
   type(fwat_noise_parameters), save, public :: noise_par
   type(fwat_tele_parameters), save, public :: tele_par
@@ -21,6 +22,7 @@ module fwat_input
   type(fwat_leq_parameters), save, public :: leq_par
   type(fwat_tomo_parameters), save, public :: tomo_par
   type(fwat_acqui), save, public :: acqui_par
+  type(ReglGrid), save, public :: rg
 
 contains
 

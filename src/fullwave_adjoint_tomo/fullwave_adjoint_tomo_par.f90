@@ -15,7 +15,6 @@ module fullwave_adjoint_tomo_par
 
   !! IMPORT VARIABLES ------------------------------------------------------------------------------------------------
   use specfem_par, only: CUSTOM_REAL, MAX_STRING_LEN, MAX_LENGTH_STATION_NAME, MAX_LENGTH_NETWORK_NAME
-  use meshgrid, only: ReglGrid
   use my_mpi
 
   !-------------------------------------------------------------------------------------------------------------------
@@ -42,7 +41,6 @@ module fullwave_adjoint_tomo_par
   character(len=MAX_STRING_LEN), public                            :: GRID_PATH
   logical,                       public                            :: is_read_database = .true., is_joint, USE_H5=.false.
   real(kind=CUSTOM_REAL)                                           :: alpha 
-  type(ReglGrid),                public                            :: rg
 
 !################################################# WORKFLOW ######################################################################
   type fwat_acqui
