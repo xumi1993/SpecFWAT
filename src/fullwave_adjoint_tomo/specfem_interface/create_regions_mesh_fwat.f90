@@ -239,7 +239,6 @@
   if (from_h5) then
     block
       use fullwave_adjoint_tomo_par, only: GRID_PATH
-      use meshgrid, only: togllmodel
       call togllmodel(nspec)
     end block
   endif
@@ -393,6 +392,8 @@ end subroutine create_regions_mesh_fwat
 
   use create_regions_mesh_ext_par
 
+  use model_ipati_adios_mod, only: model_ipati_adios,model_ipati_water_adios
+
   use model_ipati_adios_mod, only: model_ipati_adios
   use fullwave_adjoint_tomo_par, only: GRID_PATH
 
@@ -451,9 +452,9 @@ end subroutine create_regions_mesh_fwat
   use constants
   use utils
   use generate_databases_par, only: NGLLX,NGLLY,NGLLZ,FOUR_THIRDS,IMAIN,MAX_STRING_LEN,ATTENUATION
-
   use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs,qkappa_attenuation_store,qmu_attenuation_store
   use projection_on_FD_grid_fwat
+  use hdf5_interface
 
   implicit none
 
@@ -538,3 +539,152 @@ end subroutine create_regions_mesh_fwat
   endif
 
   end subroutine
+
+  subroutine togllmodel(nspec)
+  use constants
+  use utils
+  use generate_databases_par, only: NGLLX,NGLLY,NGLLZ,FOUR_THIRDS,IMAIN,MAX_STRING_LEN,ATTENUATION,&
+                                    LOCAL_PATH, xstore_db=>xstore, ystore_db=>ystore, zstore_db=>zstore,&
+                                    ibool_db=>ibool
+  use specfem_par, only: myrank
+  use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs,qkappa_attenuation_store,qmu_attenuation_store
+  use projection_on_FD_grid_fwat
+  use fullwave_adjoint_tomo_par, only: GRID_PATH
+  use hdf5_interface
+
+  implicit none
+
+  ! local parameters
+  real(kind=CUSTOM_REAL), dimension(:,:,:),allocatable :: vp_read,vs_read,rho_read, qmu_read, qkappa_read
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: vp_gll, vs_gll, rho_gll
+  real(kind=CUSTOM_REAL), dimension(:),allocatable :: x, y, z
+  real(kind=CUSTOM_REAL) :: ox_back, hx_back, oy_back, hy_back, oz_back, hz_back
+  integer :: nx_back, ny_back, nz_back
+  character(len=MAX_STRING_LEN) :: prname_lp
+  integer :: ier, FID=28, nspec, i, j, k, ispec
+  logical :: exist
+
+
+  ! backup the original grid
+  ox_back = ox_fd_proj; hx_back = hx_fd_proj; nx_back = nx_fd_proj
+  oy_back = oy_fd_proj; hy_back = hy_fd_proj; ny_back = ny_fd_proj
+  oz_back = oz_fd_proj; hz_back = hz_fd_proj; nz_back = nz_fd_proj
+
+  ! read h5file
+  if (myrank == 0) then
+    write(IMAIN,*) '     reading in: ',trim(GRID_PATH)
+    inquire(file=trim(GRID_PATH), exist=exist)
+    if (.not. exist) then
+      print *, 'ERROR: No found mesh file of ', trim(GRID_PATH)
+      stop
+    endif
+    call h5read(GRID_PATH, '/vp', vp_read)
+    vp_read = transpose_3(vp_read)
+    call h5read(GRID_PATH, '/vs', vs_read)
+    vs_read = transpose_3(vs_read)
+    call h5read(GRID_PATH, '/rho', rho_read)
+    rho_read = transpose_3(rho_read)
+    if (ATTENUATION) then
+      call h5read(GRID_PATH, '/qmu', qmu_read)
+      qmu_read = transpose_3(qmu_read)
+      call h5read(GRID_PATH, '/qkappa', qkappa_read)
+      qkappa_read = transpose_3(qkappa_read)
+    endif
+    call h5read(GRID_PATH, '/x', x)
+    call h5read(GRID_PATH, '/y', y)
+    call h5read(GRID_PATH, '/z', z)
+    ox_fd_proj = x(1); hx_fd_proj = x(2) - x(1); nx_fd_proj = size(x)
+    oy_fd_proj = y(1); hy_fd_proj = y(2) - y(1); ny_fd_proj = size(y)
+    oz_fd_proj = z(1); hz_fd_proj = z(2) - z(1); nz_fd_proj = size(z)
+  endif
+  call synchronize_all()
+  call bcast_all_singlei(nx_fd_proj)
+  call bcast_all_singlei(ny_fd_proj)
+  call bcast_all_singlei(nz_fd_proj)
+  call bcast_all_singlecr(ox_fd_proj)
+  call bcast_all_singlecr(hx_fd_proj)
+  call bcast_all_singlecr(oy_fd_proj)
+  call bcast_all_singlecr(hy_fd_proj)
+  call bcast_all_singlecr(oz_fd_proj)
+  call bcast_all_singlecr(hz_fd_proj)
+  if (myrank /= 0) then
+    allocate(vp_read(nx_fd_proj, ny_fd_proj, nz_fd_proj))
+    allocate(vs_read(nx_fd_proj, ny_fd_proj, nz_fd_proj))
+    allocate(rho_read(nx_fd_proj, ny_fd_proj, nz_fd_proj))
+  endif
+  call bcast_all_cr(vp_read, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+  call bcast_all_cr(vs_read, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+  call bcast_all_cr(rho_read, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+  if (ATTENUATION) then
+    if (myrank /= 0) then
+      allocate(qmu_read(nx_fd_proj, ny_fd_proj, nz_fd_proj))
+      allocate(qkappa_read(nx_fd_proj, ny_fd_proj, nz_fd_proj))
+    endif
+    call bcast_all_cr(qmu_read, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+    call bcast_all_cr(qkappa_read, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+  endif
+
+  allocate(vp_gll(NGLLX,NGLLY,NGLLZ,nspec))
+  allocate(vs_gll(NGLLX,NGLLY,NGLLZ,nspec))
+  allocate(rho_gll(NGLLX,NGLLY,NGLLZ,nspec))
+
+  ibool = ibool_db
+  NSPEC_AB = nspec
+  xstore = zeros(NGLLX*NGLLY*NGLLZ*nspec)
+  ystore = zeros(NGLLX*NGLLY*NGLLZ*nspec)
+  zstore = zeros(NGLLX*NGLLY*NGLLZ*nspec)
+  do i=1,NGLLX; do j=1,NGLLY; do k=1,NGLLZ; do ispec=1,nspec
+    xstore(ibool(i,j,k,ispec)) = xstore_db(i,j,k,ispec)
+    ystore(ibool(i,j,k,ispec)) = ystore_db(i,j,k,ispec)
+    zstore(ibool(i,j,k,ispec)) = zstore_db(i,j,k,ispec)
+  enddo; enddo; enddo; enddo
+  call Project_model_FD_grid2SEM(vp_gll, vp_read, myrank)
+  call Project_model_FD_grid2SEM(vs_gll, vs_read, myrank)
+  call Project_model_FD_grid2SEM(rho_gll, rho_read, myrank)
+
+  write(prname_lp,'(a,i6.6,a)') trim(LOCAL_PATH)//'/proc',myrank,'_'
+  open(FID,file=trim(prname_lp)//'vp.bin',status='unknown',form='unformatted',iostat=ier)
+  if (ier /= 0) stop 'Error writing model file'
+  write(FID) vp_gll
+  close(FID)
+
+  open(FID,file=trim(prname_lp)//'vs.bin',status='unknown',form='unformatted',iostat=ier)
+  if (ier /= 0) stop 'Error writing model file'
+  write(FID) vs_gll
+  close(FID)
+
+  open(FID,file=trim(prname_lp)//'rho.bin',status='unknown',form='unformatted',iostat=ier)
+  if (ier /= 0) stop 'Error writing model file'
+  write(FID) rho_gll
+  close(FID)
+
+  if (ATTENUATION) then
+    call Project_model_FD_grid2SEM(qmu_attenuation_store, qmu_read, myrank)
+    call Project_model_FD_grid2SEM(qkappa_attenuation_store, qkappa_read, myrank)
+
+    open(FID,file=trim(prname_lp)//'qmu.bin',status='unknown',form='unformatted',iostat=ier)
+    if (ier /= 0) stop 'Error writing model file'
+    write(FID) qmu_attenuation_store
+    close(FID)
+
+    open(FID,file=trim(prname_lp)//'qkappa.bin',status='unknown',form='unformatted',iostat=ier)
+    if (ier /= 0) stop 'Error writing model file'
+    write(FID) qkappa_attenuation_store
+    close(FID)
+  endif
+
+  deallocate(vp_gll, vs_gll, rho_gll)
+  deallocate(vp_read, vs_read, rho_read)
+  if (ATTENUATION) then
+    deallocate(qmu_read, qkappa_read)
+  endif
+
+  ! restore the original grid
+  ox_fd_proj = ox_back; hx_fd_proj = hx_back; nx_fd_proj = nx_back
+  oy_fd_proj = oy_back; hy_fd_proj = hy_back; ny_fd_proj = ny_back
+  oz_fd_proj = oz_back; hz_fd_proj = hz_back; nz_fd_proj = nz_back
+
+  call synchronize_all()
+
+
+  end subroutine togllmodel
