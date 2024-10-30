@@ -13,7 +13,7 @@ module MeshGrid
     real(kind=CUSTOM_REAL), dimension(:), allocatable :: xfd, yfd, zfd
     integer :: nx, ny, nz
     contains
-    procedure :: init, griddata, read_mesh, gridmodel, semdata
+    procedure :: init, griddata, read_mesh, gridmodel, semdata, readgrid
   end type
 
 contains
@@ -154,28 +154,33 @@ subroutine gridmodel(this, indir, dataname, model_on_FD_grid)
       enddo
     enddo
   enddo
+  call synchronize_all()
 
 end subroutine gridmodel
 
-subroutine semdata(this, indir, dataname, model_on_SEM_mesh)
+subroutine semdata(this, model_on_FD_grid, model_on_SEM_mesh)
   class (ReglGrid), intent(inout) :: this
 
-  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: model_on_FD_grid
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable, intent(inout) :: model_on_FD_grid
   real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable, intent(out) :: model_on_SEM_mesh
-  character(len=*), intent(in) :: indir, dataname
-
-  if (myrank == 0) then
-    call h5read(trim(indir)//'/'//trim(dataname)//'.h5', '/vp', model_on_FD_grid)
-  endif
-  if (myrank /= 0) then
-    allocate(model_on_FD_grid(nx_fd_proj, ny_fd_proj, nz_fd_proj))
-  endif
-  call bcast_all_cr(model_on_FD_grid, nx_fd_proj*ny_fd_proj*nz_fd_proj)
 
   allocate(model_on_SEM_mesh(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
   call Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank)
 
 end subroutine semdata
 
+subroutine readgrid(this, indir, dataname, model_on_FD_grid)
+  class (ReglGrid), intent(inout) :: this
 
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable, intent(out) :: model_on_FD_grid
+  character(len=*), intent(in) :: indir, dataname
+
+  if (myrank==0) then
+    call h5read(indir, '/'//trim(dataname), model_on_FD_grid)
+  endif
+  if (myrank/=0) then
+    allocate(model_on_FD_grid(this%nx, this%ny, this%nz))
+  endif
+  call bcast_all_cr(model_on_FD_grid, this%nx*this%ny*this%nz)
+end subroutine readgrid
 end module MeshGrid

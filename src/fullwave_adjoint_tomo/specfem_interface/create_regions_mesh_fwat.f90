@@ -239,7 +239,7 @@
   if (from_h5) then
     block
       use fullwave_adjoint_tomo_par, only: GRID_PATH
-      call togllmodel(nspec)
+      call togllmodel(myrank, nspec)
     end block
   endif
   call get_model_binaries(myrank,nspec,LOCAL_PATH)
@@ -470,7 +470,7 @@ end subroutine create_regions_mesh_fwat
 
   ! read h5file
   if (myrank == 0) then
-    write(IMAIN,*) '     reading in: ',trim(filename)
+    ! write(IMAIN,*) '     reading in: ',trim(filename)
     call h5read(filename, '/vp', vp_read)
     vp_read = transpose_3(vp_read)
     call h5read(filename, '/vs', vs_read)
@@ -540,13 +540,12 @@ end subroutine create_regions_mesh_fwat
 
   end subroutine
 
-  subroutine togllmodel(nspec)
+  subroutine togllmodel(myrank, nspec)
   use constants
   use utils
   use generate_databases_par, only: NGLLX,NGLLY,NGLLZ,FOUR_THIRDS,IMAIN,MAX_STRING_LEN,ATTENUATION,&
                                     LOCAL_PATH, xstore_db=>xstore, ystore_db=>ystore, zstore_db=>zstore,&
                                     ibool_db=>ibool
-  use specfem_par, only: myrank
   use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs,qkappa_attenuation_store,qmu_attenuation_store
   use projection_on_FD_grid_fwat
   use fullwave_adjoint_tomo_par, only: GRID_PATH
@@ -559,7 +558,7 @@ end subroutine create_regions_mesh_fwat
   real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: vp_gll, vs_gll, rho_gll
   real(kind=CUSTOM_REAL), dimension(:),allocatable :: x, y, z
   real(kind=CUSTOM_REAL) :: ox_back, hx_back, oy_back, hy_back, oz_back, hz_back
-  integer :: nx_back, ny_back, nz_back
+  integer :: nx_back, ny_back, nz_back, myrank
   character(len=MAX_STRING_LEN) :: prname_lp
   integer :: ier, FID=28, nspec, i, j, k, ispec
   logical :: exist
@@ -572,7 +571,7 @@ end subroutine create_regions_mesh_fwat
 
   ! read h5file
   if (myrank == 0) then
-    write(IMAIN,*) '     reading in: ',trim(GRID_PATH)
+    ! write(IMAIN,*) '     reading in: ',trim(GRID_PATH)
     inquire(file=trim(GRID_PATH), exist=exist)
     if (.not. exist) then
       print *, 'ERROR: No found mesh file of ', trim(GRID_PATH)

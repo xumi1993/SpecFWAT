@@ -407,7 +407,11 @@ module postproc_sub
         call select_set_range()
         output_dir = 'optimize/SUM_KERNELS_'//trim(model)//'_'//trim(type_name)
         if (USE_H5) then
-          call rg%semdata(output_dir, fwat_kernel_names(i), kernel1)        
+          block
+            real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: tmp_kernel
+            call rg%readgrid(trim(output_dir)//trim(fwat_kernel_names(i))//'.h5', fwat_kernel_names(i), tmp_kernel)
+            call rg%semdata(tmp_kernel, kernel1)        
+          end block
         else
           call read_smoothed_kernel(output_dir, fwat_kernel_names(i), kernel1)
         endif

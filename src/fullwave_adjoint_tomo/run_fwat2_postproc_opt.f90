@@ -30,7 +30,7 @@ subroutine run_fwat2_postproc_opt(model)
   use taper3d
   use constants, only: IMAIN
   use postproc_sub, only: post_proc, sum_joint_kernels, read_database, get_kernel_names, type_name, this_model=>model, &
-                          model_prev, model_next, imod_current,imod_up, imod_down, get_model_idx
+                          model_prev, model_next, imod_current,imod_up, imod_down, get_model_idx, kernel_num, fwat_kernel_names
   implicit none
 
   ! real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
@@ -83,7 +83,7 @@ subroutine run_fwat2_postproc_opt(model)
     flush(OUT_FWAT_LOG)
     call system('mkdir -p optimize')
     if(imod_current==0) then
-      call system('mkdir -p optimize/MODEL_M00 && cp model_initial/* optimize/MODEL_M00/')
+      call system('mkdir -p optimize/MODEL_M00')
     endif
     call system('mkdir -p optimize/MODEL_'//trim(model_next))
   endif 
@@ -92,6 +92,13 @@ subroutine run_fwat2_postproc_opt(model)
 ! Sum and smooth kernels
   if (is_read_database .and. .not. is_joint) call read_database()
   call get_kernel_names()
+  call synchronize_all()
+
+  if (imod_current == 0 .and. myrank == 0) then
+    do i = 1, kernel_num
+      call system('cp '//trim(LOCAL_PATH)//'/*_'//trim(fwat_kernel_names(i))//'.bin '//'optimize/MODEL_M00/')
+    enddo
+  endif
   call synchronize_all()
 
   do i = 1,NUM_INV_TYPE

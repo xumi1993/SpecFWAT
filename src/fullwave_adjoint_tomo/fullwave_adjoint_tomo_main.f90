@@ -85,7 +85,7 @@ subroutine fullwave_adjoint_tomo_main()
     call run_fwat2_postproc_opt(model)
 
     ! line search
-    call run_optim()
+    ! call run_optim()
     
   end do
 end subroutine fullwave_adjoint_tomo_main
@@ -124,10 +124,6 @@ subroutine init_inversion()
     ! check for joint
     if (count(tomo_par%INV_TYPE) > 1) then
       is_joint = .true.
-      if (IMODEL /= 6) then
-        print *, 'ERROR: Joint inversion only supports external model'
-        stop
-      endif
       do itype = 1, NUM_INV_TYPE
         if (tomo_par%INV_TYPE(itype)) then
           inquire(file=get_mesh_file_path(itype), exist=exist)
