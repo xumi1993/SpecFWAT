@@ -2,7 +2,7 @@ subroutine run_optim()
 
   use fullwave_adjoint_tomo_par
   use fwat_input
-  use fwat_utils
+  use utils
   use tomography_par, only: USE_ALPHA_BETA_RHO,USE_ISO_KERNELS, step_fac, iter_start,iter_current, &
            INPUT_MODEL_DIR,OUTPUT_MODEL_DIR,KERNEL_OLD_DIR,INPUT_KERNELS_DIR,PRINT_STATISTICS_FILES
   !!! for reading Database
@@ -19,7 +19,7 @@ subroutine run_optim()
   implicit none
 
   double precision                                                :: chi, chi0
-  double precision, dimension(NUM_INV_TYPE)                       :: misfit, this_misfit, misfit0
+  double precision, dimension(:), allocatable                     :: misfit, this_misfit, misfit0
   integer                                                         :: nchan, i, j, sit
   integer,                               parameter                :: LOG_UNIT = 898
   character(len=MAX_STRING_LEN)                                   :: model_ls, evtset, msg, strstep, model_start
@@ -49,6 +49,8 @@ subroutine run_optim()
     ! read current misfit
     step_fac = tomo_par%MAX_SLEN
     write(model_start, '("M",I2.2)') tomo_par%ITER_START
+    misfit0 = zeros(NUM_INV_TYPE)
+    misfit = zeros(NUM_INV_TYPE)
     do i = 1, NUM_INV_TYPE
       if (tomo_par%INV_TYPE(i)) then
         call read_misfit(tomo_par%INV_TYPE_NAME(i), model_start, chi0, nchan)
@@ -79,6 +81,7 @@ subroutine run_optim()
       call synchronize_all()
 
       ! sub-iterations
+      this_misfit = zeros(NUM_INV_TYPE)
       do i = 1, NUM_INV_TYPE
         model_ls =  trim(model)//'_step'//trim(strstep)
         if (tomo_par%INV_TYPE(i)) then
@@ -98,8 +101,8 @@ subroutine run_optim()
         call write_timestamp_log(LOG_UNIT, 'Misfit change:')
         do i = 1, NUM_INV_TYPE
           if (tomo_par%INV_TYPE(i)) then
-            write(msg, '("    ",A," : ",F20.6)') tomo_par%INV_TYPE_NAME(i), this_misfit(i)
-            call write_timestamp_log(LOG_UNIT, msg)
+            write(LOG_UNIT, '("    ",A," : ",F20.6)') trim(tomo_par%INV_TYPE_NAME(i)), this_misfit(i)
+            flush(LOG_UNIT)
           endif
         enddo
       endif
