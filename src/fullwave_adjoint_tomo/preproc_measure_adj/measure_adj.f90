@@ -868,7 +868,7 @@ subroutine measure_adj()
                                 chan_dat, bandname, window_chi)
     !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
     use interpolation_mod, only : myconvolution, PI
-    use fwat_utils, only : zeros
+    use utils, only : zeros
 
     implicit none
     character(len=10), intent(in)                      :: net, sta,chan_dat

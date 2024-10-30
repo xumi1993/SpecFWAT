@@ -3,7 +3,7 @@ module FKTimes_mod
   ! use specfem3D_par, only: al_FK, be_FK, mu_FK, h_FK, phi_FK, theta_FK, xx0,yy0,zz0,CUSTOM_REAL
   use specfem_par, only : CUSTOM_REAL, nrec, FKMODEL_FILE, SUPPRESS_UTM_PROJECTION, ILONGLAT2UTM, myrank, IIN
   use specfem_par_coupling
-  use fwat_utils, only : zeros
+  use utils, only : zeros
   use fwat_input, only : acqui_par
   use constants, only : DEG2RAD
 
