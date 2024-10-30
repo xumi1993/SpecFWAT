@@ -21,7 +21,7 @@ NOISE_RCOMPS: Z
 # Channel code
 NOISE_CH_CODE: BX
 # Number of time steps
-NOISE_NSTEP: 4100
+NOISE_NSTEP: 2000
 # Time interval
 NOISE_DT: 0.05
 # Number of filters
@@ -33,11 +33,9 @@ NOISE_SHORT_P: 6 10 20
 # NOISE_LONG_P: 25 35
 NOISE_LONG_P: 15 25 35
 # Approximate minimum group velocity
-NOISE_GROUPVEL_MIN: 1.5 1.8 2.0
-# NOISE_GROUPVEL_MIN: 1.8 2.0
+NOISE_GROUPVEL_MIN: 1.5 1.8 1.8
 # Approximate maximum group velocity
 NOISE_GROUPVEL_MAX: 3.75 3.75 4.2
-# NOISE_GROUPVEL_MAX: 4.75 4.2
 # Set the following to .true. to normalize adjoint sources across different bands
 NOISE_ADJ_SRC_NORM: .false.
 # Set the following to false if use only data > 1 average wavelength

@@ -3,13 +3,18 @@
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2`
 
 cat > grid.txt<<eof
-0.2 -0.2 -80000
+0.4 -0.2 -80000
 0.2 0.4 20000
-7  1   4
+5  1   4
 eof
 
 pert=0.1
 mkdir -p model_pert
+
+setpar_fwat DATA/FWAT.PAR INITIAL_MODEL_PATH ./DATA/initial_model.h5
+setpar_fwat DATA/FWAT.PAR USE_H5 .true.
+mpirun -np $NPROC ../../bin/xfwat_mesh_database rf
+
 for name in vp vs rho;do
     mpirun -np $NPROC ../../bin/xadd_pert_trigo grid.txt $name ./DATABASES_MPI model_pert true $pert
     mpirun -np $NPROC ../../bin/xmodel_grid_cart 1000 1000 100 $name model_pert/ model_pert/ pert true

@@ -291,4 +291,22 @@ contains
   
     end subroutine rotate_ZRT_to_ZNE
 
+  function get_mesh_file_path(itype) result(mesh_file_path)
+    use fwat_input
+    implicit none
+  
+    integer, intent(in) :: itype
+    character(len=MAX_STRING_LEN) :: mesh_file_path
+    select case(itype)
+    case(1)
+      mesh_file_path = noise_par%mesh_file_path
+    case(2)
+      mesh_file_path = tele_par%mesh_file_path
+    case(3)
+      mesh_file_path = leq_par%mesh_file_path
+    case default
+      stop 'Error: invalid mesh file type'
+    end select
+  end function get_mesh_file_path
+  
 end module

@@ -14,7 +14,7 @@ UTM_PROJECTION_ZONE             = 30
 SUPPRESS_UTM_PROJECTION         = .false.
 
 # file that contains the interfaces of the model / mesh
-INTERFACES_FILE                 = interfaces.dat
+INTERFACES_FILE                 = interfaces_noise.dat
 
 # file that contains the cavity
 CAVITY_FILE                     = dummy
@@ -94,5 +94,5 @@ NMATERIALS                      = 1
 NREGIONS                        = 1
 # define the different regions of the model as :
 #NEX_XI_BEGIN  #NEX_XI_END  #NEX_ETA_BEGIN  #NEX_ETA_END  #NZ_BEGIN #NZ_END  #material_id
-1              24           1               12            1           16       1
+1              24           1               12            1           11       1
 

@@ -14,7 +14,7 @@ UTM_PROJECTION_ZONE             = 30
 SUPPRESS_UTM_PROJECTION         = .false.
 
 # file that contains the interfaces of the model / mesh
-INTERFACES_FILE                 = interfaces.dat
+INTERFACES_FILE                 = interfaces_tele.dat
 
 # file that contains the cavity
 CAVITY_FILE                     = dummy
