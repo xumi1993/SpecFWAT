@@ -5,7 +5,7 @@
 #-----------------------------------------------------------
 VERBOSE_MODE: .true.
 # INITIAL_MODEL_PATH: ./DATA/initial_model.h5
-INITIAL_MODEL_PATH: ./DATA/initial_model.h5
+INITIAL_MODEL_PATH: ./DATA/target_model.h5
 USE_H5: .true.
 
 ###################### FWAT PAR for Noise tomo #####################
@@ -115,7 +115,7 @@ SAVE_OUTPUT_EACH_EVENT: .false.
 # 1: noise; 2: tele; 3: local eq
 INV_TYPE: .true. .true. .false.
 # Teleseismic type: 1: waveform difference; 2: RF difference; 3: cross-convolutional difference
-TELE_TYPE: 3
+TELE_TYPE: 2
 # Start and end set name for Noise
 NOISE_SET_RANGE: set0 set0
 # Start and end set name for Tele/RF
@@ -131,13 +131,13 @@ USE_PDE_SMOOTH: .false.
 USE_RHO_SCALING_FWAT: .false.
 USE_RHO_SCALING_NOISE: .true.
 # in meter
-NOISE_SIGMA_H: 15000
+NOISE_SIGMA_H: 5000
 # in meter
-NOISE_SIGMA_V: 7500
+NOISE_SIGMA_V: 5000
 # in meter
-TELE_SIGMA_H: 7500
+TELE_SIGMA_H: 5000
 # in meter
-TELE_SIGMA_V: 7500
+TELE_SIGMA_V: 5000
 # in meter
 LEQ_SIGMA_H: 4000
 # in meter

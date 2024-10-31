@@ -42,7 +42,9 @@
   ! call get_command_argument(4, is_smooth)     
   call read_parameter_file(myrank, .true.)
   call read_fwat_par_file()
- 
+  
+  call init_inversion()
+
   ! call run_fwat2_postproc_opt(model,evtsetb,evtsete,is_smooth)
   call run_fwat2_postproc_opt(model)
   ! call run_optim_man()

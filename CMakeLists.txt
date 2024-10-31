@@ -117,6 +117,7 @@ foreach(execsourcefile ${APP_SOURCES})
                           measadj_objs flexwin_objs fwat_telestf_objs
                           fwat_recfunc_objs fwat_mesh_database_objs
                           generate_databases_objs grid_interface_objs
+                          fwat_inversion_subs_objs
                           )
   elseif(${EXEC_NAME} STREQUAL "fwat3_linesearch")
     target_link_libraries(${EXEC_NAME} PUBLIC fwat_mesh_database_objs
@@ -135,7 +136,7 @@ foreach(execsourcefile ${APP_SOURCES})
                           fwat2_postproc_opt_objs generate_databases_objs
                           fwat_mesh_database_objs fwat_post_proc_objs
                           fwat_pre_proc_objs fwat3_linesearch_objs
-                          grid_interface_objs
+                          grid_interface_objs fwat_inversion_subs_objs
                           )
   elseif(${EXEC_NAME} STREQUAL "fwat_mesh_database")
     target_link_libraries(${EXEC_NAME} PUBLIC meshfem3D_objs generate_databases_objs

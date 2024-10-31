@@ -308,6 +308,32 @@ subroutine setup_mesh_fwat(from_h5)
       endif
     enddo
   enddo
+
+  ! compute the maximum of the maxima for all the slices using an MPI reduction
+  call min_all_dp(min_elevation,min_elevation_all)
+  call max_all_dp(max_elevation,max_elevation_all)
+
+  if (myrank == 0) then
+    if (min_elevation_all /= HUGEVAL .and. max_elevation_all /= -HUGEVAL) then
+      write(IMAIN,*)
+      write(IMAIN,*) 'min and max of elevation (i.e. height of the upper surface of the mesh) included in mesh in m is ', &
+                           min_elevation_all,' ',max_elevation_all
+      write(IMAIN,*)
+    else
+      write(IMAIN,*)
+      write(IMAIN,*) 'no upper surface of the mesh detected (no "topography" included in the mesh), there is something wrong'
+      call exit_MPI(myrank,'wrong or empty definition of upper surface of the mesh in file free_or_absorbing_surface_file_zmax')
+      write(IMAIN,*)
+    endif
+    call flush_IMAIN()
+  endif
+
+! clean-up
+  deallocate(xstore,ystore,zstore)
+  deallocate(ibool)
+  deallocate(ispec_is_surface_external_mesh)
+  deallocate(iglob_is_surface_external_mesh)
+  call synchronize_all()
 end subroutine setup_mesh_fwat
 
 subroutine initialize_mesh_arrays()

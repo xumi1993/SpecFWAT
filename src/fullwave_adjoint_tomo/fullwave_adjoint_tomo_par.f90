@@ -163,7 +163,7 @@ module fullwave_adjoint_tomo_par
     character(len=MAX_STRING_LEN), public, dimension(2)                :: TELE_SET_RANGE
     character(len=MAX_STRING_LEN), public, dimension(2)                :: LEQ_SET_RANGE
     character(len=MAX_STRING_LEN), public, dimension(NUM_INV_TYPE)     :: INV_TYPE_NAME = (/'noise','tele ','leq  '/)
-    character(len=MAX_STRING_LEN), public                              :: NORM_TYPE = 'max'
+    character(len=MAX_STRING_LEN), public, dimension(3)                :: MODEL_NAME = (/'vp ','vs ','rho'/)
     real(kind=CUSTOM_REAL), public, dimension(NUM_INV_TYPE)            :: JOINT_WEIGHT
     logical,                public, dimension(NUM_INV_TYPE)            :: INV_TYPE ! 1 for NOISE; 2 for TELE/RF; 3 for LEQ;
     integer,                public                                     :: TELE_TYPE
@@ -712,8 +712,6 @@ subroutine fwat_tomo_read_par_file(this)
           read(line(ipos0:ipos1),*) this%LEQ_SIGMA_V  
         case('INV_TYPE')
           read(line(ipos0:ipos1),*) this%INV_TYPE(:)
-        case('NORM_TYPE')
-          read(line(ipos0:ipos1),*) this%NORM_TYPE
         case('NOISE_SET_RANGE')
           read(line(ipos0:ipos1),*) this%NOISE_SET_RANGE(:)
         ! case('NUM_TELE_SETS')

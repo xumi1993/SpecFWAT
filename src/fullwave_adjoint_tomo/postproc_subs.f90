@@ -139,6 +139,7 @@ module postproc_sub
     call smooth_kernel()
     call kernel_taper(sum_dir)
     if (USE_H5) then
+      call write_timestamp_log(OUT_FWAT_LOG, 'This is grid_kernel ...')
       call grid_kernel()
     endif
   end subroutine post_proc
@@ -169,6 +170,7 @@ module postproc_sub
     ! read the value of NSPEC_AB and NGLOB_AB because we need it to define some array sizes below
     call read_mesh_for_init()
 
+    print *, irregular_element_number(NSPEC_AB)
     allocate(ibool(NGLLX,NGLLY,NGLLZ,NSPEC_AB),irregular_element_number(NSPEC_AB),stat=ier)
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 980')
 
@@ -274,6 +276,7 @@ module postproc_sub
                               elemsize_min_glob,elemsize_max_glob, &
                               distance_min_glob,distance_max_glob)
       call synchronize_all()
+      print *, 'x_min_glob = ', x_min_glob  
       ! broadcast SEM size 
       call bcast_all_singlecr(x_min_glob)
       call bcast_all_singlecr(x_max_glob)

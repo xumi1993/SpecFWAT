@@ -546,7 +546,9 @@ end subroutine create_regions_mesh_fwat
   use generate_databases_par, only: NGLLX,NGLLY,NGLLZ,FOUR_THIRDS,IMAIN,MAX_STRING_LEN,ATTENUATION,&
                                     LOCAL_PATH, xstore_db=>xstore, ystore_db=>ystore, zstore_db=>zstore,&
                                     ibool_db=>ibool
-  use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs,qkappa_attenuation_store,qmu_attenuation_store
+  use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs,&
+                                         qkappa_attenuation_store,qmu_attenuation_store,&
+                                         xstore_dummy,ystore_dummy,zstore_dummy
   use projection_on_FD_grid_fwat
   use fullwave_adjoint_tomo_par, only: GRID_PATH
   use hdf5_interface
@@ -629,14 +631,17 @@ end subroutine create_regions_mesh_fwat
 
   ibool = ibool_db
   NSPEC_AB = nspec
-  xstore = zeros(NGLLX*NGLLY*NGLLZ*nspec)
-  ystore = zeros(NGLLX*NGLLY*NGLLZ*nspec)
-  zstore = zeros(NGLLX*NGLLY*NGLLZ*nspec)
+  xstore_dummy = zeros(NGLLX*NGLLY*NGLLZ*nspec)
+  ystore_dummy = zeros(NGLLX*NGLLY*NGLLZ*nspec)
+  zstore_dummy = zeros(NGLLX*NGLLY*NGLLZ*nspec)
   do i=1,NGLLX; do j=1,NGLLY; do k=1,NGLLZ; do ispec=1,nspec
-    xstore(ibool(i,j,k,ispec)) = xstore_db(i,j,k,ispec)
-    ystore(ibool(i,j,k,ispec)) = ystore_db(i,j,k,ispec)
-    zstore(ibool(i,j,k,ispec)) = zstore_db(i,j,k,ispec)
+    xstore_dummy(ibool(i,j,k,ispec)) = xstore_db(i,j,k,ispec)
+    ystore_dummy(ibool(i,j,k,ispec)) = ystore_db(i,j,k,ispec)
+    zstore_dummy(ibool(i,j,k,ispec)) = zstore_db(i,j,k,ispec)
   enddo; enddo; enddo; enddo
+  xstore = xstore_dummy
+  ystore = ystore_dummy
+  zstore = zstore_dummy
   call Project_model_FD_grid2SEM(vp_gll, vp_read, myrank)
   call Project_model_FD_grid2SEM(vs_gll, vs_read, myrank)
   call Project_model_FD_grid2SEM(rho_gll, rho_read, myrank)

@@ -30,7 +30,8 @@ subroutine run_fwat2_postproc_opt(model)
   use taper3d
   use constants, only: IMAIN
   use postproc_sub, only: post_proc, sum_joint_kernels, read_database, get_kernel_names, type_name, this_model=>model, &
-                          model_prev, model_next, imod_current,imod_up, imod_down, get_model_idx, kernel_num, fwat_kernel_names
+                          model_prev, model_next, imod_current,imod_up, imod_down, get_model_idx, kernel_num, &
+                          fwat_kernel_names, select_set_range
   implicit none
 
   ! real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
@@ -71,7 +72,6 @@ subroutine run_fwat2_postproc_opt(model)
         write(OUT_FWAT_LOG,*) '-- WEIGHT: ', tomo_par%JOINT_WEIGHT(i)
       endif
     enddo
-    if (strinv == 'joint') write(OUT_FWAT_LOG,*) 'NORM_TYPE: '//trim(tomo_par%NORM_TYPE)
     write(OUT_FWAT_LOG,*) 'USE_SPH_SMOOTH: ',tomo_par%USE_SPH_SMOOTH
     write(OUT_FWAT_LOG,*) 'model_prev,model_next: ',trim(model_prev),' ',trim(model_next)
     write(OUT_FWAT_LOG,*) 'OPT_METHOD: ',trim(tomo_par%OPT_METHOD) 
@@ -84,6 +84,7 @@ subroutine run_fwat2_postproc_opt(model)
     call system('mkdir -p optimize')
     if(imod_current==0) then
       call system('mkdir -p optimize/MODEL_M00')
+      if (USE_H5) call system('cp '//GRID_PATH//' optimize/model_M00.h5')
     endif
     call system('mkdir -p optimize/MODEL_'//trim(model_next))
   endif 
@@ -96,7 +97,7 @@ subroutine run_fwat2_postproc_opt(model)
 
   if (imod_current == 0 .and. myrank == 0) then
     do i = 1, kernel_num
-      call system('cp '//trim(LOCAL_PATH)//'/*_'//trim(fwat_kernel_names(i))//'.bin '//'optimize/MODEL_M00/')
+      call system('cp '//trim(LOCAL_PATH)//'/*_'//trim(tomo_par%MODEL_NAME(i))//'.bin '//'optimize/MODEL_M00/')
     enddo
   endif
   call synchronize_all()
@@ -111,8 +112,11 @@ subroutine run_fwat2_postproc_opt(model)
         call meshfem3d_fwat()
         ! generate database for forward simulation
         call generate_database_fwat(USE_H5)
+        ! read database
+        call read_database()
       endif
       call post_proc()
+      call write_timestamp_log(OUT_FWAT_LOG, 'Finish post-processing for '//trim(tomo_par%INV_TYPE_NAME(i)))
     endif
   enddo
   if (count(tomo_par%INV_TYPE)>1) then

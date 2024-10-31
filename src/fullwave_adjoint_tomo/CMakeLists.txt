@@ -15,6 +15,7 @@ set(SOURCE_POST_PROC "${SOURCE_FWAT_DIR}/run_linesearch.f90"
                      "${SOURCE_FWAT_DIR}/post_processing/taper_3D_mod.f90"
                      "${SOURCE_FWAT_DIR}/run_postprocessing.f90"
                      "${SOURCE_FWAT_DIR}/run_optimization.f90")
+set(SOURCES_INV_SUBS "${SOURCE_FWAT_DIR}/inverson_subs.f90")
 file(GLOB SOURCES_FWAT_OPT "${SOURCE_FWAT_DIR}/optimization/*.[fF]90")
 
 
@@ -46,6 +47,9 @@ add_library(fwat_pre_proc_objs OBJECT ${SOURCES_PRE_PROC})
 target_link_libraries(fwat_pre_proc_objs PUBLIC fwat_shared_objs shared_objs
                       measadj_objs fwat_recfunc_objs flexwin_objs specfem_interface_objs
                       fwat_interpolation_objs fwat_telestf_objs fwat_opt_objs MPI::MPI_Fortran)
+add_library(fwat_inversion_subs_objs OBJECT ${SOURCES_INV_SUBS})
+target_link_libraries(fwat_inversion_subs_objs PRIVATE fwat_shared_objs shared_objs
+                      meshfem3D_objs generate_databases_objs MPI::MPI_Fortran)
 
 # Define fwat0 library
 set(SOURCES_fwat0 "run_fwat0_forward_data.f90"

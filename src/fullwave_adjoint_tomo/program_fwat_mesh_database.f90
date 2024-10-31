@@ -47,6 +47,12 @@ program fwat_mesh_databse
   call read_mesh_parameter_file_fwat(meshfile)
   call meshfem3d_fwat()
   call generate_database_fwat(USE_H5)
+  call synchronize_all()
+  call force_ftz()
+
+  ! reads in parameters
+  ! call initialize_simulation()
+  call read_mesh_databases()
 
   ! MPI finish
   call finalize_mpi()
