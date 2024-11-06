@@ -10,7 +10,7 @@
 !
 !=====================================================================
 !
-subroutine run_linesearch(model,evtset,simu_type)
+subroutine run_linesearch_single(model,evtset,simu_type)
 
   use fullwave_adjoint_tomo_par
   use fwat_input
@@ -78,7 +78,7 @@ subroutine run_linesearch(model,evtset,simu_type)
   PRINT_SOURCE_TIME_FUNCTION=.false.
   MOVIE_VOLUME=.false.
   SAVE_MESH_FILES=.false.
-  LOCAL_PATH='optimize/MODEL_'//trim(model)
+  ! LOCAL_PATH='optimize/MODEL_'//trim(model)
   old_local_path = LOCAL_PATH
   if (myrank==0) write(*,*) 'Read database from ',trim(LOCAL_PATH)
   
@@ -220,4 +220,4 @@ subroutine run_linesearch(model,evtset,simu_type)
   if(allocated(rmass_acoustic_copy)) deallocate(rmass_acoustic_copy)
   call fwat_parameters_free()
 
-end subroutine run_linesearch
+end subroutine run_linesearch_single

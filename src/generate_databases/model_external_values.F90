@@ -93,7 +93,7 @@
 !---
 
   ! the variables read are declared and stored in structure MEXT_V
-  if (myrank == 0) call read_external_model()
+  ! if (myrank == 0) call read_external_model()
 
   ! broadcast the information read on the master to the nodes
   call bcast_all_dp(MEXT_V%dvs, size(MEXT_V%dvs))
@@ -104,20 +104,101 @@
 !-------------------------------------------------------------------------------------------------
 !
 
-  subroutine read_external_model()
-
-  use external_model
+  subroutine read_external_model(myrank)
 
   use constants
 
+  use shared_parameters
+  use generate_databases_par, only: NGLLX,NGLLY,NGLLZ,FOUR_THIRDS,IMAIN,MAX_STRING_LEN,ATTENUATION,&
+                                    nspec => NSPEC_AB,nglob => NGLOB_AB, ibool
+
+  ! use create_regions_mesh_ext_par, only: rhostore,kappastore,mustore,rho_vp,rho_vs
+  use create_regions_mesh_ext_par
+  use hdf5_interface
+  use utils
   implicit none
 
-!---
-!
-! ADD YOUR MODEL HERE
-!
-!---
-  MEXT_V%dvs(:) = 0.d0
+  integer :: myrank
+
+  ! local parameters
+  integer :: idummy
+
+  type(hdf5_file) :: hp
+  real(kind=CUSTOM_REAL), dimension(:), allocatable :: x, y, z
+  real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp_read, vs_read, rho_read
+  real(kind=CUSTOM_REAL) :: xsem, ysem, zsem, vp_val, vs_val, rho_val
+  integer :: ispec, i, j, k, iglob, nx, ny, nz
+
+  ! safety check
+  ! if (COUPLE_WITH_INJECTION_TECHNIQUE .or. MESH_A_CHUNK_OF_THE_EARTH) then
+  !   print *,'Coupling with injection technique or mesh a chunk of the earth requires in Par_file: MODEL = coupled'
+  !   stop 'Error model external'
+  ! endif
+  if (ATTENUATION) then
+    print *,'Attenuation is not implemented in the external model'
+    stop 'Error model external'
+  endif
+
+  if (myrank == 0) then
+    call hp%open(trim(TOMOGRAPHY_PATH)//'tomography_xyz.h5')
+    call hp%get('/x', x)
+    call hp%get('/y', y)
+    call hp%get('/z', z)
+    call hp%get('/vp', vp_read)
+    call hp%get('/vs', vs_read)
+    call hp%get('/rho', rho_read)
+    call hp%close()
+    vp_read = transpose_3(vp_read)
+    vs_read = transpose_3(vs_read)
+    rho_read = transpose_3(rho_read)
+    nx = size(x)
+    ny = size(y)
+    nz = size(z)
+  endif
+  call synchronize_all()
+  call bcast_all_singlei(nx)
+  call bcast_all_singlei(ny)
+  call bcast_all_singlei(nz)
+  if(myrank /= 0) then
+    allocate(x(nx), y(ny), z(nz))
+    allocate(vp_read(nx, ny, nz), vs_read(nx, ny, nz), rho_read(nx, ny, nz))
+  endif
+  call bcast_all_cr(x, size(x))
+  call bcast_all_cr(y, size(y))
+  call bcast_all_cr(z, size(z))
+  call bcast_all_cr(vp_read, size(vp_read))
+  call bcast_all_cr(vs_read, size(vs_read))
+  call bcast_all_cr(rho_read, size(rho_read))
+
+  do ispec = 1, nspec
+    do i = 1, NGLLX
+      do j = 1, NGLLY
+        do k = 1, NGLLZ
+          iglob = ibool(i,j,k,ispec)
+          xsem = xstore_dummy(iglob)
+          ysem = ystore_dummy(iglob)
+          zsem = zstore_dummy(iglob)
+          if (xsem < x(1) .or. xsem > x(nx) .or. &
+              ysem < y(1) .or. ysem > y(ny) .or. &
+              zsem < z(1) .or. zsem > z(nz)) then
+            rho_val = interp3_nearest(x, y, z, rho_read, xsem, ysem, zsem)
+            vp_val = interp3_nearest(x, y, z, vp_read, xsem, ysem, zsem)
+            vs_val = interp3_nearest(x, y, z, vs_read, xsem, ysem, zsem)
+          else
+            rho_val = interp3(x, y, z, rho_read, xsem, ysem, zsem)
+            vp_val = interp3(x, y, z, vp_read, xsem, ysem, zsem)
+            vs_val = interp3(x, y, z, vs_read, xsem, ysem, zsem)
+          endif
+          rhostore(i,j,k,ispec) = rho_val
+          kappastore(i,j,k,ispec) = rho_val * ( vp_val ** 2 - FOUR_THIRDS * vs_val ** 2 )
+          mustore(i,j,k,ispec) = rho_val * vs_val ** 2
+          rho_vp(i,j,k,ispec) = rho_val * vp_val
+          rho_vs(i,j,k,ispec) = rho_val * vs_val
+        enddo
+      enddo
+    enddo
+  enddo
+  call synchronize_all()
 
   end subroutine read_external_model
 

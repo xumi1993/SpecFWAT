@@ -19,7 +19,9 @@ set(APP_SOURCES
   add_pert_trigo.f90
   decompose_h5_gll.f90
   model_grid_cart.f90
+  model_grid_cart_custom.f90
   model_grid.f90
+  combine_h5.f90
   )
 foreach(execsourcefile ${APP_SOURCES})
   get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)

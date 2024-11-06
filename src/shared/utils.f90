@@ -61,7 +61,7 @@ module utils
   end interface interp2
 
   interface interp3
-    module procedure interp3_0_dp
+    module procedure interp3_0_dp, interp3_0_cr
   end interface
 
   interface append
@@ -1069,6 +1069,108 @@ end function
     !*** Final value
     valout = facx1y1z1 + facx1y1z2 + facx1y2z1 + facx1y2z2 + facx2y1z1 + facx2y1z2 + facx2y2z1 + facx2y2z2
   end function interp3_0_dp
+
+
+    function interp3_0_cr(valx,valy,valz,valin,x,y,z) result(valout)
+
+
+    !*** Lookup 1D tables with Cartesian coordinates
+    real(kind=RPRE), dimension(:), intent(in) :: valx
+    real(kind=RPRE), dimension(:), intent(in) :: valy
+    real(kind=RPRE), dimension(:), intent(in) :: valz
+
+    !*** Input grid of data
+    real(kind=RPRE), dimension(:,:,:), intent(in) :: valin
+
+    !*** Coordinate for interpolated value
+    real(kind=RPRE), intent(in) :: x, y, z
+
+    !*** Temporary variables
+    real(kind=RPRE) :: xix1, xix2, yiy1, yiy2, ziz1, ziz2
+    real(kind=RPRE) :: x2x1, x1x2, y2y1, y1y2, z2z1, z1z2
+    real(kind=RPRE) :: facx1y1z1, facx1y1z2, facx1y2z1, facx1y2z2, facx2y1z1, facx2y1z2, facx2y2z1, facx2y2z2
+
+    !*** Output value to be interpolated
+    real(kind=RPRE) :: valout
+    integer :: indx, indy, indz  !!! Previous guest
+    integer :: kx, ky, kz, m, nx,ny,nz
+    
+    nx = size(valx)
+    ny = size(valy)
+    nz = size(valz)
+
+    call locate_bissection(dble(valx),nx,dble(x),indx)
+    call locate_bissection(dble(valy),ny,dble(y),indy)
+    call locate_bissection(dble(valz),nz,dble(z),indz)
+
+    m=2
+    kx = min(max(indx-(m-1)/2,1),nx+1-m)
+    ky = min(max(indy-(m-1)/2,1),ny+1-m)
+    kz = min(max(indz-(m-1)/2,1),nz+1-m)
+
+
+    !*** x_i - x1
+    xix1 = x - valx(kx)
+    yiy1 = y - valy(ky)
+    ziz1 = z - valz(kz)
+
+    !*** x_i - x2
+    xix2 = x - valx(kx+1)
+    yiy2 = y - valy(ky+1)
+    ziz2 = z - valz(kz+1)
+
+    !*** x1 - x2
+    x1x2 = 1./ (valx(kx) - valx(kx+1))
+    y1y2 = 1./ (valy(ky) - valy(ky+1))
+    z1z2 = 1./ (valz(kz) - valz(kz+1))
+
+    !*** x2 - x1
+    x2x1 = 1./(valx(kx+1) - valx(kx))
+    y2y1 = 1./(valy(ky+1) - valy(ky))
+    z2z1 = 1./(valz(kz+1) - valz(kz))
+
+    !*** Factors
+    facx1y1z1 = xix2*yiy2*ziz2 * x1x2*y1y2*z1z2 * valin(kx,ky,kz)
+    facx1y1z2 = xix2*yiy2*ziz1 * x1x2*y1y2*z2z1 * valin(kx,ky,kz+1)
+    facx1y2z1 = xix2*yiy1*ziz2 * x1x2*y2y1*z1z2 * valin(kx,ky+1,kz)
+    facx1y2z2 = xix2*yiy1*ziz1 * x1x2*y2y1*z2z1 * valin(kx,ky+1,kz+1)
+    facx2y1z1 = xix1*yiy2*ziz2 * x2x1*y1y2*z1z2 * valin(kx+1,ky,kz)
+    facx2y1z2 = xix1*yiy2*ziz1 * x2x1*y1y2*z2z1 * valin(kx+1,ky,kz+1)
+    facx2y2z1 = xix1*yiy1*ziz2 * x2x1*y2y1*z1z2 * valin(kx+1,ky+1,kz)
+    facx2y2z2 = xix1*yiy1*ziz1 * x2x1*y2y1*z2z1 * valin(kx+1,ky+1,kz+1)
+
+    !*** Final value
+    valout = facx1y1z1 + facx1y1z2 + facx1y2z1 + facx1y2z2 + facx2y1z1 + facx2y1z2 + facx2y2z1 + facx2y2z2
+  end function interp3_0_cr
+
+
+  function interp3_nearest(x, y, z, model_on_FD_grid, x_sem, y_sem, z_sem) result(value)
+    use constants
+    real(kind=RPRE)                                 :: x_sem, y_sem, z_sem, min_dist, &
+                                                              xfd, yfd, zfd, dist
+    real(kind=RPRE)                                  :: value
+    real(kind=RPRE), dimension(:), allocatable, intent(in) :: x, y, z 
+    real(kind=RPRE), dimension(:,:,:), allocatable, intent(in) :: model_on_FD_grid
+    integer                                                :: ifd, jfd, kfd
+
+    min_dist = HUGEVAL
+    do kfd = 1, size(z)
+      zfd = z(kfd)
+      do jfd = 1, size(y)
+        yfd = y(jfd)
+        do ifd = 1, size(x)
+          xfd = x(ifd)
+          dist = sqrt((x_sem-xfd)**2+(y_sem-yfd)**2+(z_sem-zfd)**2)
+          if (dist < min_dist .and. model_on_FD_grid(ifd, jfd, kfd)/=0.) then
+            min_dist = dist
+            value = model_on_FD_grid(ifd, jfd, kfd)
+          endif
+        enddo
+      enddo
+    enddo
+
+  end function interp3_nearest
+
 
   pure subroutine append_i(list, value)
     integer(kind = IPRE), dimension(:), allocatable, intent(inout) :: list

@@ -838,7 +838,7 @@ module ma_constants
   ! (These should match the filter used in pre-processing.)
   double precision, parameter :: TRBDNDW = 0.3
   double precision, parameter :: APARM = 30.
-  integer, parameter :: IORD = 4
+  integer, parameter :: IORD = 2
   integer, parameter :: PASSES = 2
 
   ! takes waveform of first trace dat_dtw, without taking the difference waveform to the second trace syn_dtw

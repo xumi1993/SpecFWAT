@@ -63,14 +63,16 @@ target_link_libraries(fwat1_fwd_measure_adj_objs PUBLIC measadj_objs flexwin_obj
                       MPI::MPI_Fortran)
 
 # Define fwat2 library
-set(SOURCES_fwat2 "run_fwat2_postproc_opt.f90")
+set(SOURCES_fwat2 "run_fwat2_postproc_opt.f90"
+                  "run_fwat2_postproc_single.f90")
 add_library(fwat2_postproc_opt_objs OBJECT ${SOURCES_fwat2})
 target_link_libraries(fwat2_postproc_opt_objs PUBLIC
                       read_mesh_interface_objs fwat_opt_objs measadj_objs flexwin_objs 
                       fwat_post_proc_objs fwat_interpolation_objs fwat_telestf_objs
                       fwat_pre_proc_objs MPI::MPI_Fortran)
 
-set(SOURCES_fwat3 "run_fwat3_optim.f90")
+set(SOURCES_fwat3 "run_fwat3_optim.f90"
+                  "run_fwat3_linesearch.f90")
 add_library(fwat3_linesearch_objs OBJECT ${SOURCES_fwat3})
 target_link_libraries(fwat3_linesearch_objs PUBLIC mesh_gen_interface_objs
                       fwat_opt_objs fwat_post_proc_objs fwat_telestf_objs

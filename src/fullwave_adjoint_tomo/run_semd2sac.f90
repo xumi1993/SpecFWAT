@@ -206,11 +206,11 @@ subroutine run_semd2sac(ievt,simu_type)
             endif
             if (index(simu_type,'tele')/=0) then
               ! convolve with STF for TeleFWI
-              block 
-                real(kind=CUSTOM_REAL), dimension(:), allocatable :: tmpl
-                call myconvolution(seismo_syn(icomp,:),stf_array(:),NSTEP,NSTEP,tmpl,0) 
-                seismo_syn(icomp,:)=tmpl*DT
-              end block
+              ! block 
+              !   real(kind=CUSTOM_REAL), dimension(:), allocatable :: tmpl
+              !   call myconvolution(seismo_syn(icomp,:),stf_array(:),NSTEP,NSTEP,tmpl,0) 
+              !   seismo_syn(icomp,:)=tmpl*DT
+              ! end block
             endif
             datafile='./'//trim(acqui_par%in_dat_path(ievt))//'/'//trim(network_name(irec))//'.'&
                     //trim(station_name(irec))//'.'//trim(CH_CODE)//trim(RCOMPS(icomp))//'.sac'

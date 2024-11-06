@@ -79,8 +79,8 @@
 
   ! prepares external model values if needed
   select case (IMODEL)
-  case (IMODEL_USER_EXTERNAL)
-    call model_external_broadcast(myrank)
+  ! case (IMODEL_USER_EXTERNAL)
+    ! call model_external_broadcast(myrank)
   case (IMODEL_SALTON_TROUGH)
     call model_salton_trough_broadcast(myrank)
   case (IMODEL_COUPLED)
@@ -632,7 +632,7 @@
 
     ! user model from external routine
     ! adds/gets velocity model as specified in model_external_values.f90
-    call model_external_values(xmesh,ymesh,zmesh,rho,vp,vs,qkappa_atten,qmu_atten,iflag_aniso,idomain_id)
+    ! call model_external_values(xmesh,ymesh,zmesh,rho,vp,vs,qkappa_atten,qmu_atten,iflag_aniso,idomain_id)
 
   case (IMODEL_COUPLED)
     ! user model for coupling with injection method
@@ -677,7 +677,8 @@
 
 ! reads in material parameters from external binary files
 
-  use generate_databases_par, only: IMAIN, IMODEL, IMODEL_GLL,IMODEL_IPATI,IMODEL_IPATI_WATER, IMODEL_SEP, ADIOS_FOR_MESH
+  use generate_databases_par, only: IMAIN, IMODEL, IMODEL_GLL,IMODEL_IPATI,IMODEL_IPATI_WATER,&
+                                    IMODEL_SEP, ADIOS_FOR_MESH, IMODEL_USER_EXTERNAL
 
   use create_regions_mesh_ext_par
 
@@ -728,6 +729,9 @@
   case (IMODEL_SEP)
     ! use values from SEP files
     call model_sep()
+
+  case (IMODEL_USER_EXTERNAL)
+    call read_external_model(myrank)
 
   case default
     ! user output
