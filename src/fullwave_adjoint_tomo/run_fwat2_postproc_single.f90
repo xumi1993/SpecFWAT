@@ -92,13 +92,14 @@ subroutine run_fwat2_postproc_single(model, simu_type)
   if (is_read_database) call read_database()
   call get_kernel_names()
   call synchronize_all()
-
-  do i = 1,NUM_INV_TYPE
-    type_name = tomo_par%INV_TYPE_NAME(i)
-    if (type_name == simu_type .and. tomo_par%INV_TYPE(i)) then
-      call post_proc()
-    endif
-  enddo
+  type_name = simu_type
+  call post_proc()
+  ! do i = 1,NUM_INV_TYPE
+  !   type_name = tomo_par%INV_TYPE_NAME(i)
+  !   if (type_name == simu_type .and. tomo_par%INV_TYPE(i)) then
+  !     call post_proc()
+  !   endif
+  ! enddo
   ! if (count(tomo_par%INV_TYPE)>1) then
   !   call sum_joint_kernels()
   !   if ((.not. VERBOSE_MODE) .and. imod_current /= tomo_par%ITER_START .and. myrank == 0) then

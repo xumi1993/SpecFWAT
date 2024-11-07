@@ -895,11 +895,10 @@ subroutine measure_adj()
 
     call myconvolution(real(datz),real(synr),npts,npts,conv1,1)
     conv1 = conv1 * SPECFEM_DT
-    nmax = maxloc(conv1, dim=1)-nc
+    nmax = maxloc(abs(conv1), dim=1)-nc
   
     call myconvolution(real(datr),real(synz),npts,npts,conv2,1)
     conv2 = conv2 * SPECFEM_DT
-    ! nmax2 = maxloc(conv2, dim=1)-nc
 
     conv_diff = conv1-conv2
     nconv = size(conv_diff)
