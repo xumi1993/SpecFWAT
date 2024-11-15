@@ -201,11 +201,11 @@ contains
     glob_tstart(irec,1,1)=tstart
     glob_tend(irec,1,1)=tend
     glob_window_chi(irec,1,1:NCHI,1)=window_chi(1:NCHI)
-    misfit = real(window_chi(15))
-    glob_tr_chi(irec,1,1)=misfit *src_weight(ievt)
-    glob_am_chi(irec,1,1)=misfit *src_weight(ievt)
-    total_misfit = total_misfit+misfit *src_weight(ievt)
-    write(*,*)'stnm,chan,misfit:',trim(net)//'.'//trim(sta), ',cross_conv_diff', real(misfit*src_weight(ievt))
+    misfit = real(window_chi(15))*src_weight(ievt) * DT
+    glob_tr_chi(irec,1,1)=misfit
+    glob_am_chi(irec,1,1)=misfit
+    total_misfit = total_misfit+misfit
+    write(*,*)'stnm,chan,misfit:',trim(net)//'.'//trim(sta), ',cross_conv_diff', real(misfit)
   end subroutine meas_adj_tele_cd
 
   subroutine meas_adj_rf(ievt, irec, igaus, bandname, glob_dat_tw, glob_syn_tw, glob_syn,&
@@ -256,17 +256,17 @@ contains
     glob_window_chi(irec,2,1:NCHI,1) = window_chi(1:NCHI)
     ! misfit = real(window_chi(15)/avgamp/avgamp *DT)
     misfit = real(window_chi(15))
-    glob_window_chi(irec,2,3,1) = misfit
-    glob_tr_chi(irec,2,1)=misfit * src_weight(ievt)
-    glob_am_chi(irec,2,1)=misfit * src_weight(ievt)
-    total_misfit = total_misfit + misfit *src_weight(ievt)
+    glob_window_chi(irec,2,3,1) = misfit* src_weight(ievt)*DT
+    glob_tr_chi(irec,2,1)=misfit 
+    glob_am_chi(irec,2,1)=misfit 
+    total_misfit = total_misfit + misfit
     ! endif
     glob_net(irec)=trim(net)
     glob_sta(irec)=trim(sta)
     glob_chan_dat(irec,2)=trim(CH_CODE)//'R' !trim(chan_dat)
     glob_tstart(irec,2,1)=dble(ttp(irec)-win_tb)
     glob_tend(irec,2,1)=dble(ttp(irec)+win_te)
-    write(*,*)'stnm,chan,misfit:',trim(net)//'.'//trim(sta),chan_dat, misfit *src_weight(ievt)
+    write(*,*)'stnm,chan,misfit:',trim(net)//'.'//trim(sta),chan_dat, misfit
   end subroutine meas_adj_rf
 
   subroutine meas_adj_noise(ievt, irec, glob_sem_disp,iband, fstart0, fend0, bandname, &
