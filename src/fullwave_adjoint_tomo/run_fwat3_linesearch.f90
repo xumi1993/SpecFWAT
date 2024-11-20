@@ -159,7 +159,7 @@ subroutine run_linesearch_single(model,evtset,simu_type)
     else
       USE_FORCE_POINT_SOURCE = .false.
     endif
-    if(simu_type=='tele' .or. simu_type=='rf' ) then
+    if(index(simu_type, 'tele')/=0 .or. simu_type=='rf' ) then
       COUPLE_WITH_INJECTION_TECHNIQUE=.true.
       INJECTION_TECHNIQUE_TYPE=3
       FKMODEL_FILE='src_rec/FKmodel_'//trim(acqui_par%evtid_names(ievt))
