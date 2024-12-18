@@ -864,7 +864,7 @@ subroutine measure_adj()
   end subroutine measure_adj_rf_data
 
 
-  subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, npts, net,sta,&
+  subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, app_half_dura, npts, net,sta,&
                                 chan_dat, bandname, window_chi)
     !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
     use interpolation_mod, only : myconvolution, PI
@@ -878,13 +878,14 @@ subroutine measure_adj()
     double precision, dimension(npts)                  :: adj_r_tw, adj_z_tw, adj_r, &
                                                           adj_z, conv1_tw, conv2_tw
     double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
-    double precision, intent(in)                       :: tstart, tend
+    double precision, intent(in)                       :: tstart, tend, app_half_dura
     character(len=MAX_STRING_LEN)                      :: adj_file_prefix
     real(kind=CUSTOM_REAL), dimension(:), allocatable  :: conv_full, conv_diff, conv1, conv2
     double precision                                   :: fac
     integer                                            :: n, nc, nn, nstart, nend,i, nmax, nmax2, nconv
 
     nc = maxloc(synz, dim=1)
+    nmax = int(app_half_dura/SPECFEM_DT)+nc
     ! Todo: cross-correlation for time shift
     ! conv1 = zeros(npts)
     ! conv2 = zeros(npts)
@@ -895,7 +896,6 @@ subroutine measure_adj()
 
     call myconvolution(real(datz),real(synr),npts,npts,conv1,1)
     conv1 = conv1 * SPECFEM_DT
-    nmax = maxloc(abs(conv1), dim=1)-nc
   
     call myconvolution(real(datr),real(synz),npts,npts,conv2,1)
     conv2 = conv2 * SPECFEM_DT

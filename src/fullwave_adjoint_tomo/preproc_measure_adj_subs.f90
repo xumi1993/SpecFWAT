@@ -125,7 +125,7 @@ contains
   end subroutine meas_adj_tele
 
   subroutine meas_adj_tele_cd(ievt, irec, bandname,baz_all,ttp,win_tb,win_te,glob_dat_tw,&
-                            glob_syn_tw, avgamp, window_chi,total_misfit, &
+                            glob_syn_tw, glob_ff, avgamp, window_chi,total_misfit, &
                             glob_net, glob_sta,glob_chan_dat, glob_tstart, &
                             glob_tend, glob_window_chi, glob_tr_chi, glob_am_chi, glob_num_win)
     implicit none
@@ -144,11 +144,12 @@ contains
     double precision, dimension(nrec,NRCOMP,1)               :: glob_tr_chi,glob_am_chi,&
                                                                 glob_tstart,glob_tend
     real(kind=4), dimension(nrec,NSTEP,NRCOMP)               :: glob_dat_tw,glob_syn_tw
+    real(kind=4), dimension(nrec,NSTEP)                      :: glob_ff
     real(kind=4), dimension(nrec)                            :: ttp
-    double precision                                         :: tstart,tend
+    double precision                                         :: tstart,tend,app_half_dura,t00
     double precision, dimension(nrec)                        :: baz_all
     ! real(kind=CUSTOM_REAL), dimension(3,NSTEP)               :: seismo_syn
-    real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_same
+    real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_full
     double precision, dimension(MAX_NDIM)                    :: datr_inp_bp,synr_inp_bp,&
                                                                 datz_inp_bp,synz_inp_bp
 
@@ -161,25 +162,25 @@ contains
     synz_inp_bp(1:NSTEP)=dble(glob_syn_tw(irec,1:NSTEP,1))
     datr_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,2))/avgamp
     synr_inp_bp(1:NSTEP)=dble(glob_syn_tw(irec,1:NSTEP,2))
+    ! ----- get time shift between datz and synz -------
+    call mycorrelation(glob_ff(1,:),sngl(synz_inp_bp(1:NSTEP)),NSTEP,NSTEP,conv_full,1)
+    app_half_dura = (abs(maxloc(abs(conv_full), dim=1) - NSTEP) + 1)* dt
+
     if (VERBOSE_MODE) then
-      ! conv1 = zeros(NSTEP)
-      ! conv2 = zeros(NSTEP)
-      ! conv_same = zeros(NSTEP)
-      nc = maxloc(synz_inp_bp(1:NSTEP), dim=1)
+      nmax = maxloc(synz_inp_bp, dim=1)
+      t00 = nmax * DT + app_half_dura
       call myconvolution(real(datr_inp_bp(1:NSTEP)),real(synz_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv1,1)
-      nmax = maxloc(conv1, dim=1) - nc
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'Z.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv1(nmax:nmax+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv1(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
       call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv2,1)
-      nmax = maxloc(conv2, dim=1) - nc
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'R.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv2(nmax:nmax+NSTEP-1)*DT),NSTEP,dble(-T0),dble(DT))
+      call dwsac1(trim(adjfile),dble(conv2(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
       deallocate(conv1,conv2)
     endif
 
@@ -193,7 +194,7 @@ contains
     net = trim(network_name(irec))
     sta = trim(station_name(irec))
     call meas_adj_conv_diff(datr_inp_bp, datz_inp_bp, synr_inp_bp, synz_inp_bp,&
-                            tstart, tend, NSTEP, net,sta,&
+                            tstart, tend, app_half_dura, NSTEP, net,sta,&
                             chan_dat, bandname, window_chi)
     glob_net(irec)=trim(net) !trim(net)
     glob_sta(irec)=trim(sta) !trim(sta)

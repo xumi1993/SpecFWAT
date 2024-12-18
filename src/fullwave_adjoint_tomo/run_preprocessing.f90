@@ -26,7 +26,8 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
   use telestf_mod      ! module form teleseis_stf
   use collect_data, only: collect_seismograms_d, collect_stf_deconvolution, collect_chi
   use preproc_subs, only: cal_fktimes, get_rf_times, pre_proc_tele_elastic,read_local_stf,&
-                          average_amp_scale, pre_proc_rf_elastic, pre_proc_tele_cd_elastic
+                          average_amp_scale, pre_proc_rf_elastic, pre_proc_tele_cd_elastic,&
+                          get_zdat_pca
   use preproc_measure_adj_subs, only: meas_adj_tele, meas_adj_rf, meas_adj_tele_cd,&
                                       meas_adj_noise, meas_adj_leq, sum_adj_source
 
@@ -293,6 +294,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
         enddo
       endif
       call synchronize_all()
+      call get_zdat_pca(glob_dat_tw, glob_ff)
       call collect_stf_deconvolution(glob_stnm, glob_dat_tw, glob_syn_tw, glob_ff, glob_syn, nrec_local_max, my_nrec_local)
       call synchronize_all()
       call bcast_all_cr(glob_dat_tw,nrec*NSTEP*NRCOMP)
@@ -306,7 +308,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
           if (ELASTIC_SIMULATION) then
             !=============================================================================================
             call meas_adj_tele_cd(ievt, irec, bandname,baz_all,ttp,tb(irec),te(irec),glob_dat_tw,&
-                                glob_syn_tw, avgamp, window_chi,total_misfit, &
+                                glob_syn_tw, glob_ff, avgamp, window_chi,total_misfit, &
                                 glob_net, glob_sta,glob_chan_dat, glob_tstart, &
                                 glob_tend, glob_window_chi, glob_tr_chi, glob_am_chi, glob_num_win)
             !==============================================================================================

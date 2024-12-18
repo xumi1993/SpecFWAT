@@ -146,6 +146,24 @@ subroutine read_local_stf(ievt, stf_array)
 
 end subroutine read_local_stf
 
+subroutine get_zdat_pca(glob_dat_tw, glob_ff)
+  use spanlib
+  real(kind=4), dimension(nrec,NSTEP,NRCOMP)       :: glob_dat_tw
+  real(kind=4), dimension(nrec,NSTEP)              :: glob_ff
+  real(kind=4)                                     :: avgamp
+  real(kind=4) , dimension(:,:), allocatable :: xeof    ! m x m
+  real(kind=4) , dimension(:,:), allocatable :: pc      ! n x m
+  real(kind=4) , dimension(:), allocatable :: ev      ! m 
+
+  allocate(xeof(nrec,nrec))
+  allocate(pc(NSTEP,nrec))
+  allocate(ev(nrec))
+  call sl_pca(glob_dat_tw(:, :, 1), nrec, xeof, pc, ev)
+  glob_ff(1, :) = pc(:, 1)
+  
+  call synchronize_all()
+end subroutine
+
 subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, bandname, &
                                      baz_all, glob_dat_tw, glob_syn_tw, ttp)
   implicit None
