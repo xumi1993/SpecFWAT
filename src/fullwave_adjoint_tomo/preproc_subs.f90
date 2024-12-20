@@ -252,6 +252,7 @@ subroutine pre_proc_tele_cd_elastic(ievt, irec, glob_sem_disp, fstart0, fend0, b
     call sacio_newhead(head, sngl(DT), NDIM_CUT, sngl(-T0))
     head%knetwk = trim(network_name(irec))
     head%kstnm = trim(station_name(irec))
+    head%t0 = ttp(irec)
     head%kcmpnm = trim(CH_CODE)//'Z'
     adjfile=trim(OUTPUT_FILES)//'/syn.'//trim(network_name(irec))//'.'&
             //trim(station_name(irec))//'.'//trim(CH_CODE)&

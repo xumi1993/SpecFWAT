@@ -294,7 +294,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
         enddo
       endif
       call synchronize_all()
-      call get_zdat_pca(glob_dat_tw, glob_ff)
+      ! call get_zdat_pca(glob_dat_tw, glob_ff)
       call collect_stf_deconvolution(glob_stnm, glob_dat_tw, glob_syn_tw, glob_ff, glob_syn, nrec_local_max, my_nrec_local)
       call synchronize_all()
       call bcast_all_cr(glob_dat_tw,nrec*NSTEP*NRCOMP)

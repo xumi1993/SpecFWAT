@@ -249,46 +249,81 @@ contains
   subroutine rotate_ZNE_to_ZRT(vz,vn,ve,vz2,vr,vt,nt,bazi)
     use specfem_par, only: CUSTOM_REAL
   
-      integer,                  intent(in) :: nt
-      real(kind=CUSTOM_REAL),   intent(in) :: bazi
+    integer,                  intent(in) :: nt
+    real(kind=CUSTOM_REAL),   intent(in) :: bazi
+
+    real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz,  vn, ve
+    real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz2, vr, vt
+
+    real(kind=CUSTOM_REAL) :: baz
+
+    integer :: it
+
+    baz = deg2rad * bazi
+
+    do it = 1, nt
+        vr(it) = -ve(it) * sin(baz) - vn(it) * cos(baz)
+        vt(it) = -ve(it) * cos(baz) + vn(it) * sin(baz)
+        vz2(it) = vz(it)
+    enddo
   
-      real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz,  vn, ve
-      real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz2, vr, vt
+  end subroutine rotate_ZNE_to_ZRT
   
-      real(kind=CUSTOM_REAL) :: baz
-  
-      integer :: it
-  
-      baz = deg2rad * bazi
-  
-      do it = 1, nt
-         vr(it) = -ve(it) * sin(baz) - vn(it) * cos(baz)
-         vt(it) = -ve(it) * cos(baz) + vn(it) * sin(baz)
-         vz2(it) = vz(it)
-      enddo
-  
-    end subroutine rotate_ZNE_to_ZRT
-  
-    subroutine rotate_ZRT_to_ZNE(vz2,vr,vt,vz,vn,ve,nt,bazi)
+  subroutine rotate_ZRT_to_ZNE(vz2,vr,vt,vz,vn,ve,nt,bazi)
     use specfem_par, only: CUSTOM_REAL
   
-      integer,                  intent(in) :: nt
-      real(kind=CUSTOM_REAL),   intent(in) :: bazi
+    integer,                  intent(in) :: nt
+    real(kind=CUSTOM_REAL),   intent(in) :: bazi
+
+    real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz2, vr, vt
+    real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz,  vn, ve
+
+    real(kind=CUSTOM_REAL) :: baz
+    integer :: it
+
+    baz = deg2rad * bazi
+
+    do it = 1, nt
+        ve(it) = -vr(it) * sin(baz) - vt(it) * cos(baz)
+        vn(it) = -vr(it) * cos(baz) + vt(it) * sin(baz)
+        vz(it) = vz2(it)
+    enddo
   
-      real(kind=CUSTOM_REAL), dimension(nt),  intent(in) :: vz2, vr, vt
-      real(kind=CUSTOM_REAL), dimension(nt), intent(out) :: vz,  vn, ve
-  
-      real(kind=CUSTOM_REAL) :: baz
-      integer :: it
-  
-      baz = deg2rad * bazi
-  
-      do it = 1, nt
-         ve(it) = -vr(it) * sin(baz) - vt(it) * cos(baz)
-         vn(it) = -vr(it) * cos(baz) + vt(it) * sin(baz)
-         vz(it) = vz2(it)
-      enddo
-  
-    end subroutine rotate_ZRT_to_ZNE
+  end subroutine rotate_ZRT_to_ZNE
+
+  function find_maxima(x) result(idx)
+    implicit none
+
+    real(kind=CUSTOM_REAL), dimension(:), intent(in) :: x
+    integer, dimension(:), allocatable :: idx
+    integer :: i, n, count
+    
+    logical, allocatable :: rising(:), falling(:)
+    integer, allocatable :: max_idx(:)
+
+    n = size(x)
+    if (n < 3) then
+      allocate(idx(0))
+      return
+    end if
+
+    allocate(rising(n-1), falling(n-1))
+
+    rising = (x(2:) - x(1:n-1)) > 0.0
+    falling = (x(2:) - x(1:n-1)) < 0.0
+
+    allocate(max_idx(n-2))
+    count = 0
+    do i = 1, n-2
+      if (rising(i) .and. falling(i+1)) then
+        count = count + 1
+        max_idx(count) = i + 1
+      end if
+    end do
+
+    allocate(idx(count))
+    idx = max_idx(1:count)
+
+  end function
 
 end module

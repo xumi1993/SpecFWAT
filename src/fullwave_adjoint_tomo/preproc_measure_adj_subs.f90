@@ -16,7 +16,7 @@ module preproc_measure_adj_subs
 
   implicit none
 
-  real(kind=cr), parameter :: target_dt_noise=0.02
+  real(kind=cr), parameter :: target_dt_noise=0.02, max_duration=20
 
 contains
 
@@ -133,7 +133,7 @@ contains
     ! logical                                                  :: findfile
     character(len=MAX_STRING_LEN)                            :: adjfile,bandname
     character(len=10)                                        :: net,sta,chan_dat
-    integer                                                  :: irec, ievt, nc, nmax
+    integer                                                  :: irec, ievt, nc, nmax, ier
     real(kind=CUSTOM_REAL)                                   :: win_tb, win_te,total_misfit,&
                                                                 misfit,avgamp
     character(len=256),dimension(nrec)                       :: glob_net,glob_sta
@@ -146,12 +146,13 @@ contains
     real(kind=4), dimension(nrec,NSTEP,NRCOMP)               :: glob_dat_tw,glob_syn_tw
     real(kind=4), dimension(nrec,NSTEP)                      :: glob_ff
     real(kind=4), dimension(nrec)                            :: ttp
-    double precision                                         :: tstart,tend,app_half_dura,t00
+    double precision                                         :: tstart,tend, app_half_dura, t00
     double precision, dimension(nrec)                        :: baz_all
     ! real(kind=CUSTOM_REAL), dimension(3,NSTEP)               :: seismo_syn
     real(kind=CUSTOM_REAL), dimension(:), allocatable        :: conv1,conv2,conv_full
     double precision, dimension(MAX_NDIM)                    :: datr_inp_bp,synr_inp_bp,&
                                                                 datz_inp_bp,synz_inp_bp
+    type(sachead)                                            :: head
 
     ! setup data and syn
     datr_inp_bp=0.
@@ -163,24 +164,53 @@ contains
     datr_inp_bp(1:NSTEP)=dble(glob_dat_tw(irec,1:NSTEP,2))/avgamp
     synr_inp_bp(1:NSTEP)=dble(glob_syn_tw(irec,1:NSTEP,2))
     ! ----- get time shift between datz and synz -------
-    call mycorrelation(glob_ff(1,:),sngl(synz_inp_bp(1:NSTEP)),NSTEP,NSTEP,conv_full,1)
-    app_half_dura = (abs(maxloc(abs(conv_full), dim=1) - NSTEP) + 1)* dt
+    ! app_half_dura = (abs(maxloc(abs(conv_full), dim=1) - NSTEP) + 1)* dt
+    ! print *, 'net,sta,app_half_dura:', trim(network_name(irec)), trim(station_name(irec)), app_half_dura
+
+    block
+      integer, dimension(:), allocatable :: max_idx
+      integer :: nttp, ndura, i, min_lag
+      real(kind=cr), dimension(:), allocatable :: cut_conv
+      real(kind=cr) :: max_amp
+      call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
+                          NSTEP,NSTEP,conv2,1)
+      nttp = (ttp(irec)+T0)/DT+1
+      ndura = (ttp(irec)+T0+max_duration)/DT+1
+      allocate(cut_conv(ndura-nttp+1))
+      cut_conv = abs(conv2(2*nttp:nttp+ndura))
+      max_idx = find_maxima(cut_conv)
+      max_amp = maxval(cut_conv)
+      min_lag = ndura - nttp + 1
+      do i = 1, size(max_idx)
+        if (cut_conv(max_idx(i))>0.4*max_amp) then
+          app_half_dura = max_idx(i)*DT
+          exit
+        end if
+      end do
+      print *, 'net,sta,app_half_dura:', trim(network_name(irec)),'_',trim(station_name(irec)), app_half_dura
+    end block
 
     if (VERBOSE_MODE) then
       nmax = maxloc(synz_inp_bp, dim=1)
       t00 = nmax * DT + app_half_dura
+      call sacio_newhead(head, sngl(DT), NSTEP, sngl(-t00))
+      head%knetwk = trim(network_name(irec))
+      head%kstnm = trim(station_name(irec))
+      head%kcmpnm = trim(CH_CODE)//'Z'
       call myconvolution(real(datr_inp_bp(1:NSTEP)),real(synz_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv1,1)
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'Z.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv1(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
+      call sacio_writesac(adjfile, head, dble(conv1(nmax:nmax+NSTEP-1)*DT), ier)      
+      ! call dwsac1(trim(adjfile),dble(conv1(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
       call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv2,1)
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
               //trim(station_name(irec))//'.'//trim(CH_CODE)&
               //'R.sac'//'.'//trim(bandname)
-      call dwsac1(trim(adjfile),dble(conv2(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
+      call sacio_writesac(adjfile, head, dble(conv2(nmax:nmax+NSTEP-1)*DT), ier)
+      ! call dwsac1(trim(adjfile),dble(conv2(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
       deallocate(conv1,conv2)
     endif
 
