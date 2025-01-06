@@ -169,18 +169,16 @@ contains
 
     block
       integer, dimension(:), allocatable :: max_idx
-      integer :: nttp, ndura, i, min_lag
-      real(kind=cr), dimension(:), allocatable :: cut_conv
+      integer :: nttp, ndura, i, nb
+      real(kind=cr), dimension(:), allocatable :: cut_conv, tmp_dat
       real(kind=cr) :: max_amp
-      call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
-                          NSTEP,NSTEP,conv2,1)
+
+      tmp_dat = real(datz_inp_bp(1:NSTEP))
       nttp = (ttp(irec)+T0)/DT+1
       ndura = (ttp(irec)+T0+max_duration)/DT+1
-      allocate(cut_conv(ndura-nttp+1))
-      cut_conv = abs(conv2(2*nttp:nttp+ndura))
+      cut_conv = abs(tmp_dat(nttp:ndura))
       max_idx = find_maxima(cut_conv)
       max_amp = maxval(cut_conv)
-      min_lag = ndura - nttp + 1
       do i = 1, size(max_idx)
         if (cut_conv(max_idx(i))>0.4*max_amp) then
           app_half_dura = max_idx(i)*DT
@@ -204,6 +202,7 @@ contains
               //'Z.sac'//'.'//trim(bandname)
       call sacio_writesac(adjfile, head, dble(conv1(nmax:nmax+NSTEP-1)*DT), ier)      
       ! call dwsac1(trim(adjfile),dble(conv1(nmax:nmax+NSTEP-1)*DT),NSTEP,-t00,dble(DT))
+      head%kcmpnm = trim(CH_CODE)//'R'
       call myconvolution(real(datz_inp_bp(1:NSTEP)),real(synr_inp_bp(1:NSTEP)),&
                           NSTEP,NSTEP,conv2,1)
       adjfile=trim(OUTPUT_FILES)//'/wconv.'//trim(network_name(irec))//'.'&
