@@ -1171,6 +1171,45 @@ end function
 
   end function interp3_nearest
 
+  function interp3_nearest_simple(x, y, z, model_on_FD_grid, x_sem, y_sem, z_sem) result(value)
+    use constants
+    real(kind=RPRE)                                 :: x_sem, y_sem, z_sem, min_dist, &
+                                                              xfd, yfd, zfd, dist
+    real(kind=RPRE)                                  :: value
+    real(kind=RPRE), dimension(:), allocatable, intent(in) :: x, y, z 
+    real(kind=RPRE), dimension(:,:,:), allocatable, intent(in) :: model_on_FD_grid
+    integer                                           :: ifd, jfd, kfd, &
+                                                         kx,ky,kz,indx,indy,indz,nx,ny,nz,m
+
+    nx = size(x)
+    ny = size(y)
+    nz = size(z)
+    min_dist = HUGEVAL
+
+    call locate_bissection(dble(x),nx,dble(x_sem),indx)
+    call locate_bissection(dble(y),ny,dble(y_sem),indy)
+    call locate_bissection(dble(z),nz,dble(z_sem),indz)
+
+    m=2
+    kx = min(max(indx-(m-1)/2,1),nx+1-m)
+    ky = min(max(indy-(m-1)/2,1),ny+1-m)
+    kz = min(max(indz-(m-1)/2,1),nz+1-m)
+    do ifd = kx, kx+1
+      xfd = x(ifd)
+      do jfd = ky, ky+1
+        yfd = y(jfd)
+        do kfd = kz, kz+1
+          zfd = z(kfd)
+          dist = sqrt((x_sem-xfd)**2+(y_sem-yfd)**2+(z_sem-zfd)**2)
+          if (dist < min_dist .and. model_on_FD_grid(ifd, jfd, kfd)/=0.) then
+            min_dist = dist
+            value = model_on_FD_grid(ifd, jfd, kfd)
+          endif
+        enddo
+      enddo
+    enddo
+  end function interp3_nearest_simple
+
 
   pure subroutine append_i(list, value)
     integer(kind = IPRE), dimension(:), allocatable, intent(inout) :: list

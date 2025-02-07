@@ -181,9 +181,9 @@
           if (xsem < x(1) .or. xsem > x(nx) .or. &
               ysem < y(1) .or. ysem > y(ny) .or. &
               zsem < z(1) .or. zsem > z(nz)) then
-            rho_val = interp3_nearest(x, y, z, rho_read, xsem, ysem, zsem)
-            vp_val = interp3_nearest(x, y, z, vp_read, xsem, ysem, zsem)
-            vs_val = interp3_nearest(x, y, z, vs_read, xsem, ysem, zsem)
+            rho_val = interp3_nearest_simple(x, y, z, rho_read, xsem, ysem, zsem)
+            vp_val = interp3_nearest_simple(x, y, z, vp_read, xsem, ysem, zsem)
+            vs_val = interp3_nearest_simple(x, y, z, vs_read, xsem, ysem, zsem)
           else
             rho_val = interp3(x, y, z, rho_read, xsem, ysem, zsem)
             vp_val = interp3(x, y, z, vp_read, xsem, ysem, zsem)
