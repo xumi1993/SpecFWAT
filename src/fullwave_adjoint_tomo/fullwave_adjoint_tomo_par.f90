@@ -40,6 +40,7 @@ module fullwave_adjoint_tomo_par
   character(len=MAX_STRING_LEN), public                            :: PRECOND_TYPE
   logical,                       public                            :: is_read_database = .true.
   real(kind=CUSTOM_REAL)                                           :: alpha 
+  integer, public                                                  :: Niter=200
 
 !################################################# WORKFLOW ######################################################################
   type fwat_acqui
