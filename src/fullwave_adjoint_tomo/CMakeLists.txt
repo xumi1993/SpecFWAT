@@ -5,7 +5,8 @@ file(GLOB SOURCES_TELESTF "${SOURCE_FWAT_DIR}/teleseis_stf/telestf_mod.f90"
 set(SOURCES_FWAT_SHARED "${SOURCE_FWAT_DIR}/fullwave_adjoint_tomo_par.f90"
                         "${SOURCE_FWAT_DIR}/fwat_input.f90"
                         "${SOURCE_FWAT_DIR}/fwat_utils.f90"
-                        "${SOURCE_FWAT_DIR}/sacio.f90")
+                        "${SOURCE_FWAT_DIR}/sacio.f90"
+                        "${SOURCE_FWAT_DIR}/xapiir_sub.f90")
 set(SOURCES_PRE_PROC "${SOURCE_FWAT_DIR}/preproc_subs.f90"
                      "${SOURCE_FWAT_DIR}/run_preprocessing.f90"
                      "${SOURCE_FWAT_DIR}/preproc_measure_adj_subs.f90"

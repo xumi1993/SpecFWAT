@@ -1,7 +1,7 @@
 module collect_data
 
 use specfem_par, only: seismograms_d,number_receiver_global, myrank, nrec, nrec_local, &
-                       CUSTOM_REAL, islice_selected_rec
+                       CUSTOM_REAL, islice_selected_rec, MAX_STRING_LEN
 use shared_input_parameters, only: NSTEP, DT, NPROC, SUPPRESS_UTM_PROJECTION
 use fwat_input 
 use fullwave_adjoint_tomo_par 
@@ -84,8 +84,8 @@ subroutine collect_seismograms_d(glob_sem_disp)
 end subroutine collect_seismograms_d
 
 subroutine collect_stf_deconvolution(glob_stnm, glob_dat_tw, glob_syn_tw, glob_ff, glob_syn, nrec_local_max, my_nrec_local)
-  character(len=256), dimension(nrec)  :: glob_stnm
-  character(len=256), dimension(:), allocatable :: stnm_loc
+  character(len=MAX_STRING_LEN), dimension(nrec)  :: glob_stnm
+  character(len=MAX_STRING_LEN), dimension(:), allocatable :: stnm_loc
   real(kind=4), dimension(nrec,NSTEP,NRCOMP)  :: glob_dat_tw,glob_syn_tw, glob_syn
   real(kind=4), dimension(:,:,:), allocatable :: dat_tw_loc,syn_tw_loc, syn_loc
   real(kind=4), dimension(nrec,NSTEP)  :: glob_ff

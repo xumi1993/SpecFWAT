@@ -1,7 +1,7 @@
 module FKTimes_mod
   use fullwave_adjoint_tomo_par
   ! use specfem3D_par, only: al_FK, be_FK, mu_FK, h_FK, phi_FK, theta_FK, xx0,yy0,zz0,CUSTOM_REAL
-  use specfem_par, only : CUSTOM_REAL, nrec, FKMODEL_FILE, SUPPRESS_UTM_PROJECTION, ILONGLAT2UTM, myrank, IIN
+  use specfem_par, only : CUSTOM_REAL, nrec, FKMODEL_FILE, SUPPRESS_UTM_PROJECTION, ILONGLAT2UTM, myrank
   use specfem_par_coupling
   use utils, only : zeros
   use fwat_input, only : acqui_par
@@ -30,7 +30,7 @@ contains
     real(kind=CUSTOM_REAL) :: Radius_box, wave_length_at_bottom
     real(kind=CUSTOM_REAL), dimension(:), allocatable  :: rho_fk_input, ztop_fk_input, zbot_fk_input, vp_fk_input, vs_fk_input
     integer,  dimension(:), allocatable  :: ilayer_fk_input
-    integer  :: ilayer,ier
+    integer  :: ilayer,ier, fid
     logical  :: position_of_wavefront_not_read
 
     !!--------------------------------------------------------------
@@ -65,14 +65,14 @@ contains
       stag = .false.
 
       !! READING input file
-      open(IIN,file=trim(FKMODEL_FILE), status='old', iostat=ioerr)
+      open(newunit=fid,file=trim(FKMODEL_FILE), status="old", action="read")
       if (ioerr /= 0) then
         write(*,*) " ERROR READING FK INPUT FILE "
         write(*,*) " FILE NOT FOUND ", trim(FKMODEL_FILE)
         stop
       endif
       do
-        read(IIN, fmt='(a)',iostat=ioerr) line
+        read(fid, fmt='(a)',iostat=ioerr) line
         !call remove_begin_blanks(line)
         if (ioerr < 0) exit
         if (len(trim(line)) < 1 .or. line(1:1) == '#') cycle
@@ -152,6 +152,7 @@ contains
         end select
       !!------------------------------------------------------------------------------------------------------
       enddo
+      close(fid)
 
       if (allocated(ilayer_fk_input)) then
 

@@ -1,10 +1,10 @@
 module telestf_mod
    use fullwave_adjoint_tomo_par, only: NRCOMP, RCOMPS, VERBOSE_MODE, Niter
-   use interpolation_mod 
-   use ma_constants
-   use ma_sub
+   use fwat_utils, only: bandpass_iir
+   use interpolation_mod, only: interpolate_syn_alloc, myconvolution, time_deconv
+   use ma_constants, only: NDIM
    use spanlib
-   use specfem_par, only: OUTPUT_FILES
+   use specfem_par, only: OUTPUT_FILES, MAX_STRING_LEN
    use sacio
    implicit none
 
@@ -21,15 +21,15 @@ subroutine time_iterdeconv(stnm,seismo_dat,seismo_syn,dat_tw,syn_tw,ff,&
    real(kind=4) , dimension(nrec,npts)  :: ff
   !!! for reading sac data
    real(kind=4) :: beg, del
-   character(len=256), dimension(nrec)  :: stnm
+   character(len=MAX_STRING_LEN), dimension(nrec)  :: stnm
    real(kind=4)  :: ttp,tb,te
    !!! for time_iterdecon
    double precision                                  :: t0_inp,t1_inp,dt_inp
    double precision, dimension(NDIM)                 :: dat_inp,syn_inp,rfn_bp
    real(kind=4) , dimension(:), allocatable :: num,den,rfn,tmpl
-   integer :: NDIM_CUT,Niter
+   integer :: NDIM_CUT
    !!! for PCA
-   double precision :: fstart0,fend0
+   double precision, intent(in) :: fstart0,fend0
 
   !===========================================================
   ! preprocessing and cut
@@ -45,10 +45,10 @@ subroutine time_iterdeconv(stnm,seismo_dat,seismo_syn,dat_tw,syn_tw,ff,&
   dat_inp(1:npts)=dble(seismo_dat(1:npts))
   syn_inp(1:npts)=dble(seismo_syn(1:npts))
   ! cut to P window -5 to 45 ps
-  call interpolate_syn(dat_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
-  call interpolate_syn(syn_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
-  call interpolate_syn(dat_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
-  call interpolate_syn(syn_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
+  call interpolate_syn_alloc(dat_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
+  call interpolate_syn_alloc(syn_inp,dble(beg),dble(del),npts,t0_inp,dt_inp,NDIM_CUT)
+  call interpolate_syn_alloc(dat_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
+  call interpolate_syn_alloc(syn_inp,t0_inp,dt_inp,NDIM_CUT,dble(beg),dble(del),npts)
   dat_tw(irec,1:npts,1)=real(dat_inp(1:npts))
   syn_tw(irec,1:npts,1)=real(syn_inp(1:npts))
   NDIM_CUT=npts
@@ -86,7 +86,7 @@ subroutine time_iterdeconv(stnm,seismo_dat,seismo_syn,dat_tw,syn_tw,ff,&
   ! filter deconv traces
   rfn_bp(:)=0.
   rfn_bp(1:NDIM_CUT)=rfn(1:NDIM_CUT)
-  call bandpass(rfn_bp,NDIM_CUT,dt_inp,fstart0,fend0)
+  call bandpass_iir(rfn_bp,NDIM_CUT,dt_inp,fstart0,fend0)
   if (VERBOSE_MODE) then
      call sacio_writesac(trim(stnm(irec))//'.dec', head, rfn_bp(1:NDIM_CUT), nerr)
    !  call wsac1(trim(stnm(irec))//'.dec',real(rfn_bp),NDIM_CUT,beg,del,nerr)  
@@ -198,12 +198,12 @@ subroutine seis_pca(stnm,dat_tw,syn_tw,ff,nrec,npts,beg,del,stf_array)
       j=0
       do i=1,nrec
          if (maxval(abs(recp_syn(i,:,icomp))).ne.0) then
-         avgarr(i)=dot_product(dat_tw(i,:,icomp),recp_syn(i,:,icomp))/dot_product(recp_syn(i,:,icomp),recp_syn(i,:,icomp))    
-         write(*,*) trim(stnm(i)),avgarr(i)
-         sumamp=sumamp+avgarr(i)
-         j=j+1
+            avgarr(i)=dot_product(dat_tw(i,:,icomp),recp_syn(i,:,icomp))/dot_product(recp_syn(i,:,icomp),recp_syn(i,:,icomp))    
+            write(*,*) trim(stnm(i)),avgarr(i)
+            sumamp=sumamp+avgarr(i)
+            j=j+1
          else
-         avgarr(i)=-1000.
+            avgarr(i)=-1000.
          endif
          write(10,*) trim(stnm(i)),avgarr(i)
       enddo
@@ -211,6 +211,7 @@ subroutine seis_pca(stnm,dat_tw,syn_tw,ff,nrec,npts,beg,del,stf_array)
       write(*,*) "There are ", j,' non zero rec found'
       if (j==0) then 
          write(*,*) 'skip icomp: ',trim(RCOMPS(icomp))
+         deallocate(avgarr)
          cycle
       endif
       avgamp0=sumamp/j

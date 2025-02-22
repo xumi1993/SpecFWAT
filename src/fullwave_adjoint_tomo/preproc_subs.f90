@@ -304,7 +304,7 @@ subroutine pre_proc_tele_elastic(ievt, irec, glob_sem_disp, win_tb,win_te, fstar
   character(len=MAX_LEN)                           :: bandname,adjfile,datafile
   double precision                                 :: baz_all(nrec)
   real                                             :: win_tb,win_te
-  character(len=256), dimension(nrec)              :: glob_stnm
+  character(len=MAX_LEN), dimension(nrec)          :: glob_stnm
   real(kind=4), dimension(nrec,NSTEP,NRCOMP), intent(inout)       :: glob_dat_tw,glob_syn_tw
   real(kind=4), dimension(nrec,NSTEP)              :: glob_ff
   real(kind=4)                                     :: ttp(nrec)

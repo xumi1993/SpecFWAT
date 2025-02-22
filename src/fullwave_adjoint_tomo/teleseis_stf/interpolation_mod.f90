@@ -296,7 +296,7 @@ contains
     call mycorrelation(dcal,dcal,nt,nt,autocorr,part)
     autocorr = autocorr * dt
     amp_corr = 1._cp / maxval(abs(autocorr))
-    write(*,*) 'amp_corr',amp_corr
+   !  write(*,*) 'amp_corr',amp_corr
 
     !* 2. Time iteration to estimate sources
     dobs2 = dobs
@@ -1223,7 +1223,8 @@ contains
 
    ! initializes trace holding interpolated values
    ! syn1(1:npt2) = 0.
-   allocate(syn1(npt2))
+   allocate(syn1(npt2+npt1))
+   syn1=0.
 
    ! loops over number of time steps in complete trace
    do i = 1, npt2

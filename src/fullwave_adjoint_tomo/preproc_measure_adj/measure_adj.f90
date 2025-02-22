@@ -93,7 +93,6 @@ contains
        endif
     endif
   !if (DISPLAY_DETAILS) then  
-  print *, 'fstart0,fend0=',fstart0,fend0
   !endif
 
     ! theoretical surface wave arrival time

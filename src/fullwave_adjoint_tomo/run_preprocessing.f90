@@ -55,7 +55,7 @@ subroutine run_preprocessing(model,evtset,ievt,simu_type,icmt)
   ! for calculating STF for TeleFWI
   real(kind=4), dimension(nrec,NSTEP,NRCOMP)               :: glob_dat_tw,glob_syn_tw,glob_syn
   real(kind=4), dimension(nrec,NSTEP)                      :: glob_ff
-  character(len=256), dimension(nrec)                      :: glob_stnm
+  character(len=MAX_STRING_LEN), dimension(nrec)           :: glob_stnm
   real(kind=4), dimension(nrec)                            :: ttp,tb,te
   real(kind=4) , dimension(NSTEP,NRCOMP)                   :: stf_array
   ! for writing window_chi of noise/tele by one proc
