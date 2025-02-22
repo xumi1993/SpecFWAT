@@ -7,7 +7,7 @@ program combine_h5
 
   type(hdf5_file) :: hp
   integer, parameter :: nargs = 3, ndata = 3
-  character(len=MAX_STRING_LEN), dimension(ndata) :: data_names = ['vp', 'vs', 'rho']
+  character(len=MAX_STRING_LEN), dimension(ndata) :: data_names = ['vp ', 'vs ', 'rho']
   character(len=MAX_STRING_LEN), dimension(nargs) :: args
   character(len=MAX_STRING_LEN) :: indir, outdir, model_name
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp, vs, rho
