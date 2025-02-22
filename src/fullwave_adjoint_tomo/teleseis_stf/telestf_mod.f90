@@ -221,15 +221,15 @@ subroutine seis_pca(stnm,dat_tw,syn_tw,ff,nrec,npts,beg,del,stf_array)
       j=0
       do i=1,nrec
       !if (abs(avgarr(i)-avgamp0)<=0.2*abs(avgamp0) .and. avgarr(i).ne.-1000.) then
-      if (abs(avgarr(i)-avgamp0)<=0.2 .and. avgarr(i).ne.-1000.) then
+         if (abs(avgarr(i)-avgamp0)<=0.2 .and. avgarr(i).ne.-1000.) then
             write(*,*) avgarr(i)
             sumamp=sumamp+avgarr(i)
             j=j+1
-      endif
+         endif
       enddo
       if(j==0.or.j<=0.1*real(nrec)) then
-      write(*,*) 'Error: too little data satisfy |A-A0|<=0.2'
-      call exit(-1)
+         write(*,*) 'Error: too little data satisfy |A-A0|<=0.2'
+         call exit(-1)
       endif
       avgamp(icomp)=sumamp/j
       write(*,*)'Final averge amp: ',avgamp(icomp)
