@@ -1,0 +1,4 @@
+[submodule "src/specfem3d"]
+	path = src/specfem3d
+	url = https://github.com/xumi1993/specfem3d.git
+	branch = devel
