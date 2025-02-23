@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-project(${CMAKE_PROJECT_NAME}, VERSION 0.1.0 LANGUAGES C Fortran)
+project(${CMAKE_PROJECT_NAME}, VERSION 0.1.0 LANGUAGES C CXX Fortran)
 
 execute_process(
     COMMAND git submodule update --init
@@ -41,6 +41,20 @@ if(USE_CUDA)
   find_package(CUDA)
 else()
   message(STATUS "SpecFWI is compiled without cuda, because -DUSE_CUDA=True is not defined")
+endif()
+
+option(FORCE_DOWNLOAD_EXTERNAL_LIBS "Force download and use external libraries" OFF)
+# yaml parser
+find_package(yaml-cpp 0.8 QUIET)
+if (yaml-cpp_FOUND AND NOT ${FORCE_DOWNLOAD_EXTERNAL_LIBS})
+  message(STATUS "yaml-cpp found")
+  message(STATUS "YAML_CPP_INCLUDE_DIR: ${YAML_CPP_INCLUDE_DIR}")
+  message(STATUS "YAML_CPP_LIBRARIES: ${YAML_CPP_LIBRARIES}")
+else()
+  message(STATUS "yaml-cpp not found. Using external_libs/yaml-cpp ...")
+  add_subdirectory(external_libs)
+  set(YAML_CPP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_libs/yaml-cpp/include)
+  set(YAML_CPP_LIBRARIES yaml-cpp)
 endif()
 
 # setup version
