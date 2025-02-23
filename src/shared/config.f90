@@ -1,3 +1,13 @@
+module config
+  use fwat_constants
+
+  integer :: worldrank, worldsize
+  integer :: noderank, nodesize
+  integer, dimension(:,:), allocatable :: rank_map
+
+
+end module config
+
 module fwat_constants
   include "constants.h"
 
