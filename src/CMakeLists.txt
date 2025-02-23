@@ -1,6 +1,4 @@
 # objs
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
-find_package(MPI REQUIRED)
 include_directories(
   ${PROJECT_SOURCE_DIR}/include
 )
@@ -113,6 +111,13 @@ if (NOT USE_ASDF)
 endif()
 add_library(specfem3D_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
 target_link_libraries(specfem3D_objs PRIVATE shared_objs)
+
+# ==============================================================================
+# ----------------------------- Add libraries --------------------------------
+# ==============================================================================
+# add yaml-fortran library
+add_subdirectory(fortran-yaml)
+add_subdirectory(shared)
 
 # ==============================================================================
 # ----------------------------- Add executables -------------------------------

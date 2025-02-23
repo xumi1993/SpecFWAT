@@ -1,7 +1,6 @@
 module config
-  use "constants.h"
+  include "constants.h"
 
-  implicit none
   integer, parameter :: CR = SIZE_REAL
   integer, parameter :: DP = SIZE_DOUBLE
 
