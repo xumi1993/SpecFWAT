@@ -128,3 +128,5 @@ endif()
 
 # add specfem3d library and executable
 add_subdirectory(src)
+# add yaml-fortran library
+add_subdirectory(src/fortran-yaml)
