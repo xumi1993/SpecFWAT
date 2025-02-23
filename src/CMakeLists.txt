@@ -37,7 +37,6 @@ if (USE_CUDA)
   set(CUDA_INC "-I${CUDA_INCLUDE_DIRS}")
   set(CUDA_LINK "${CUDA_LIBRARIES}")
 
-  # 处理不同 CUDA 版本的架构 (sm_xx)
   if (CUDA_VERSION_MAJOR EQUAL 12)
       set(GENCODE "-gencode=arch=compute_90,code=sm_90")
       add_definitions(-DGPU_DEVICE_Hopper)
@@ -68,10 +67,13 @@ if (USE_CUDA)
       set(GENCODE "-gencode=arch=compute_20,code=sm_20")
   endif()
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_FLAGS} ${CUDA_INC} ${GENCODE}")
-  file(GLOB SOURCES_CUDA "${SPECFEM_DIR}/gpu/*.c*")
-  file(GLOB SOURCES_CUDA_KERNELS "${SPECFEM_DIR}/gpu/kernels/*.c*")
+  file(GLOB SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/*.c*")
+  file(GLOB SOURCES_CUDA_KERNELS "${SPECFEM_DIR}/src/gpu/kernels/*.c*")
   add_library(cuda_objs OBJECT ${SOURCES_CUDA} ${SOURCES_CUDA_KERNELS})
   target_include_directories(cuda_obj PRIVATE ${SPECFEM_DIR}/gpu ${SPECFEM_DIR}/gpu/kernels)
+else()
+  set(SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/specfem3D_gpu_cuda_method_stubs.c")
+  add_library(cuda_objs OBJECT ${SOURCES_CUDA})
 endif()
 
 # meshfem3D_objs
@@ -84,10 +86,42 @@ endif()
 add_library(meshfem3D_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
 target_link_libraries(meshfem3D_objs PRIVATE shared_objs)
 
+# generate_databases_objs
+file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/generate_databases/*.[Ff]90")
+file(GLOB SOURCES_C "${SPECFEM_DIR}/src/generate_databases/*.c")
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/generate_databases.f90")
+if(USE_SERIAL)
+  list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/model_sep.f90")
+else()
+  list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/model_sep_nompi.f90")
+endif()
+if(NOT (USE_ADIOS AND USE_ADIOS2))
+  list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/.*adios.*$")
+endif()
+add_library(generate_databases_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
+target_link_libraries(generate_databases_objs PRIVATE shared_objs)
+
+# specfem3D_objs
+file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/specfem3D/*.[Ff]90")
+file(GLOB SOURCES_C "${SPECFEM_DIR}/src/specfem3D/*.c*")
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/specfem3D/specfem3D.F90")
+if(NOT (USE_ADIOS AND USE_ADIOS2))
+  list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/.*adios.*$")
+endif()
+if (NOT USE_ASDF)
+  list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/.*ASDF.*$")
+endif()
+add_library(specfem3D_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
+target_link_libraries(specfem3D_objs PRIVATE shared_objs)
+
 # ==============================================================================
 # ----------------------------- Add executables -------------------------------
 # ==============================================================================
-set(APP_SOURCES "${SPECFEM_DIR}/src/meshfem3D/meshfem3D.F90")
+set(APP_SOURCES
+  "${SPECFEM_DIR}/src/meshfem3D/meshfem3D.F90"
+  "${SPECFEM_DIR}/src/generate_databases/generate_databases.f90"
+  "${SPECFEM_DIR}/src/specfem3D/specfem3D.F90"
+) 
 foreach(execsourcefile ${APP_SOURCES})
   get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)
   add_executable(${EXEC_NAME} ${execsourcefile}
@@ -95,5 +129,5 @@ foreach(execsourcefile ${APP_SOURCES})
     ${HEADERS}
   )
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
-  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs ${MPI_LIBRARIES})
+  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs ${MPI_LIBRARIES})
 endforeach()

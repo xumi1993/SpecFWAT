@@ -6,6 +6,6 @@ Full-waveform Inversion Based on SPECFEM3D
 
 ### Dependencies
 
-```
+```bash
 conda install -c conda-forge fortran-compiler c-compiler cmake openmpi
 ```
