@@ -4,7 +4,8 @@ module config
   integer :: worldrank, worldsize
   integer :: noderank, nodesize
   integer, dimension(:,:), allocatable :: rank_map
-
+  
+  character(len=MAX_STRING_LEN) :: dat_coord
 
 end module config
 

@@ -3,6 +3,8 @@ module imput_params
 
   implicit none
 
+  integer, private :: ier
+
   type acqui_params
     integer               :: nevents ! # of events
     character(len= MAX_STRING_LEN), dimension(:),       allocatable  :: station_file
@@ -19,20 +21,309 @@ module imput_params
   end type acqui_params
 
   type rf_params
-    real(kind=CUSTOM_REAL), public                                    :: MINDERR, RF_TSHIFT
-    integer, public                                                   :: NGAUSS, MAXIT
-    real(kind=CUSTOM_REAL), public, dimension(:), allocatable         :: F0
+    real(kind=cr)                                    :: MINDERR, TSHIFT
+    integer                                          :: NGAUSS, MAXIT
+    real(kind=cr), dimension(:), allocatable :: F0
   end type rf_params
 
   type sim_params
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
-    character(len= MAX_STRING_LEN) :: CH_CODE, dat_coord
-    real(kind=cr) :: DT, TW_BEFORE, TW_AFTER
-    real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX
+    character(len= MAX_STRING_LEN) :: CH_CODE
+    real(kind=cr) :: DT
+    real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF
     type(rf_params) :: rf
   end type sim_params
 
+  type fwat_params
+    type(acqui_params) :: acqui
+    type(sim_params), pointer :: sim
+    contains
+    procedure :: read => read_parameter_file, select_type
+  end type fwat_params
+
+  type(sim_params), target :: tele_par, noise_par
+
+  contains
+
+  subroutine read_parameter_file(this, fname)
+    use yaml, only: parse, error_length
+    use yaml_types, only: type_node, type_dictionary, type_error, real_kind, &
+                        type_list, type_list_item, type_scalar
+    class(fwat_params), intent(inout) :: this
+    character(len=*), intent(in) :: fname
+    class(type_node), pointer :: root
+    class(type_dictionary), pointer :: noise, tele, tomo, rf
+    class (type_list), pointer :: list
+    character(len=error_length) :: error
+    type (type_error), pointer :: io_err
+
+    if (worldrank == 0) then
+      root => parse(fname, error = error)
+      if (error/='') call exit_mpi(worldrank, error)
+      select type (root)
+      class is (type_dictionary)
+        ! read parameters for noise FWI
+        this%sim => noise_par
+        noise => root%get_dictionary('NOISE', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
+        this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err)
+        this%sim%ITAPER = noise%get_integer('ITAPER', error=io_err)
+        this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
+        list => noise%get_list('RCOMPS', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_string_list(list, this%sim%RCOMPS)
+        this%sim%NRCOMP = size(this%sim%RCOMPS)
+        list => noise%get_list('SCOMPS', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_string_list(list, this%sim%SCOMPS)
+        this%sim%NSCOMP = size(this%sim%SCOMPS)
+        this%sim%CH_CODE = noise%get_string('CH_CODE', error=io_err)
+        this%sim%DT = noise%get_real('DT', error=io_err)
+        list => noise%get_list('SHORT_P', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%SHORT_P)
+        list => noise%get_list('LONG_P', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%LONG_P)
+        list => noise%get_list('GROUPVEL_MIN', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%GROUPVEL_MIN)
+        list => noise%get_list('GROUPVEL_MAX', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%GROUPVEL_MAX)
+        if (size(this%sim%SHORT_P)      == size(this%sim%LONG_P) .and. &
+            size(this%sim%LONG_P)       == size(this%sim%GROUPVEL_MIN) .and. &
+            size(this%sim%GROUPVEL_MIN) == size(this%sim%GROUPVEL_MAX)) then
+          this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+        else
+          call exit_mpi(worldrank, 'ERROR: the number of filters for noise FWI is not consistent')
+        endif
+        this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
+        this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
+        this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+
+        ! read parameters for teleseismic FWI
+        this%sim => tele_par
+        tele => root%get_dictionary('TELE', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        list => tele%get_list('RCOMPS', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_string_list(list, this%sim%RCOMPS)
+        this%sim%NRCOMP = size(this%sim%RCOMPS)
+        this%sim%NSTEP = tele%get_integer('NSTEP', error=io_err)
+        this%sim%IMEAS = tele%get_integer('IMEAS', error=io_err)
+        this%sim%ITAPER = tele%get_integer('ITAPER', error=io_err)
+        this%sim%PRECOND_TYPE = tele%get_integer('PRECOND_TYPE', error=io_err)
+        this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err)
+        this%sim%DT = tele%get_real('DT', error=io_err)
+        list => tele%get_list('TIME_WIN', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%TIME_WIN)
+        list => tele%get_list('SHORT_P', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%SHORT_P)
+        list => tele%get_list('LONG_P', required=.true., error=io_err)
+        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        call read_real_list(list, this%sim%LONG_P)
+        this%sim%NUM_FILTER = 1
+        this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
+        ! read parameters for RF proc
+        rf => tele%get_dictionary('RF', required=.true., error=io_err)
+        this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
+        this%sim%rf%TSHIFT = rf%get_real('TSHIFT', error=io_err)
+        this%sim%rf%MAXIT = rf%get_integer('MAXIT', error=io_err)
+        list => rf%get_list('F0', required=.true., error=io_err)
+        if (associated(io_err)) then
+          this%sim%rf%NGAUSS = 0
+        else
+          call read_real_list(list, this%sim%rf%F0)
+          this%sim%rf%NGAUSS = size(this%sim%rf%F0)
+        endif
+      end select
+      call root%finalize()
+      deallocate(root)
+    endif
+    call synchronize_all()
+
+    ! broadcast noise parameters
+    call bcast_all_singlei(noise_par%NSTEP)
+    call bcast_all_singlei(noise_par%IMEAS)
+    call bcast_all_singlei(noise_par%ITAPER)
+    call bcast_all_singlei(noise_par%PRECOND_TYPE)
+    call bcast_all_singlei(noise_par%NRCOMP)
+    call bcast_all_singlei(noise_par%NSCOMP)
+    call bcast_all_singlei(noise_par%NUM_FILTER)
+    call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
+    call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
+    call bcast_all_singlel(noise_par%SUPPRESS_EGF)
+    if (worldrank > 0) then
+      allocate(noise_par%RCOMPS(noise_par%NRCOMP))
+      allocate(noise_par%SCOMPS(noise_par%NSCOMP))
+      allocate(noise_par%SHORT_P(noise_par%NUM_FILTER))
+      allocate(noise_par%LONG_P(noise_par%NUM_FILTER))
+      allocate(noise_par%GROUPVEL_MIN(noise_par%NUM_FILTER))
+      allocate(noise_par%GROUPVEL_MAX(noise_par%NUM_FILTER))
+    endif
+    call bcast_all_ch_array(noise_par%RCOMPS, noise_par%NRCOMP, MAX_STRING_LEN)
+    call bcast_all_ch_array(noise_par%SCOMPS, noise_par%NSCOMP, MAX_STRING_LEN)
+    call bcast_all_ch_array(noise_par%CH_CODE, 1, MAX_STRING_LEN)
+    call bcast_all_singlecr(noise_par%DT)
+    call bcast_all_r(noise_par%SHORT_P, noise_par%NUM_FILTER)
+    call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
+    call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
+    call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
+
+    ! broadcast tele parameters
+    call bcast_all_singlei(tele_par%NSTEP)
+    call bcast_all_singlei(tele_par%IMEAS)
+    call bcast_all_singlei(tele_par%ITAPER)
+    call bcast_all_singlei(tele_par%PRECOND_TYPE)
+    call bcast_all_singlei(tele_par%NRCOMP)
+    call bcast_all_singlei(tele_par%NUM_FILTER)
+    call bcast_all_singlel(tele_par%USE_LOCAL_STF)
+    call bcast_all_singlei(tele_par%rf%MAXIT)
+    call bcast_all_singlecr(tele_par%rf%MINDERR)
+    call bcast_all_singlecr(tele_par%rf%TSHIFT)
+    call bcast_all_singlei(tele_par%rf%NGAUSS)
+    if (worldrank > 0) then
+      allocate(tele_par%RCOMPS(tele_par%NRCOMP))
+      allocate(tele_par%TIME_WIN(2))
+      allocate(tele_par%SHORT_P(1))
+      allocate(tele_par%LONG_P(1))
+      if (tele_par%rf%NGAUSS > 0) then
+        allocate(tele_par%rf%F0(tele_par%rf%NGAUSS))
+      endif
+    endif
+    call bcast_all_ch_array(tele_par%RCOMPS, tele_par%NRCOMP, MAX_STRING_LEN)
+    call bcast_all_ch_array(tele_par%CH_CODE, 1, MAX_STRING_LEN)
+    call bcast_all_singlecr(tele_par%DT)
+    call bcast_all_r(tele_par%TIME_WIN, 2)
+    call bcast_all_r(tele_par%SHORT_P, 1)
+    call bcast_all_r(tele_par%LONG_P, 1)
+    if (tele_par%rf%NGAUSS > 0) then
+      call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
+    endif
+
+    call synchronize_all()
+
+  end subroutine read_parameter_file
+
+  subroutine select_type(this, simu_type)
+    class(fwat_params), intent(inout) :: this
+    character(len=*), intent(in) :: simu_type
+    integer :: icomp
+
+    select case (simu_type)
+    case ('tele')
+      this%sim => tele_par
+    case ('noise')
+      this%sim => noise_par
+    end select
+    do icomp = 1, this%sim%NRCOMP
+      if (trim(this%sim%RCOMPS(icomp)) == 'R' .or. trim(this%sim%RCOMPS(icomp)) == 'T') then
+        dat_coord = 'ZRT'
+      else
+        dat_coord = 'ZNE'
+      end if
+    end do
+  end subroutine 
+
+  subroutine read_string_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    character(len=MAX_STRING_LEN), dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = trim(element%to_string())
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_string_list
+
+  subroutine read_dp_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    real(kind=dp), dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_real(0.)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_dp_list
+
+  subroutine read_real_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    real(kind=cr), dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_real(0.)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_real_list
+
+  subroutine read_logi_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    logical, dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_logical(.true.)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_logi_list
+
+  subroutine read_i_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    integer, dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_integer(0)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_i_list
 
 end module imput_params

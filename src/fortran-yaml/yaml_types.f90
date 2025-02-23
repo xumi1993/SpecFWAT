@@ -49,6 +49,7 @@ module yaml_types
       procedure :: to_logical => scalar_to_logical
       procedure :: to_integer => scalar_to_integer
       procedure :: to_real    => scalar_to_real
+      procedure :: to_string  => scalar_to_string
    end type
 
    type,extends(type_node) :: type_null
@@ -283,6 +284,13 @@ contains
       value = default
       read(self%string,*,iostat=ios) value
       if (present(success)) success = (ios == 0)
+   end function
+
+   function scalar_to_string(self) result(value)
+      class (type_scalar),intent(in) :: self
+      character(len=string_length)   :: value
+
+      value = self%string
    end function
 
    recursive subroutine node_set_path(self,path)
