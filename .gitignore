@@ -30,3 +30,13 @@
 *.exe
 *.out
 *.app
+
+bin/
+build/
+.vscode/
+
+# header files
+constants.h
+precision.h
+config.fh
+version.fh
