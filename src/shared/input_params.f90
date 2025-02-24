@@ -1,5 +1,6 @@
 module imput_params
   use config
+  use fwat_mpi
 
   implicit none
 
@@ -7,17 +8,18 @@ module imput_params
 
   type acqui_params
     integer               :: nevents ! # of events
-    character(len= MAX_STRING_LEN), dimension(:),       allocatable  :: station_file
-    character(len= MAX_STRING_LEN), dimension(:),       allocatable  :: src_solution_file
-    character(len= MAX_STRING_LEN), dimension(:),       allocatable  :: evtid_names
-    character(len= MAX_STRING_LEN), dimension(:),       allocatable  :: out_fwd_path
-    character(len= MAX_STRING_LEN), dimension(:),       allocatable  :: in_dat_path
-    real(kind=CUSTOM_REAL), dimension(:), allocatable                :: evla,evlo,evdp
+    character(len= MAX_STRING_LEN) :: evtset_file
+    character(len= MAX_STRING_LEN), dimension(:),       pointer  :: station_file
+    character(len= MAX_STRING_LEN), dimension(:),       pointer  :: src_solution_file
+    character(len= MAX_STRING_LEN), dimension(:),       pointer  :: evtid_names
+    character(len= MAX_STRING_LEN), dimension(:),       pointer  :: out_fwd_path
+    character(len= MAX_STRING_LEN), dimension(:),       pointer  :: in_dat_path
+    real(kind=cr), dimension(:), pointer :: evla,evlo,evdp,src_weight
+    integer :: sta_win, src_win, evid_win, ofp_win, idp_win, evla_win, evlo_win, evdp_win, w_win
 
-    ! contains
-    ! procedure :: free => fwat_acqui_free
-    ! procedure :: malloc => fwat_acqui_malloc
-    ! procedure :: read_source_set => fwat_acqui_read_source_set
+    contains
+    procedure :: alloc => acqui_alloc
+    procedure :: read => acqui_read_source_set
   end type acqui_params
 
   type rf_params
@@ -46,7 +48,87 @@ module imput_params
   type(sim_params), target :: tele_par, noise_par
   type(fwat_params) :: fwat_par_global
 
-  contains
+contains
+  subroutine acqui_read_source_set(this, model, evtset, simu_type)
+    implicit none
+
+    class(acqui_params), intent(inout) :: this
+    character(len=*), intent(in) :: model, evtset, simu_type
+    character(len=MAX_STRING_LEN) :: evtnm, line
+    real(kind=cr) :: junk_cr
+    integer, parameter :: FID = 878
+    integer :: ievt
+
+    this%evtset_file = trim(SRC_REC_DIR)//trim(SRC_PREFIX)//'_'//trim(evtset)//'.dat'
+    if (worldrank == 0) then
+      open(unit=FID, file=this%evtset_file, status='old', iostat=ier)
+      if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
+      ievt = 0
+      do 
+        read(FID, *, iostat=ier) evtnm
+        if (ier /= 0) exit
+        ievt = ievt + 1
+      end do
+      close(FID)
+      this%nevents = ievt
+    end if ! worldrank == 0
+    call bcast_all_singlei(this%nevents)
+
+    ! allocate arrays
+    call this%alloc()
+
+    if (worldrank == 0) then
+      open(unit=FID, file=this%evtset_file, status='old', iostat=ier)
+      if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
+      do ievt = 1, this%nevents
+        read(FID, *, iostat=ier) line
+        if (ier /= 0) exit
+        read(line,*,iostat=ier) evtnm,this%evla(ievt),this%evlo(ievt), &
+                                this%evdp(ievt),junk_cr,&
+                                this%src_weight(ievt)
+        if (ier /= 0) this%src_weight(ievt) = 1.0_cr
+        this%station_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(STATIONS_PREFIX)//'_'//trim(evtnm)
+        if (simu_type == 'noise') then
+          this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FORCESOLUTION_PREFIX)//'_'//trim(evtnm)
+        else
+          this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
+        endif
+        this%evtid_names(ievt) = evtnm
+        this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model)//'.'//trim(evtset)//'/'//trim(evtnm)
+        this%in_dat_path(ievt) = trim(DATA_DIR)//'/'//trim(evtnm)//'/'
+      end do
+      close(FID)
+    end if ! worldrank == 0
+    call synchronize_all()
+
+    ! broadcast arrays
+    call sync_from_main_rank_ch(this%station_file, this%nevents, MAX_STRING_LEN)
+    call sync_from_main_rank_ch(this%src_solution_file, this%nevents, MAX_STRING_LEN)
+    call sync_from_main_rank_ch(this%evtid_names, this%nevents, MAX_STRING_LEN)
+    call sync_from_main_rank_ch(this%out_fwd_path, this%nevents, MAX_STRING_LEN)
+    call sync_from_main_rank_ch(this%in_dat_path, this%nevents, MAX_STRING_LEN)
+    call sync_from_main_rank_cr_1d(this%evla, this%nevents)
+    call sync_from_main_rank_cr_1d(this%evlo, this%nevents)
+    call sync_from_main_rank_cr_1d(this%evdp, this%nevents)
+    call sync_from_main_rank_cr_1d(this%src_weight, this%nevents)
+
+  end subroutine acqui_read_source_set
+
+  subroutine acqui_alloc(this)
+    class(acqui_params), intent(inout) :: this
+
+    ! allocate arrays on shared memory
+    call prepare_shm_array_ch_1d(this%station_file, this%nevents, MAX_STRING_LEN, this%sta_win)
+    call prepare_shm_array_ch_1d(this%src_solution_file, this%nevents, MAX_STRING_LEN, this%src_win)
+    call prepare_shm_array_ch_1d(this%evtid_names, this%nevents, MAX_STRING_LEN, this%evid_win)
+    call prepare_shm_array_ch_1d(this%out_fwd_path, this%nevents, MAX_STRING_LEN, this%ofp_win)
+    call prepare_shm_array_ch_1d(this%in_dat_path, this%nevents, MAX_STRING_LEN, this%idp_win)
+    call prepare_shm_array_cr_1d(this%evla, this%nevents, this%evla_win)
+    call prepare_shm_array_cr_1d(this%evlo, this%nevents, this%evlo_win)
+    call prepare_shm_array_cr_1d(this%evdp, this%nevents, this%evdp_win)
+    call prepare_shm_array_cr_1d(this%src_weight, this%nevents, this%w_win)
+
+  end subroutine acqui_alloc
 
   subroutine read_parameter_file(this, fname)
     use yaml, only: parse, error_length

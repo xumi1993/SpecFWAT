@@ -26,7 +26,7 @@ module fwat_constants
 
   ! Prefix for the src_rec files
   character(len=MAX_STRING_LEN), parameter :: FKMODEL_PREFIX = "FKmodel"
-  character(len=MAX_STRING_LEN), parameter :: SRC_PREFIX = "sources_set"
+  character(len=MAX_STRING_LEN), parameter :: SRC_PREFIX = "sources"
   character(len=MAX_STRING_LEN), parameter :: STATIONS_PREFIX = "STATIONS"
   character(len=MAX_STRING_LEN), parameter :: CMTSOLUTION_PREFIX = "CMTSOLUTION"
   character(len=MAX_STRING_LEN), parameter :: FORCESOLUTION_PREFIX = "FORCESOLUTION"
