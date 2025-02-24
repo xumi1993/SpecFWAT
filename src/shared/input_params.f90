@@ -44,6 +44,7 @@ module imput_params
   end type fwat_params
 
   type(sim_params), target :: tele_par, noise_par
+  type(fwat_params) :: fwat_par_global
 
   contains
 

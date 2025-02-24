@@ -137,3 +137,8 @@ foreach(execsourcefile ${APP_SOURCES})
   target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs ${MPI_LIBRARIES})
   set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
 endforeach()
+
+# ==============================================================================
+# ------------------------ Add FWAT executables --------------------------------
+# ==============================================================================
+add_subdirectory(preproc)

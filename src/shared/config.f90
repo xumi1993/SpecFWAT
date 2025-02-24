@@ -15,6 +15,22 @@ module fwat_constants
   integer, parameter :: cr = SIZE_REAL
   integer, parameter :: dp = SIZE_DOUBLE
 
+  character(len=MAX_STRING_LEN), parameter :: FWAT_PAR_FILE = trim(IN_DATA_FILES)//"fwat_params.yml"
+
+  ! Path to the data directory
+  character(len=MAX_STRING_LEN), parameter :: DATA_DIR = "fwat_data"
+  character(len=MAX_STRING_LEN), parameter :: SRC_REC_DIR = "src_rec"
+  character(len=MAX_STRING_LEN), parameter :: SOLVER_DIR = "solver"
+  character(len=MAX_STRING_LEN), parameter :: MISFITS_DIR = "misfits"
+  character(len=MAX_STRING_LEN), parameter :: OPT_DIR = "optimize"
+
+  ! Prefix for the src_rec files
+  character(len=MAX_STRING_LEN), parameter :: FKMODEL_PREFIX = "FKmodel"
+  character(len=MAX_STRING_LEN), parameter :: SRC_PREFIX = "sources_set"
+  character(len=MAX_STRING_LEN), parameter :: STATIONS_PREFIX = "STATIONS"
+  character(len=MAX_STRING_LEN), parameter :: CMTSOLUTION_PREFIX = "CMTSOLUTION"
+  character(len=MAX_STRING_LEN), parameter :: FORCESOLUTION_PREFIX = "FORCESOLUTION"
+
 end module fwat_constants
 
 module ma_constants
