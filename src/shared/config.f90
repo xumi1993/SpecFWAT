@@ -31,6 +31,10 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: CMTSOLUTION_PREFIX = "CMTSOLUTION"
   character(len=MAX_STRING_LEN), parameter :: FORCESOLUTION_PREFIX = "FORCESOLUTION"
 
+  ! Preconditioner parameters
+  integer, parameter :: DEFAULT_PRECOND = 1
+  integer, parameter :: Z_PRECOND = 2
+
 end module fwat_constants
 
 module ma_constants

@@ -67,11 +67,11 @@ module imput_params
       class is (type_dictionary)
         ! read parameters for noise FWI
         this%sim => noise_par
+        this%sim%IMEAS = 7
+        this%sim%ITAPER = 1
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
-        this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err)
-        this%sim%ITAPER = noise%get_integer('ITAPER', error=io_err)
         this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
         list => noise%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
@@ -108,6 +108,8 @@ module imput_params
 
         ! read parameters for teleseismic FWI
         this%sim => tele_par
+        this%sim%IMEAS = 2
+        this%sim%ITAPER = 2
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => tele%get_list('RCOMPS', required=.true., error=io_err)
@@ -115,8 +117,6 @@ module imput_params
         call read_string_list(list, this%sim%RCOMPS)
         this%sim%NRCOMP = size(this%sim%RCOMPS)
         this%sim%NSTEP = tele%get_integer('NSTEP', error=io_err)
-        this%sim%IMEAS = tele%get_integer('IMEAS', error=io_err)
-        this%sim%ITAPER = tele%get_integer('ITAPER', error=io_err)
         this%sim%PRECOND_TYPE = tele%get_integer('PRECOND_TYPE', error=io_err)
         this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err)
         this%sim%DT = tele%get_real('DT', error=io_err)
@@ -236,9 +236,22 @@ module imput_params
     use yaml_types, only: type_scalar, type_list, type_list_item
     class (type_list), pointer :: list
     class (type_list_item), pointer :: item
-    character(len=MAX_STRING_LEN), dimension(:), intent(out) :: list_out
-    integer :: i
+    character(len=MAX_STRING_LEN), dimension(:), allocatable, intent(out) :: list_out
+    integer :: i, count
     
+    ! count the number of items in the list
+    item => list%first
+    i = 0
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        i = i + 1
+      end select
+      item => item%next
+    end do
+    count = i
+    allocate(list_out(count))
+
     item => list%first
     i = 1
     do while(associated(item))
@@ -255,9 +268,22 @@ module imput_params
     use yaml_types, only: type_scalar, type_list, type_list_item
     class (type_list), pointer :: list
     class (type_list_item), pointer :: item
-    real(kind=dp), dimension(:), intent(out) :: list_out
-    integer :: i
+    real(kind=dp), dimension(:), allocatable, intent(out) :: list_out
+    integer :: i, count
     
+    ! count the number of items in the list
+    item => list%first
+    i = 0
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        i = i + 1
+      end select
+      item => item%next
+    end do
+    count = i
+    allocate(list_out(count))
+
     item => list%first
     i = 1
     do while(associated(item))
@@ -274,8 +300,21 @@ module imput_params
     use yaml_types, only: type_scalar, type_list, type_list_item
     class (type_list), pointer :: list
     class (type_list_item), pointer :: item
-    real(kind=cr), dimension(:), intent(out) :: list_out
-    integer :: i
+    real(kind=cr), dimension(:), allocatable, intent(out) :: list_out
+    integer :: i, count
+
+    ! count the number of items in the list
+    item => list%first
+    i = 0
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        i = i + 1
+      end select
+      item => item%next
+    end do
+    count = i
+    allocate(list_out(count))
     
     item => list%first
     i = 1
@@ -293,8 +332,21 @@ module imput_params
     use yaml_types, only: type_scalar, type_list, type_list_item
     class (type_list), pointer :: list
     class (type_list_item), pointer :: item
-    logical, dimension(:), intent(out) :: list_out
-    integer :: i
+    logical, dimension(:), allocatable, intent(out) :: list_out
+    integer :: i, count
+
+    ! count the number of items in the list
+    item => list%first
+    i = 0
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        i = i + 1
+      end select
+      item => item%next
+    end do
+    count = i
+    allocate(list_out(count))
     
     item => list%first
     i = 1

@@ -9,14 +9,14 @@ module fwat_mpi
   integer :: my_node_mpi_comm_world
 
 contains
-  subroutine init_mpi_tomo()
+  subroutine init_mpi_fwat()
 
     integer :: ier
     integer, dimension(:,:), allocatable :: rank_map_loc
 
   ! initialize the MPI communicator and start the NPROCTOT MPI processes.
-    call MPI_INIT(ier)
-    if (ier /= 0 ) stop 'Error initializing MPI'
+    ! call MPI_INIT(ier)
+    ! if (ier /= 0 ) stop 'Error initializing MPI'
 
     ! we need to make sure that NUMBER_OF_SIMULTANEOUS_RUNS and BROADCAST_SAME_MESH_AND_MODEL are read before calling world_split()
     ! thus read the parameter file
@@ -55,7 +55,7 @@ contains
     rank_map_loc(worldrank+1, 2) = noderank
     call sum_all_1Darray_i(rank_map_loc, rank_map, worldsize*2)
   
-  end subroutine init_mpi_tomo
+  end subroutine init_mpi_fwat
 
   subroutine sum_all_1Darray_i(sendbuf, recvbuf, nx)
 

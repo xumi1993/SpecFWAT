@@ -14,7 +14,8 @@ foreach(execsourcefile ${APP_SOURCES})
 
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   # target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs ${MPI_LIBRARIES})
-  target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs shared_objs cuda_objs ${MPI_LIBRARIES} fortran-yaml)
+  target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs shared_objs cuda_objs)
+  target_link_libraries(${EXEC_NAME} PUBLIC ${MPI_LIBRARIES} fortran-yaml)
   set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
     
 endforeach()
