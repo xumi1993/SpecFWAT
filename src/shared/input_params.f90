@@ -309,7 +309,7 @@ contains
         dat_coord = 'ZNE'
       end if
     end do
-  end subroutine 
+  end subroutine select_simu_type
 
   subroutine read_string_list(list, list_out)
     use yaml_types, only: type_scalar, type_list, type_list_item
