@@ -42,24 +42,23 @@ module imput_params
     type(acqui_params) :: acqui
     type(sim_params), pointer :: sim
     contains
-    procedure :: read => read_parameter_file, select_type
+    procedure :: read => read_parameter_file, select_simu_type
   end type fwat_params
 
   type(sim_params), target :: tele_par, noise_par
   type(fwat_params) :: fwat_par_global
 
 contains
-  subroutine acqui_read_source_set(this, model, evtset, simu_type)
+  subroutine acqui_read_source_set(this)
     implicit none
 
     class(acqui_params), intent(inout) :: this
-    character(len=*), intent(in) :: model, evtset, simu_type
     character(len=MAX_STRING_LEN) :: evtnm, line
     real(kind=cr) :: junk_cr
     integer, parameter :: FID = 878
     integer :: ievt
 
-    this%evtset_file = trim(SRC_REC_DIR)//trim(SRC_PREFIX)//'_'//trim(evtset)//'.dat'
+    this%evtset_file = trim(SRC_REC_DIR)//'/'//trim(SRC_PREFIX)//'_'//trim(set_name)//'.dat'
     if (worldrank == 0) then
       open(unit=FID, file=this%evtset_file, status='old', iostat=ier)
       if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
@@ -82,7 +81,6 @@ contains
       if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
       do ievt = 1, this%nevents
         read(FID, *, iostat=ier) line
-        if (ier /= 0) exit
         read(line,*,iostat=ier) evtnm,this%evla(ievt),this%evlo(ievt), &
                                 this%evdp(ievt),junk_cr,&
                                 this%src_weight(ievt)
@@ -94,7 +92,7 @@ contains
           this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
         endif
         this%evtid_names(ievt) = evtnm
-        this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model)//'.'//trim(evtset)//'/'//trim(evtnm)
+        this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(set_name)//'/'//trim(evtnm)
         this%in_dat_path(ievt) = trim(DATA_DIR)//'/'//trim(evtnm)//'/'
       end do
       close(FID)
@@ -294,15 +292,14 @@ contains
 
   end subroutine read_parameter_file
 
-  subroutine select_type(this, simu_type)
+  subroutine select_simu_type(this)
     class(fwat_params), intent(inout) :: this
-    character(len=*), intent(in) :: simu_type
     integer :: icomp
 
     select case (simu_type)
-    case ('tele')
+    case (SIMU_TYPE_TELE)
       this%sim => tele_par
-    case ('noise')
+    case (SIMU_TYPE_NOISE)
       this%sim => noise_par
     end select
     do icomp = 1, this%sim%NRCOMP

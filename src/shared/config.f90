@@ -1,14 +1,3 @@
-module config
-  use fwat_constants
-
-  integer :: worldrank, worldsize
-  integer :: noderank, nodesize
-  integer, dimension(:,:), allocatable :: rank_map
-  
-  character(len=MAX_STRING_LEN) :: dat_coord
-
-end module config
-
 module fwat_constants
   include "constants.h"
 
@@ -34,8 +23,22 @@ module fwat_constants
   ! Preconditioner parameters
   integer, parameter :: DEFAULT_PRECOND = 1
   integer, parameter :: Z_PRECOND = 2
+  character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_NOISE = 'noise'
+  character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_TELE = 'tele'
 
 end module fwat_constants
+
+module config
+  use fwat_constants
+
+  integer :: worldrank, worldsize
+  integer :: noderank, nodesize
+  integer, dimension(:,:), allocatable :: rank_map
+  
+  character(len=MAX_STRING_LEN) :: dat_coord
+  character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, set_name
+
+end module config
 
 module ma_constants
   use fwat_constants, only: dp, PI

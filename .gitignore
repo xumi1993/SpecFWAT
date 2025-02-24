@@ -40,3 +40,10 @@ constants.h
 precision.h
 config.fh
 version.fh
+
+OUTPUT_FILES/
+DATABASES_MPI/
+
+*_ADJOINT
+*_ADJOINT_FILTERED
+*_FILTERED
