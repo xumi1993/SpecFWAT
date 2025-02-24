@@ -171,6 +171,44 @@ contains
     
   end subroutine sync_from_main_rank_cr_1d
 
+    subroutine sync_from_main_rank_dp_2d(buffer, nx, ny)
+    integer, intent(in) :: nx, ny
+    double precision, dimension(:,:), intent(inout) :: buffer
+    integer :: tag = 1000, i
+
+    if (worldrank == 0) then
+      do i = 2, worldsize
+        if (rank_map(i, 2) == 0) then
+          call send_dp(buffer, nx*ny, rank_map(i, 1), tag)
+        endif
+      enddo
+    elseif (noderank == 0) then
+      call recv_dp(buffer, nx*ny, 0, tag)
+    endif
+    call synchronize_all()
+    
+  end subroutine sync_from_main_rank_dp_2d
+
+
+  subroutine sync_from_main_rank_dp_3d(buffer, nx, ny, nz)
+    integer, intent(in) :: nx, ny, nz
+    double precision, dimension(:,:,:), intent(inout) :: buffer
+    integer :: tag = 1000, i
+
+    if (worldrank == 0) then
+      do i = 2, worldsize
+        if (rank_map(i, 2) == 0) then
+          call send_dp(buffer, nx*ny*nz, rank_map(i, 1), tag)
+        endif
+      enddo
+    elseif (noderank == 0) then
+      call recv_dp(buffer, nx*ny*nz, 0, tag)
+    endif
+    call synchronize_all()
+    
+  end subroutine sync_from_main_rank_dp_3d
+
+
   subroutine sync_from_main_rank_ch(buffer, countval, nlen)
     integer, intent(in) :: countval, nlen
     character(len=nlen), dimension(:), intent(inout) :: buffer

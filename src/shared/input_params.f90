@@ -18,7 +18,7 @@ module imput_params
     integer :: sta_win, src_win, evid_win, ofp_win, idp_win, evla_win, evlo_win, evdp_win, w_win
 
     contains
-    procedure :: alloc => acqui_alloc
+    procedure, private :: alloc => acqui_alloc
     procedure :: read => acqui_read_source_set
   end type acqui_params
 
