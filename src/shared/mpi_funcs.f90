@@ -171,7 +171,7 @@ contains
     
   end subroutine sync_from_main_rank_cr_1d
 
-    subroutine sync_from_main_rank_dp_2d(buffer, nx, ny)
+  subroutine sync_from_main_rank_dp_2d(buffer, nx, ny)
     integer, intent(in) :: nx, ny
     double precision, dimension(:,:), intent(inout) :: buffer
     integer :: tag = 1000, i
@@ -188,7 +188,6 @@ contains
     call synchronize_all()
     
   end subroutine sync_from_main_rank_dp_2d
-
 
   subroutine sync_from_main_rank_dp_3d(buffer, nx, ny, nz)
     integer, intent(in) :: nx, ny, nz
