@@ -5,7 +5,7 @@ include_directories(
 set(SPECFEM_DIR ${PROJECT_SOURCE_DIR}/src/specfem3d)
 
 # shared_objs
-file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/shared/*.f90")
+file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/shared/*.[Ff]90")
 file(GLOB SOURCES_C "${SPECFEM_DIR}/src/shared/*.c")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/shared/merge_sort.f90")
 if(USE_SERIAL)
@@ -31,44 +31,40 @@ target_link_libraries(shared_objs PRIVATE ${MPI_LIBRARIES})
 
 # CUDA
 if (USE_CUDA)
-  set(CUDA_FLAGS "-lcudart -lcuda -lcublas -lstdc++")
-  set(CUDA_INC "-I${CUDA_INCLUDE_DIRS}")
-  set(CUDA_LINK "${CUDA_LIBRARIES}")
+  include_directories(
+    ${SPECFEM_DIR}/src/gpu
+    ${SPECFEM_DIR}/src/gpu/kernels
+  )
 
-  if (CUDA_VERSION_MAJOR EQUAL 12)
-      set(GENCODE "-gencode=arch=compute_90,code=sm_90")
-      add_definitions(-DGPU_DEVICE_Hopper)
-  elseif (CUDA_VERSION_MAJOR EQUAL 11)
-      set(GENCODE "-gencode=arch=compute_80,code=sm_80")
-      add_definitions(-DGPU_DEVICE_Ampere)
-  elseif (CUDA_VERSION_MAJOR EQUAL 10)
-      set(GENCODE "-gencode=arch=compute_75,code=sm_75")
-      add_definitions(-DGPU_DEVICE_Turing)
-  elseif (CUDA_VERSION_MAJOR EQUAL 9)
-      set(GENCODE "-gencode=arch=compute_70,code=sm_70")
-      add_definitions(-DGPU_DEVICE_Volta)
-  elseif (CUDA_VERSION_MAJOR EQUAL 8)
-      set(GENCODE "-gencode=arch=compute_60,code=sm_60")
-      add_definitions(-DGPU_DEVICE_Pascal)
-  elseif (CUDA_VERSION_MAJOR EQUAL 7)
-      set(GENCODE "-gencode=arch=compute_52,code=sm_52")
-      add_definitions(-DGPU_DEVICE_Maxwell)
-  elseif (CUDA_VERSION_MAJOR EQUAL 6)
-      set(GENCODE "-gencode=arch=compute_37,code=sm_37")
-      add_definitions(-DGPU_DEVICE_K80)
-  elseif (CUDA_VERSION_MAJOR EQUAL 5)
-      set(GENCODE "-gencode=arch=compute_35,code=sm_35")
-      add_definitions(-DGPU_DEVICE_K20)
-  elseif (CUDA_VERSION_MAJOR EQUAL 4)
-      set(GENCODE "-gencode=arch=compute_30,code=sm_30")
+  if (CUDAToolkit_VERSION_MAJOR EQUAL 12)
+    set(CMAKE_CUDA_ARCHITECTURES 90)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 11)
+    set(CMAKE_CUDA_ARCHITECTURES 80)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 10)
+    set(CMAKE_CUDA_ARCHITECTURES 75)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 9)
+    set(CMAKE_CUDA_ARCHITECTURES 70)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 8)
+    set(CMAKE_CUDA_ARCHITECTURES 60)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 7)
+    set(CMAKE_CUDA_ARCHITECTURES 50)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 6)
+    set(CMAKE_CUDA_ARCHITECTURES 37)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 5)
+    set(CMAKE_CUDA_ARCHITECTURES 35)
+  elseif (CUDAToolkit_VERSION_MAJOR EQUAL 4)
+    set(CMAKE_CUDA_ARCHITECTURES 30)
   else()
-      set(GENCODE "-gencode=arch=compute_20,code=sm_20")
+    set(CMAKE_CUDA_ARCHITECTURES 20)
   endif()
-  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${CUDA_FLAGS} ${CUDA_INC} ${GENCODE}")
-  file(GLOB SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/*.c*")
-  file(GLOB SOURCES_CUDA_KERNELS "${SPECFEM_DIR}/src/gpu/kernels/*.c*")
-  add_library(cuda_objs OBJECT ${SOURCES_CUDA} ${SOURCES_CUDA_KERNELS})
-  target_include_directories(cuda_obj PRIVATE ${SPECFEM_DIR}/gpu ${SPECFEM_DIR}/gpu/kernels)
+  file(GLOB SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/*.cu")
+  set(CUDA_KERNEL_DIR "${SPECFEM_DIR}/src/gpu/kernels")
+  file(GLOB SOURCES_CUDA_KERNELS "${CUDA_KERNEL_DIR}/*.cu")
+  add_library(cuda_objs OBJECT ${SOURCES_CUDA})
+  # set_target_properties(cuda_objs PROPERTIES CUDA_ARCHITECTURES native)
+
+  add_library(cuda_kernels_objs OBJECT ${SOURCES_CUDA_KERNELS})
+  target_compile_options(cuda_kernels_objs PRIVATE -include ${SPECFEM_DIR}/src/gpu/mesh_constants_gpu.h)
 else()
   set(SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/specfem3D_gpu_cuda_method_stubs.c")
   add_library(cuda_objs OBJECT ${SOURCES_CUDA})
@@ -113,13 +109,6 @@ add_library(specfem3D_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
 target_link_libraries(specfem3D_objs PRIVATE shared_objs)
 
 # ==============================================================================
-# ----------------------------- Add libraries --------------------------------
-# ==============================================================================
-# add yaml-fortran library
-add_subdirectory(fortran-yaml)
-add_subdirectory(shared)
-
-# ==============================================================================
 # ----------------------------- Add executables -------------------------------
 # ==============================================================================
 set(APP_SOURCES
@@ -134,9 +123,19 @@ foreach(execsourcefile ${APP_SOURCES})
     ${HEADERS}
   )
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
-  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs ${MPI_LIBRARIES})
+  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs MPI::MPI_Fortran)
   set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
+  if (USE_CUDA AND ${EXEC_NAME} STREQUAL "specfem3D")
+    target_link_libraries(${EXEC_NAME} PUBLIC cuda_objs cuda_kernels_objs)
+  endif()
 endforeach()
+
+# ==============================================================================
+# ----------------------------- Add libraries --------------------------------
+# ==============================================================================
+# add yaml-fortran library
+add_subdirectory(fortran-yaml)
+add_subdirectory(shared)
 
 # ==============================================================================
 # ------------------------ Add FWAT executables --------------------------------

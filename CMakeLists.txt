@@ -1,11 +1,58 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-project(${CMAKE_PROJECT_NAME}, VERSION 0.1.0 LANGUAGES C CXX Fortran)
+set(project_version 0.1.0)
 
-execute_process(
-    COMMAND git submodule update --init
-)
+
+# setup CUDA
+if(USE_CUDA)
+  project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran CUDA)
+  find_package(CUDAToolkit REQUIRED)
+  if (CUDAToolkit_FOUND)
+    message(STATUS "CUDAToolkit_FOUND: ${CUDAToolkit_FOUND}")
+    message(STATUS "CUDAToolkit_VERSION: ${CUDAToolkit_VERSION}")
+    add_definitions(-DUSE_CUDA)
+  else()
+    message(SEND_ERROR "-DUSE_CUDA=True is defined, but CUDAToolkit not found, Non-CUDA build is used")
+    set(USE_CUDA OFF)
+  endif()  
+else()
+  project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran)
+  message(STATUS "SpecFWI is compiled without cuda, because -DUSE_CUDA=True is not defined")
+endif()
+
+# setup MPI
+find_package(MPI REQUIRED Fortran)
+if (MPI_FOUND)
+  message(STATUS "MPI_FOUND: ${MPI_FOUND}")
+  message(STATUS "MPI_VERSION: ${MPI_VERSION}")
+  add_definitions(-DWITH_MPI)
+else()
+  message(FATAL_ERROR "MPI not found, which is required for SpecFWI")
+endif()
+
+option(NO_UPDATE_SUBMODULE "Do not update submodule" OFF)
+if (NOT NO_UPDATE_SUBMODULE)
+  execute_process(
+      COMMAND git submodule update --init
+      WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  )
+endif()
+
+option(FORCE_DOWNLOAD_EXTERNAL_LIBS "Force download and use external libraries" OFF)
+# yaml parser
+find_package(yaml-cpp 0.8 QUIET)
+if (yaml-cpp_FOUND AND NOT ${FORCE_DOWNLOAD_EXTERNAL_LIBS})
+  message(STATUS "yaml-cpp found")
+else()
+  message(STATUS "yaml-cpp not found. Using external_libs/yaml-cpp ...")
+  add_subdirectory(external_libs)
+  set(YAML_CPP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_libs/yaml-cpp/include)
+  set(YAML_CPP_LIBRARIES yaml-cpp)
+endif()
+message(STATUS "YAML_CPP_INCLUDE_DIR: ${YAML_CPP_INCLUDE_DIR}")
+message(STATUS "YAML_CPP_LIBRARIES: ${YAML_CPP_LIBRARIES}")
+include_directories(${YAML_CPP_INCLUDE_DIR})
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
@@ -24,38 +71,6 @@ elseif("${CMAKE_FORTRAN_COMPILER_ID}" MATCHES "Flang")
   set(CMAKE_Fortran_FLAGS_DEBUG "-g -O0 -fbacktrace -fbounds-check")
 endif()
 
-# setup mpi
-option(USE_SERIAL "Enable serial mode" OFF)
-if (NOT USE_SERIAL)
-  find_package(MPI REQUIRED)
-  message(STATUS "MPI_FOUND: ${MPI_FOUND}")
-  message(STATUS "MPI_VERSION: ${MPI_VERSION}")
-else()
-  message(STATUS "SpecFWI is compiled in serial mode, because -DUSE_SERIAL=True is defined")
-endif()
-
-# setup CUDA
-if(USE_CUDA)
-  message(STATUS "Running CMAKE FindCUDA.cmake...")
-  enable_language(CUDA)
-  find_package(CUDA)
-else()
-  message(STATUS "SpecFWI is compiled without cuda, because -DUSE_CUDA=True is not defined")
-endif()
-
-option(FORCE_DOWNLOAD_EXTERNAL_LIBS "Force download and use external libraries" OFF)
-# yaml parser
-find_package(yaml-cpp 0.8 QUIET)
-if (yaml-cpp_FOUND AND NOT ${FORCE_DOWNLOAD_EXTERNAL_LIBS})
-  message(STATUS "yaml-cpp found")
-  message(STATUS "YAML_CPP_INCLUDE_DIR: ${YAML_CPP_INCLUDE_DIR}")
-  message(STATUS "YAML_CPP_LIBRARIES: ${YAML_CPP_LIBRARIES}")
-else()
-  message(STATUS "yaml-cpp not found. Using external_libs/yaml-cpp ...")
-  add_subdirectory(external_libs)
-  set(YAML_CPP_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/external_libs/yaml-cpp/include)
-  set(YAML_CPP_LIBRARIES yaml-cpp)
-endif()
 
 # setup version
 execute_process(
