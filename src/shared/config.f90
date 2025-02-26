@@ -19,6 +19,9 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: STATIONS_PREFIX = "STATIONS"
   character(len=MAX_STRING_LEN), parameter :: CMTSOLUTION_PREFIX = "CMTSOLUTION"
   character(len=MAX_STRING_LEN), parameter :: FORCESOLUTION_PREFIX = "FORCESOLUTION"
+  character(len=MAX_STRING_LEN), parameter :: OUTPUT_PATH = "OUTPUT_FILES"
+  character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
+  character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
 
   ! Preconditioner parameters
   integer, parameter :: DEFAULT_PRECOND = 1
@@ -35,8 +38,14 @@ module config
   integer :: noderank, nodesize
   integer, dimension(:,:), allocatable :: rank_map
   
-  character(len=MAX_STRING_LEN) :: dat_coord
+  character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup
   character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, set_name
+  real(kind=cr), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy,rmass_copy,rmass_acoustic_copy
+  real(kind=cr), dimension(:,:,:,:), allocatable :: sum_rho_kl 
+  real(kind=cr), dimension(:,:,:,:,:), allocatable :: sum_cijkl_kl 
+  real(kind=cr), dimension(:,:,:,:), allocatable :: sum_mu_kl 
+  real(kind=cr), dimension(:,:,:,:), allocatable :: sum_kappa_kl 
+  real(kind=cr), dimension(:,:,:,:), allocatable :: sum_hess_kl 
 
 end module config
 

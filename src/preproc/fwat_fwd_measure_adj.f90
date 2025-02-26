@@ -4,10 +4,12 @@ use fwat_mpi
 use common_lib, only: get_simu_type
 use imput_params, fpar => fwat_par_global
 use obs_data, fdat => fwat_evt_data_global
+use preproc_fwd
 
 implicit none
 integer :: nargs
 integer, parameter :: num_args = 3
+type(PrepareFWD) :: ffwd
 
 call init_mpi()
 call init_mpi_fwat()
@@ -29,11 +31,14 @@ call fpar%read(FWAT_PAR_FILE)
 ! select simu_type
 call fpar%select_simu_type()
 
-! read src_rec
+! read src_rec for this data type
 call fpar%acqui%read()
 
 ! read observed data
 call fdat%read_stations(fpar%acqui%evtid_names(1))
+
+! initialize fwd
+call ffwd%init(3)
 
 call finalize_mpi()
 
