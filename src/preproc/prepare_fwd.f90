@@ -20,7 +20,7 @@ module preproc_fwd
   type :: PrepareFWD
     integer :: ievt=0, simu_opt
     contains
-    procedure :: init, calc_fk_wavefield, prepare_for_event, destroy, simulation
+    procedure :: init, calc_fk_wavefield, prepare_for_event, destroy, fwd_simulation
     procedure, private :: initialize_kernel_matrice
   end type PrepareFWD
 
@@ -204,8 +204,8 @@ contains
 
   end subroutine prepare_for_event
 
-  subroutine simulation(this)
-    use specfem_api, only: InitSpecfem, restore_rmass
+  subroutine fwd_simulation(this)
+    use specfem_api, only: InitSpecfem, FinalizeSpecfem, restore_rmass
 
     class(PrepareFWD), intent(inout) :: this
 
@@ -218,7 +218,13 @@ contains
 
     call restore_rmass()
 
-  end subroutine simulation
+    call prepare_timerun_fwat(this%ievt)
+
+    call iterate_time()
+
+    call FinalizeSpecfem()
+
+  end subroutine fwd_simulation
 
 
 end module

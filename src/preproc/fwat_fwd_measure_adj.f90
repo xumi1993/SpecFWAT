@@ -59,7 +59,8 @@ call ffwd%calc_fk_wavefield()
 
 call ffwd%prepare_for_event()
 
-call ffwd%simulation()
+call ffwd%fwd_simulation()
+! call ffwd%simulation()
 
 call finalize_mpi()
 

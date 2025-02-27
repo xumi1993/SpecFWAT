@@ -195,6 +195,7 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
   if (npt > 0) then
     !! arrays for storing FK solution --------------------------------------------
     allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
+    print *, shape(Veloc_FK), NF_FOR_STORING
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 2210')
     if (ier /= 0) stop 'error while allocating Veloc_FK'
     Veloc_FK(:,:,:) = 0._CUSTOM_REAL
@@ -239,9 +240,15 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     integer :: ier, npt, FID=858
     character(len=*) :: evtid
     character(len=MAX_STRING_LEN) :: out_dir, fkprname
+    real(kind=cr) :: DF_FK
 
     call count_num_boundary_points(num_abs_boundary_faces,abs_boundary_ispec,npt)
 
+    ! deltat = real(DT, cr)
+    ! call find_size_of_working_arrays(deltat, freq_sampling_fk, tmax_fk, NF_FOR_STORING, &
+    !                                 NF_FOR_FFT, NPOW_FOR_INTERP, NP_RESAMP, DF_FK)
+    
+    ! print *, NF_FOR_STORING, NP_RESAMP
     if (allocated(Veloc_FK)) then
       Veloc_FK(:,:,:) = 0._CUSTOM_REAL
     else

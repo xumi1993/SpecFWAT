@@ -209,6 +209,8 @@ contains
     if(allocated(b_absorb_potential)) deallocate(b_absorb_potential)
     if(allocated(b_absorb_fields)) deallocate(b_absorb_fields)
     if(allocated(b_absorb_fieldw)) deallocate(b_absorb_fieldw)
+    if(allocated(b_boundary_injection_field)) deallocate(b_boundary_injection_field)
+    if(allocated(deriv_mapping)) deallocate(deriv_mapping)
 
     ! de-allocation for prepare_timerun_noise()
     if(allocated(noise_sourcearray)) deallocate(noise_sourcearray)
@@ -305,6 +307,69 @@ contains
     !endif
 
   end subroutine InitSpecfem
+
+  subroutine FinalizeSpecfem()
+    integer                                :: ier
+
+    !! finalize specfem run
+    if (SIMULATION_TYPE == 1 .and. SAVE_FORWARD) then
+      open(unit=IOUT,file=prname(1:len_trim(prname))//'save_forward_arrays.bin', &
+            status='unknown',form='unformatted',iostat=ier)
+      if (ier /= 0) then
+          print *,'error: opening save_forward_arrays.bin'
+          print *,'path: ',prname(1:len_trim(prname))//'save_forward_arrays.bin'
+          call exit_mpi(myrank,'error opening file save_forward_arrays.bin')
+      endif
+
+      if (ACOUSTIC_SIMULATION) then
+          write(IOUT) potential_acoustic
+          write(IOUT) potential_dot_acoustic
+          write(IOUT) potential_dot_dot_acoustic
+      endif
+
+      if (ELASTIC_SIMULATION) then
+          write(IOUT) displ
+          write(IOUT) veloc
+          write(IOUT) accel
+
+          if (ATTENUATION) then
+            write(IOUT) R_trace
+            write(IOUT) R_xx
+            write(IOUT) R_yy
+            write(IOUT) R_xy
+            write(IOUT) R_xz
+            write(IOUT) R_yz
+            write(IOUT) epsilondev_trace
+            write(IOUT) epsilondev_xx
+            write(IOUT) epsilondev_yy
+            write(IOUT) epsilondev_xy
+            write(IOUT) epsilondev_xz
+            write(IOUT) epsilondev_yz
+          endif
+      endif
+
+      if (POROELASTIC_SIMULATION) then
+          write(IOUT) displs_poroelastic
+          write(IOUT) velocs_poroelastic
+          write(IOUT) accels_poroelastic
+          write(IOUT) displw_poroelastic
+          write(IOUT) velocw_poroelastic
+          write(IOUT) accelw_poroelastic
+      endif
+
+      close(IOUT)
+    endif
+    if (ELASTIC_SIMULATION .and. (SIMULATION_TYPE == 3 .or. SAVE_FORWARD) .and. STACEY_ABSORBING_CONDITIONS) then
+      call close_file_abs(IOABS)
+    endif
+
+    if (ACOUSTIC_SIMULATION .and. (SIMULATION_TYPE == 3 .or. SAVE_FORWARD) .and. STACEY_ABSORBING_CONDITIONS) then
+      call close_file_abs(IOABS_AC)
+    endif
+
+    call synchronize_all()
+
+  end subroutine FinalizeSpecfem
 
   subroutine backup_rmass()
     use config, only: rmass_acoustic_copy, rmass_copy, rmassx_copy, rmassy_copy, rmassz_copy
