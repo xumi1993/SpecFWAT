@@ -34,9 +34,9 @@ contains
 
     if(worldrank == 0) then
       if (is_time_loc) then
-        write(log_unit, '("[",A,"] ",A)') trim(nowtime()), message
+        write(log_unit, '("[",A,"] ",A)') trim(nowtime()), trim(message)
       else
-        write(log_unit, '(A)') message
+        write(log_unit, '(A)') trim(message)
       end if
       call flush(log_unit)
     endif

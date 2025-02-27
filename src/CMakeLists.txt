@@ -123,10 +123,10 @@ foreach(execsourcefile ${APP_SOURCES})
     ${HEADERS}
   )
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
-  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs MPI::MPI_Fortran)
+  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs MPI::MPI_Fortran)
   set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
   if (USE_CUDA AND ${EXEC_NAME} STREQUAL "specfem3D")
-    target_link_libraries(${EXEC_NAME} PUBLIC cuda_objs cuda_kernels_objs)
+    target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)
   endif()
 endforeach()
 

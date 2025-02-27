@@ -1,4 +1,4 @@
-module imput_params
+module input_params
   use config
   use fwat_mpi
 
@@ -478,4 +478,4 @@ contains
     enddo
   end subroutine read_i_list
 
-end module imput_params
+end module input_params

@@ -2,7 +2,7 @@ subroutine run_forward_only_or_inversion(evtid, simu_opt)
   use config
   use fwat_mpi
   use common_lib, only: find_string
-  use imput_params, fpar => fwat_par_global
+  use input_params, fpar => fwat_par_global
   use obs_data, fdat => fwat_evt_data_global
   use logger
   implicit none

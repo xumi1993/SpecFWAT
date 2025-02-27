@@ -2,7 +2,7 @@ program fwat_fwd_measure_adj
 use config
 use fwat_mpi
 use common_lib, only: get_simu_type
-use imput_params, fpar => fwat_par_global
+use input_params, fpar => fwat_par_global
 use obs_data, fdat => fwat_evt_data_global
 use preproc_fwd
 use specfem_par, only: DT, NSTEP
@@ -58,6 +58,8 @@ call ffwd%init(FORWARD_ADJOINT)
 call ffwd%calc_fk_wavefield()
 
 call ffwd%prepare_for_event()
+
+call ffwd%simulation()
 
 call finalize_mpi()
 

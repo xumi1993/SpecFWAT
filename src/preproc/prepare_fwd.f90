@@ -8,7 +8,7 @@ module preproc_fwd
   use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
-  use imput_params, fpar => fwat_par_global
+  use input_params, fpar => fwat_par_global
   use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files
   use logger, only: logger_type
 
@@ -20,7 +20,7 @@ module preproc_fwd
   type :: PrepareFWD
     integer :: ievt=0, simu_opt
     contains
-    procedure :: init, calc_fk_wavefield, prepare_for_event, destroy
+    procedure :: init, calc_fk_wavefield, prepare_for_event, destroy, simulation
     procedure, private :: initialize_kernel_matrice
   end type PrepareFWD
 
@@ -57,15 +57,12 @@ contains
     MOVIE_VOLUME=.false.
     local_path_backup = LOCAL_PATH
     if (simu_opt < 3) then
-      SIMULATION_TYPE = 1
-      if (simu_opt == 1) then
-        SAVE_FORWARD = .true.
-      else
-        SAVE_FORWARD = .false.
-      endif
+      ! SIMULATION_TYPE = 1
+      SAVE_FORWARD = .false.
       APPROXIMATE_HESS_KL=.false.
     else
-      SIMULATION_TYPE = 3
+      SAVE_FORWARD = .true.
+      ! SIMULATION_TYPE = 3
       APPROXIMATE_HESS_KL=.true.
     endif
 
@@ -145,6 +142,8 @@ contains
     character(len=MAX_STRING_LEN) :: evtid
     integer :: iev
 
+    if (simu_type /= SIMU_TYPE_TELE) return
+
     evtid = fpar%acqui%evtid_names(this%ievt)
     ! do iev = 1, fpar%acqui%nevents
     if (.not. check_fk_files(evtid)) then
@@ -153,6 +152,8 @@ contains
     else
       call log%write('FK wavefield already calculated for event '//trim(evtid), .true.)
     endif
+
+    call synchronize_all()
     ! enddo
 
   end subroutine calc_fk_wavefield
@@ -194,9 +195,34 @@ contains
     source_fname=fpar%acqui%src_solution_file(this%ievt)
     station_fname=fpar%acqui%station_file(this%ievt)
 
+    ! print info
+    block 
+      character(len=MAX_STRING_LEN) :: msg
+      call log%write('-----------------------------------------------------------')
+      msg = 'Event ID: '//trim(evtid)//', Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
+      call log%write(msg)
+      write(msg, '(A, f6.4)') 'Weight: ', fpar%acqui%src_weight(this%ievt)
+      call log%write(msg)
+      call log%write('out_fwd_path = '//trim(path))
+    end block
+
     call synchronize_all()
 
   end subroutine prepare_for_event
+
+  subroutine simulation(this)
+    use specfem_api, only: InitSpecfem
+
+    class(PrepareFWD), intent(inout) :: this
+
+    call log%write('This is forward simulations ...', .true.)
+    SIMULATION_TYPE = 1
+
+    call InitSpecfem()
+
+    call setup_sources_receivers_fwat(this%ievt)
+
+  end subroutine simulation
 
 
 end module

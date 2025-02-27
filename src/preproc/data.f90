@@ -3,7 +3,7 @@ module obs_data
   use fwat_mpi
   use common_lib, only: find_string
   use sacio
-  use imput_params, fpar => fwat_par_global
+  use input_params, fpar => fwat_par_global
 
   implicit none
 

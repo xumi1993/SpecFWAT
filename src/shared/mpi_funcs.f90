@@ -235,7 +235,7 @@ contains
     
   end subroutine sync_from_main_rank_ch
 
-  logical function file_exists(filename)
+  logical function file_exists_mpi(filename)
     character(len=*) :: filename
     integer :: ierr, fh
 
@@ -245,10 +245,10 @@ contains
     ! If ierr is MPI_SUCCESS, the file exists, otherwise, it does not
     if (ierr == MPI_SUCCESS) then
       call MPI_File_close(fh, ierr)
-      file_exists = .true.
+      file_exists_mpi = .true.
     else
-      file_exists = .false.
+      file_exists_mpi = .false.
     end if
-  end function file_exists
+  end function file_exists_mpi
 
 end module fwat_mpi
