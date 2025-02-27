@@ -235,4 +235,20 @@ contains
     
   end subroutine sync_from_main_rank_ch
 
+  logical function file_exists(filename)
+    character(len=*) :: filename
+    integer :: ierr, fh
+
+    ! Try to open the file in read-only mode
+    call MPI_File_open(MPI_COMM_WORLD, filename, MPI_MODE_RDONLY, MPI_INFO_NULL, fh, ierr)
+
+    ! If ierr is MPI_SUCCESS, the file exists, otherwise, it does not
+    if (ierr == MPI_SUCCESS) then
+      call MPI_File_close(fh, ierr)
+      file_exists = .true.
+    else
+      file_exists = .false.
+    end if
+  end function file_exists
+
 end module fwat_mpi
