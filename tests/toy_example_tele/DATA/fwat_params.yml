@@ -1,6 +1,5 @@
 NOISE:
   mesh_file: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
-  set_name: set1
   SCOMPS: ['Z'] # Components of the source
   RCOMPS: ['Z'] # Components of the receiver
   CH_CODE: BX # Channel code
@@ -17,7 +16,6 @@ NOISE:
 
 TELE:
   mesh_file: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
-  set_name: set0
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code
   NSTEP: 2500 # Number of time steps

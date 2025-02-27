@@ -43,6 +43,9 @@ version.fh
 
 OUTPUT_FILES/
 DATABASES_MPI/
+solver/
+misfits/
+optimize/
 
 *_ADJOINT
 *_ADJOINT_FILTERED

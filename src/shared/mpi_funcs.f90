@@ -1,7 +1,8 @@
 module fwat_mpi
   use mpi
   use my_mpi
-  use config
+  use fwat_constants
+  use config, only: worldrank, worldsize, noderank, nodesize, rank_map
 
   implicit none
 

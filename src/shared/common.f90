@@ -1,5 +1,6 @@
 module common_lib
   use config
+  use fwat_constants
   implicit none
 
 contains

@@ -1,5 +1,5 @@
 module logger
-  use config
+  use config, only: MAX_STRING_LEN, worldrank
 
   implicit none
   integer, parameter :: log_unit=888
@@ -14,7 +14,7 @@ contains
 
   subroutine logger_init(this, log_file)
     class(logger_type), intent(inout) :: this
-    character(len=MAX_STRING_LEN), intent(in) :: log_file
+    character(len=*), intent(in) :: log_file
 
     if(worldrank == 0) open(unit=log_unit, file=log_file, status='replace', action='write')
 
@@ -22,7 +22,7 @@ contains
 
   subroutine logger_write(this, message, is_time)
     class(logger_type), intent(inout) :: this
-    character(len=MAX_STRING_LEN), intent(in) :: message
+    character(len=*), intent(in) :: message
     logical, optional, intent(in) :: is_time
     logical :: is_time_loc
 
@@ -34,7 +34,7 @@ contains
 
     if(worldrank == 0) then
       if (is_time_loc) then
-        write(log_unit, '("["A"] ", A)') nowtime(), message
+        write(log_unit, '("[",A,"] ",A)') trim(nowtime()), message
       else
         write(log_unit, '(A)') message
       end if

@@ -35,14 +35,17 @@ module fwat_constants
 end module fwat_constants
 
 module config
-  use fwat_constants
+  use fwat_constants, only: cr, MAX_STRING_LEN
 
   integer :: worldrank, worldsize
   integer :: noderank, nodesize
   integer, dimension(:,:), allocatable :: rank_map
+
+  logical :: single_run = .false.
+  integer :: event_index = 0
   
   character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup
-  character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, set_name
+  character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name
   real(kind=cr), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy,rmass_copy,rmass_acoustic_copy
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_rho_kl 
   real(kind=cr), dimension(:,:,:,:,:), allocatable :: sum_cijkl_kl 

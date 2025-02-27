@@ -14,8 +14,10 @@ module imput_params
     character(len= MAX_STRING_LEN), dimension(:),       pointer  :: evtid_names
     character(len= MAX_STRING_LEN), dimension(:),       pointer  :: out_fwd_path
     character(len= MAX_STRING_LEN), dimension(:),       pointer  :: in_dat_path
+    character(len= MAX_STRING_LEN), dimension(:),       pointer  :: fkmodel_file
     real(kind=cr), dimension(:), pointer :: evla,evlo,evdp,src_weight
-    integer :: sta_win, src_win, evid_win, ofp_win, idp_win, evla_win, evlo_win, evdp_win, w_win
+    integer :: sta_win, src_win, evid_win, ofp_win, idp_win, evla_win, evlo_win,&
+               evdp_win, w_win, fk_win
 
     contains
     procedure, private :: alloc => acqui_alloc
@@ -58,7 +60,7 @@ contains
     integer, parameter :: FID = 878
     integer :: ievt
 
-    this%evtset_file = trim(SRC_REC_DIR)//'/'//trim(SRC_PREFIX)//'_'//trim(set_name)//'.dat'
+    this%evtset_file = trim(SRC_REC_DIR)//'/'//trim(SRC_PREFIX)//'_'//trim(dat_type)//'.dat'
     if (worldrank == 0) then
       open(unit=FID, file=this%evtset_file, status='old', iostat=ier)
       if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
@@ -86,13 +88,15 @@ contains
                                 this%src_weight(ievt)
         if (ier /= 0) this%src_weight(ievt) = 1.0_cr
         this%station_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(STATIONS_PREFIX)//'_'//trim(evtnm)
-        if (simu_type == 'noise') then
+        if (simu_type == SIMU_TYPE_NOISE) then
           this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FORCESOLUTION_PREFIX)//'_'//trim(evtnm)
-        else
-          this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
+        else if (simu_type == SIMU_TYPE_TELE) then
+          ! this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
+          this%src_solution_file(ievt) = 'DATA/'//trim(CMTSOLUTION_PREFIX)
+          this%fkmodel_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FKMODEL_PREFIX)//'_'//trim(evtnm)
         endif
         this%evtid_names(ievt) = evtnm
-        this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(set_name)//'/'//trim(evtnm)
+        this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(dat_type)//'/'//trim(evtnm)
         this%in_dat_path(ievt) = trim(DATA_DIR)//'/'//trim(evtnm)//'/'
       end do
       close(FID)
@@ -105,6 +109,9 @@ contains
     call sync_from_main_rank_ch(this%evtid_names, this%nevents, MAX_STRING_LEN)
     call sync_from_main_rank_ch(this%out_fwd_path, this%nevents, MAX_STRING_LEN)
     call sync_from_main_rank_ch(this%in_dat_path, this%nevents, MAX_STRING_LEN)
+    if (simu_type == SIMU_TYPE_TELE) then
+      call sync_from_main_rank_ch(this%fkmodel_file, this%nevents, MAX_STRING_LEN)
+    endif
     call sync_from_main_rank_cr_1d(this%evla, this%nevents)
     call sync_from_main_rank_cr_1d(this%evlo, this%nevents)
     call sync_from_main_rank_cr_1d(this%evdp, this%nevents)
@@ -121,6 +128,9 @@ contains
     call prepare_shm_array_ch_1d(this%evtid_names, this%nevents, MAX_STRING_LEN, this%evid_win)
     call prepare_shm_array_ch_1d(this%out_fwd_path, this%nevents, MAX_STRING_LEN, this%ofp_win)
     call prepare_shm_array_ch_1d(this%in_dat_path, this%nevents, MAX_STRING_LEN, this%idp_win)
+    if (simu_type == SIMU_TYPE_TELE) then
+      call prepare_shm_array_ch_1d(this%fkmodel_file, this%nevents, MAX_STRING_LEN, this%fk_win)
+    endif
     call prepare_shm_array_cr_1d(this%evla, this%nevents, this%evla_win)
     call prepare_shm_array_cr_1d(this%evlo, this%nevents, this%evlo_win)
     call prepare_shm_array_cr_1d(this%evdp, this%nevents, this%evdp_win)
