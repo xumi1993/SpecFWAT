@@ -70,14 +70,16 @@ contains
 
   end subroutine init
 
-  subroutine calc_fk_wavefield(this)
-
+  subroutine calc_fk_wavefield(this, evtid)
     class(PrepareFWD), intent(inout) :: this
+    character(len=*), intent(in) :: evtid
     integer :: iev
 
-    do iev = 1, fpar%acqui%nevents
-      call couple_with_injection_prepare_boundary_fwat(fpar%acqui%evtid_names(iev))
-    enddo
+    ! do iev = 1, fpar%acqui%nevents
+    if (.not. check_fk_files(evtid)) then
+      call couple_with_injection_prepare_boundary_fwat(evtid)
+    endif
+    ! enddo
 
   end subroutine calc_fk_wavefield
 

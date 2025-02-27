@@ -236,7 +236,7 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
 end subroutine couple_with_injection_prepare_boundary_fwat
 
 
-subroutine read_fk_coupling_file(evtid)
+  subroutine read_fk_coupling_file(evtid)
     integer :: ier, npt, FID=858
     character(len=*) :: evtid
     character(len=MAX_STRING_LEN) :: out_dir, fkprname
@@ -264,6 +264,22 @@ subroutine read_fk_coupling_file(evtid)
     if (ier /= 0) call exit_MPI(worldrank, 'error opening file 2205')
     read(FID) Veloc_FK, Tract_FK
     close(FID)
-end subroutine read_fk_coupling_file
+
+    call synchronize_all()
+  end subroutine read_fk_coupling_file
+
+  function check_fk_files(evtid) result(res)
+    use fwat_mpi, only: land_all_all_l
+
+    character(len=*) :: evtid
+    character(len=MAX_STRING_LEN) :: out_dir, fkprname
+    logical :: findfile, res
+
+    out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
+    write(fkprname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.bin'
+    inquire(file=fkprname, exist=findfile)
+    call land_all_all_l(findfile, res)
+
+  end function check_fk_files
 
 end module

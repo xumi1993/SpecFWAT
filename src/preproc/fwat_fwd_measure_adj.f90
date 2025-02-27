@@ -36,12 +36,12 @@ call fpar%select_simu_type()
 call fpar%acqui%read()
 
 ! read observed data
-call fdat%read_stations(fpar%acqui%evtid_names(1))
+! call fdat%read_stations(fpar%acqui%evtid_names(1))
 
 ! initialize fwd
 call ffwd%init(FORWARD_ADJOINT)
 
-call ffwd%calc_fk_wavefield()
+! call ffwd%calc_fk_wavefield()
 
 call finalize_mpi()
 

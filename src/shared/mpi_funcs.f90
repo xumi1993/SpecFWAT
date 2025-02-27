@@ -54,6 +54,27 @@ contains
 
   end subroutine send_ch_array
 
+  subroutine recv_ch_array(recvbuf, recvcount, nlen, dest, recvtag)
+    integer :: dest,recvtag,nlen
+    integer :: recvcount
+    character(len=nlen),dimension(recvcount):: recvbuf
+
+    integer :: ier
+
+    call MPI_RECV(recvbuf,recvcount*nlen,MPI_CHARACTER,dest,recvtag, &
+                  my_local_mpi_comm_world,MPI_STATUS_IGNORE,ier)
+
+  end subroutine recv_ch_array
+!
+
+  subroutine land_all_all_l(sendbuf, recvbuf)
+    logical, intent(in) :: sendbuf
+    logical, intent(out) :: recvbuf
+
+    call MPI_ALLREDUCE(sendbuf, recvbuf, 1, MPI_LOGICAL, MPI_LAND, my_local_mpi_comm_world, ier)
+    
+  end subroutine land_all_all_l
+
   subroutine prepare_shm_array_cr_1d(buffer, n_elem, win)
     USE, INTRINSIC :: ISO_C_BINDING
     real(kind=cr), dimension(:), pointer :: buffer
@@ -76,19 +97,6 @@ contains
 
   end subroutine prepare_shm_array_cr_1d
 
-
-  subroutine recv_ch_array(recvbuf, recvcount, nlen, dest, recvtag)
-    integer :: dest,recvtag,nlen
-    integer :: recvcount
-    character(len=nlen),dimension(recvcount):: recvbuf
-
-    integer :: ier
-
-    call MPI_RECV(recvbuf,recvcount*nlen,MPI_CHARACTER,dest,recvtag, &
-                  my_local_mpi_comm_world,MPI_STATUS_IGNORE,ier)
-
-  end subroutine recv_ch_array
-!
   subroutine prepare_shm_array_dp_1d(buffer, n_elem, win)
     USE, INTRINSIC :: ISO_C_BINDING
     real(kind=dp), dimension(:), pointer :: buffer
