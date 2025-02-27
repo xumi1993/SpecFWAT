@@ -293,15 +293,25 @@ contains
   end subroutine read_parameter_file
 
   subroutine select_simu_type(this)
+    use specfem_par, only: NSTEP, DT
+    use ma_variables
     class(fwat_params), intent(inout) :: this
     integer :: icomp
 
     select case (simu_type)
     case (SIMU_TYPE_TELE)
       this%sim => tele_par
+      is_mtm0 = 0
     case (SIMU_TYPE_NOISE)
       this%sim => noise_par
+      is_mtm0 = 1
     end select
+    imeas0 = this%sim%IMEAS
+    imeas = imeas0
+    itaper = this%sim%ITAPER
+    is_mtm = is_mtm0
+    DT = this%sim%DT
+    NSTEP = this%sim%NSTEP
     do icomp = 1, this%sim%NRCOMP
       if (trim(this%sim%RCOMPS(icomp)) == 'R' .or. trim(this%sim%RCOMPS(icomp)) == 'T') then
         dat_coord = 'ZRT'

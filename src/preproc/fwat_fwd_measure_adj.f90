@@ -5,6 +5,7 @@ use common_lib, only: get_simu_type
 use imput_params, fpar => fwat_par_global
 use obs_data, fdat => fwat_evt_data_global
 use preproc_fwd
+use specfem_par, only: DT, NSTEP
 
 implicit none
 integer :: nargs
@@ -38,7 +39,9 @@ call fpar%acqui%read()
 call fdat%read_stations(fpar%acqui%evtid_names(1))
 
 ! initialize fwd
-call ffwd%init(3)
+call ffwd%init(FORWARD_ADJOINT)
+
+call ffwd%calc_fk_wavefield()
 
 call finalize_mpi()
 

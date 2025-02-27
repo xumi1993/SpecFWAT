@@ -334,6 +334,7 @@
     if (allocated(zstore)) deallocate(zstore)
     if (allocated(kappastore)) deallocate(kappastore)
     if (allocated(mustore)) deallocate(mustore)
+    if (allocated(rhostore)) deallocate(rhostore)
     if (allocated(ispec_is_acoustic)) deallocate(ispec_is_acoustic)
     if (allocated(ispec_is_elastic)) deallocate(ispec_is_elastic)
     if (allocated(ispec_is_poroelastic)) deallocate(ispec_is_poroelastic)

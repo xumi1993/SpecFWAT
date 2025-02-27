@@ -28,6 +28,9 @@ module fwat_constants
   integer, parameter :: Z_PRECOND = 2
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_NOISE = 'noise'
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_TELE = 'tele'
+  integer, parameter :: FORWARD_ONLY = 1
+  integer, parameter :: FORWARD_MEASADJ = 2
+  integer, parameter :: FORWARD_ADJOINT = 3
 
 end module fwat_constants
 

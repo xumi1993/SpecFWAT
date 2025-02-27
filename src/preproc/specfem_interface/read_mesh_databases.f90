@@ -787,7 +787,7 @@
 
   if (num_abs_boundary_faces > 0) then
     if (I_should_read_the_database) then
-      read(IIN) abs_boundary_ispec
+      read(IIN) abs_boundary_ispec ! MX: for FK calculation
       read(IIN) abs_boundary_ijk
       read(IIN) abs_boundary_jacobian2Dw
       read(IIN) abs_boundary_normal
@@ -2126,13 +2126,14 @@ contains
       implicit none
 
       ! Local variables
+      if (allocated(neighbors_adjncy)) deallocate(neighbors_adjncy)
+      if (allocated(neighbors_xadj)) deallocate(neighbors_xadj)
       if (allocated(potential_acoustic)) deallocate(potential_acoustic)
       if (allocated(potential_dot_acoustic)) deallocate(potential_dot_acoustic)
       if (allocated(potential_dot_dot_acoustic)) deallocate(potential_dot_dot_acoustic)
       ! if (allocated(potential_acoustic_adj_coupling)) deallocate(potential_acoustic_adj_coupling)
       if (allocated(rmass_acoustic)) deallocate(rmass_acoustic)
       if (allocated(rmassz_acoustic)) deallocate(rmassz_acoustic)
-      if (allocated(rhostore)) deallocate(rhostore)
       if (allocated(displ)) deallocate(displ)
       if (allocated(veloc)) deallocate(veloc)
       if (allocated(accel)) deallocate(accel)

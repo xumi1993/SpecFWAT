@@ -52,7 +52,10 @@ else()
 endif()
 message(STATUS "YAML_CPP_INCLUDE_DIR: ${YAML_CPP_INCLUDE_DIR}")
 message(STATUS "YAML_CPP_LIBRARIES: ${YAML_CPP_LIBRARIES}")
-include_directories(${YAML_CPP_INCLUDE_DIR})
+include_directories(
+  ${PROJECT_SOURCE_DIR}/include
+  ${YAML_CPP_INCLUDE_DIR}
+)
 
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)

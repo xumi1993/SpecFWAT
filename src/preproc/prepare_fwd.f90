@@ -5,6 +5,8 @@ module preproc_fwd
   use specfem_par_elastic
   use specfem_par_acoustic
   use specfem_par_poroelastic
+  use imput_params, fpar => fwat_par_global
+  use fk_coupling
 
   implicit none
 
@@ -13,7 +15,7 @@ module preproc_fwd
   type :: PrepareFWD
     integer :: ievt, simu_opt
     contains
-    procedure :: init
+    procedure :: init, calc_fk_wavefield
   end type PrepareFWD
 
 contains
@@ -67,5 +69,17 @@ contains
     call read_mesh_databases_fwat()
 
   end subroutine init
+
+  subroutine calc_fk_wavefield(this)
+
+    class(PrepareFWD), intent(inout) :: this
+    integer :: iev
+
+    do iev = 1, fpar%acqui%nevents
+      call couple_with_injection_prepare_boundary_fwat(fpar%acqui%evtid_names(iev))
+    enddo
+
+  end subroutine calc_fk_wavefield
+
 
 end module
