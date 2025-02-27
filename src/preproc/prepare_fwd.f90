@@ -4,7 +4,7 @@ module preproc_fwd
   use specfem_par, only: ACOUSTIC_SIMULATION, APPROXIMATE_HESS_KL, ELASTIC_SIMULATION, MOVIE_VOLUME, NGLOB_AB,&
                          PRINT_SOURCE_TIME_FUNCTION, SAVE_FORWARD, SAVE_MESH_FILES, SIMULATION_TYPE, LOCAL_PATH,&
                          ANISOTROPIC_KL, NSPEC_ADJOINT, FKMODEL_FILE, prname, COUPLE_WITH_INJECTION_TECHNIQUE,&
-                         USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE
+                         USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH
   use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
@@ -27,6 +27,8 @@ module preproc_fwd
 contains
 
   subroutine init(this, simu_opt)
+    use specfem_api, only: backup_rmass
+
     class(PrepareFWD), intent(inout) :: this
     integer, intent(in) :: simu_opt
 
@@ -66,25 +68,17 @@ contains
       APPROXIMATE_HESS_KL=.true.
     endif
 
-    ! copy mass matrixs for prepare_timerun()
-    if (ACOUSTIC_SIMULATION) then
-      allocate(rmass_acoustic_copy(NGLOB_AB),stat=ier)
-      if (ier /= 0) stop 'Error allocating array rmass_acoustic_copy'
-      rmass_acoustic_copy=rmass_acoustic
-    endif
-    if (ELASTIC_SIMULATION) then
-      allocate(rmass_copy(NGLOB_AB),stat=ier)
-      allocate(rmassx_copy(NGLOB_AB),stat=ier)
-      allocate(rmassy_copy(NGLOB_AB),stat=ier)
-      allocate(rmassz_copy(NGLOB_AB),stat=ier)
-      if (ier /= 0) stop 'Error allocating array rmass_copy'
-      rmass_copy=rmass
-      rmassx_copy=rmassx
-      rmassy_copy=rmassy
-      rmassz_copy=rmassz
-    endif
-
     call read_mesh_databases_fwat()
+
+    ! copy mass matrixs for prepare_timerun()
+    call backup_rmass()
+
+    ! reads in moho mesh
+    if (ADIOS_FOR_MESH) then
+      call read_mesh_databases_moho_adios()
+    else
+      call read_mesh_databases_moho_fwat()
+    endif
 
     ! reads adjoint parameters
     call read_mesh_databases_adjoint_fwat()
@@ -211,7 +205,7 @@ contains
   end subroutine prepare_for_event
 
   subroutine simulation(this)
-    use specfem_api, only: InitSpecfem
+    use specfem_api, only: InitSpecfem, restore_rmass
 
     class(PrepareFWD), intent(inout) :: this
 
@@ -221,6 +215,8 @@ contains
     call InitSpecfem()
 
     call setup_sources_receivers_fwat(this%ievt)
+
+    call restore_rmass()
 
   end subroutine simulation
 

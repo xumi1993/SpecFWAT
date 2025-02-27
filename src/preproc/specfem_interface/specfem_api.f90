@@ -306,4 +306,46 @@ contains
 
   end subroutine InitSpecfem
 
+  subroutine backup_rmass()
+    use config, only: rmass_acoustic_copy, rmass_copy, rmassx_copy, rmassy_copy, rmassz_copy
+    integer :: ier
+    !! backup rmass arrays
+    if (ACOUSTIC_SIMULATION) then
+      allocate(rmass_acoustic_copy(NGLOB_AB),stat=ier)
+      if (ier /= 0) stop 'Error allocating array rmass_acoustic_copy'
+      rmass_acoustic_copy=rmass_acoustic
+    endif
+    if (ELASTIC_SIMULATION) then
+      allocate(rmass_copy(NGLOB_AB),stat=ier)
+      allocate(rmassx_copy(NGLOB_AB),stat=ier)
+      allocate(rmassy_copy(NGLOB_AB),stat=ier)
+      allocate(rmassz_copy(NGLOB_AB),stat=ier)
+      if (ier /= 0) stop 'Error allocating array rmass_copy'
+      rmass_copy=rmass
+      rmassx_copy=rmassx
+      rmassy_copy=rmassy
+      rmassz_copy=rmassz
+    endif
+  end subroutine backup_rmass
+
+  subroutine restore_rmass()
+    use config, only: rmass_acoustic_copy, rmass_copy, rmassx_copy, rmassy_copy, rmassz_copy
+
+    !! restore rmass arrays
+    if (ACOUSTIC_SIMULATION) then
+      if( .not. allocated(rmass_acoustic)) allocate(rmass_acoustic(NGLOB_AB))
+      rmass_acoustic=rmass_acoustic_copy
+    endif
+    if (ELASTIC_SIMULATION) then
+      if( .not. allocated(rmass)) allocate(rmass(NGLOB_AB))
+      if( .not. allocated(rmassx)) allocate(rmassx(NGLOB_AB))
+      if( .not. allocated(rmassy)) allocate(rmassy(NGLOB_AB))
+      if( .not. allocated(rmassz)) allocate(rmassz(NGLOB_AB))
+      rmass=rmass_copy
+      rmassx=rmassx_copy
+      rmassy=rmassy_copy
+      rmassz=rmassz_copy
+    endif
+  end subroutine restore_rmass
+
 end module specfem_api
