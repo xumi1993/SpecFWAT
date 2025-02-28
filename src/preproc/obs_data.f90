@@ -12,7 +12,7 @@ module obs_data
   type ObsData
     character(len=MAX_STRING_LEN), dimension(:), pointer :: netwk, stnm
     character(len=MAX_STRING_LEN) :: evt_id
-    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, baz, t0
+    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, baz, arr
     integer :: nsta, npts, ievt
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp, nsta
     integer :: net_win, sta_win, stla_win, stlo_win, stel_win, dat_win, &
@@ -82,7 +82,8 @@ contains
     call prepare_shm_array_cr_1d(this%stlo, this%nsta, this%stlo_win)
     call prepare_shm_array_cr_1d(this%stel, this%nsta, this%stel_win)
     call prepare_shm_array_cr_1d(this%baz, this%nsta, this%baz_win)
-    call prepare_shm_array_cr_1d(this%t0, this%nsta, this%t0_win)
+    if (index(dat_type, 'tele') /= 0) &
+      call prepare_shm_array_cr_1d(this%arr, this%nsta, this%t0_win)
   end subroutine alloc_sta_info
 
   subroutine finalize(this)
@@ -155,7 +156,7 @@ contains
             endif
             if (index(dat_type, 'tele') /= 0 ) then
               if (header%t0 /= SAC_rnull) then
-                this%t0(ista) = header%t0
+                this%arr(ista) = header%t0
               else
                 call exit_MPI(0, 't0 not found in SAC header')
               endif
@@ -166,7 +167,7 @@ contains
     endif
 
     call sync_from_main_rank_cr_1d(this%baz, this%nsta)
-    call sync_from_main_rank_cr_1d(this%t0, this%nsta)
+    call sync_from_main_rank_cr_1d(this%arr, this%nsta)
     call sync_from_main_rank_dp_3d(this%data, this%npts, ncomp, this%nsta)
 
   end subroutine read_obs_data
