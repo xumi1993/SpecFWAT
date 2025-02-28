@@ -162,6 +162,14 @@ contains
 
   end subroutine prepare_shm_array_ch_1d
 
+  subroutine free_shm_array(win)
+    USE mpi
+    implicit none
+    integer :: win, ierr
+
+    call MPI_Win_free(win, ierr)
+  end subroutine free_shm_array
+
   subroutine sync_from_main_rank_cr_1d(buffer, countval)
     integer, intent(in) :: countval
     real(kind=cr), dimension(:), intent(inout) :: buffer

@@ -214,16 +214,22 @@ contains
     call log%write('This is forward simulations ...', .true.)
     SIMULATION_TYPE = 1
 
+    ! Initialize variables of Specfem
     call InitSpecfem()
 
+    ! set up sources and receivers
     call setup_sources_receivers_fwat(this%ievt)
 
+    ! restore mass matrixs from rmass_copy
     call restore_rmass()
 
+    ! prepare for time run
     call prepare_timerun_fwat(this%ievt)
 
+    ! run forward simulation
     call iterate_time()
 
+    ! save absobing boundary wavefields
     call FinalizeSpecfem()
 
   end subroutine fwd_simulation

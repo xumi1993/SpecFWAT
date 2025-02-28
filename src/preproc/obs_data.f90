@@ -9,38 +9,44 @@ module obs_data
 
   integer, private :: ier
 
-  type evt_data
+  type ObsData
     character(len=MAX_STRING_LEN), dimension(:), pointer :: netwk, stnm
     character(len=MAX_STRING_LEN) :: evt_id
     real(kind=cr), dimension(:), pointer :: stla, stlo, stel, baz, t0
     integer :: nsta, npts, ievt
-    real(kind=dp), dimension(:, :, :), pointer :: data
+    real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp, nsta
     integer :: net_win, sta_win, stla_win, stlo_win, stel_win, dat_win, &
                 baz_win, t0_win 
     contains
     procedure :: read_stations, read_obs_data
     procedure, private :: alloc_sta_info
-  end type evt_data
+    procedure :: finalize
+  end type ObsData
 
-  type(evt_data) :: fwat_evt_data_global
+  type(ObsData) :: fwat_evt_data_global
 
 contains
-  subroutine read_stations(this, evt_id)
-    class(evt_data), intent(inout) :: this
-    character(len=MAX_STRING_LEN), intent(in) :: evt_id
-    character(len=MAX_STRING_LEN) :: line
+  subroutine read_stations(this, ievt, is_filted)
+    class(ObsData), intent(inout) :: this
+    character(len=MAX_STRING_LEN) :: evt_id
+    integer, intent(in) :: ievt
+    logical, intent(in), optional :: is_filted
+    character(len=MAX_STRING_LEN) :: line, fname
     integer :: idx, ista
     integer, parameter :: FID = 868
 
-    this%evt_id = evt_id
-    idx = find_string(fpar%acqui%evtid_names, evt_id)
-    this%ievt = idx
-    if (idx == -1) then
-      if (worldrank == 0) call exit_MPI(0, 'Event ID not found')
+    this%ievt = ievt
+    this%evt_id = fpar%acqui%evtid_names(ievt)
+
+    if (present(is_filted)) then
+      fname = fpar%acqui%station_file(ievt)//'_FILTERED'
+    else
+      fname = fpar%acqui%station_file(ievt)
     endif
+
     if (worldrank == 0) then
-      open(unit=FID, file=fpar%acqui%station_file(idx), status='old', iostat=ier)
-      if (ier /= 0) call exit_MPI(0, 'Error opening station file'//trim(fpar%acqui%station_file(idx)))
+      open(unit=FID, file=fname, status='old', iostat=ier)
+      if (ier /= 0) call exit_MPI(0, 'Error opening station file'//trim(fname))
       ista = 0
       do
         read(FID, *, iostat=ier) line
@@ -68,7 +74,7 @@ contains
   end subroutine read_stations
 
   subroutine alloc_sta_info(this)
-    class(evt_data), intent(inout) :: this
+    class(ObsData), intent(inout) :: this
 
     call prepare_shm_array_ch_1d(this%netwk, this%nsta, MAX_STRING_LEN, this%net_win)
     call prepare_shm_array_ch_1d(this%stnm, this%nsta, MAX_STRING_LEN, this%sta_win)
@@ -79,8 +85,22 @@ contains
     call prepare_shm_array_cr_1d(this%t0, this%nsta, this%t0_win)
   end subroutine alloc_sta_info
 
+  subroutine finalize(this)
+    class(ObsData), intent(inout) :: this
+
+    call free_shm_array(this%net_win)
+    call free_shm_array(this%sta_win)
+    call free_shm_array(this%stla_win)
+    call free_shm_array(this%stlo_win)
+    call free_shm_array(this%stel_win)
+    call free_shm_array(this%baz_win)
+    call free_shm_array(this%t0_win)
+    call free_shm_array(this%dat_win)
+
+  end subroutine finalize
+
   subroutine read_obs_data(this)
-    class(evt_data), intent(inout) :: this
+    class(ObsData), intent(inout) :: this
     integer :: ista, icomp, ncomp
     type(sachead) :: header
     character(len=MAX_STRING_LEN) :: sacfile, gaus_str

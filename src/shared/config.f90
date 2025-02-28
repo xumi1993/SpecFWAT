@@ -3,6 +3,7 @@ module fwat_constants
 
   integer, parameter :: cr = SIZE_REAL
   integer, parameter :: dp = SIZE_DOUBLE
+  integer, parameter :: targ = 1000
 
   character(len=MAX_STRING_LEN), parameter :: FWAT_PAR_FILE = trim(IN_DATA_FILES)//"fwat_params.yml"
 
@@ -31,6 +32,9 @@ module fwat_constants
   integer, parameter :: FORWARD_ONLY = 1
   integer, parameter :: FORWARD_MEASADJ = 2
   integer, parameter :: FORWARD_ADJOINT = 3
+
+  ! math
+  real(kind=cr), parameter :: deg2rad = PI / 180.0
 
 end module fwat_constants
 

@@ -5,12 +5,13 @@ module signal
 
 contains
 
-  subroutine bandpass_dp(x ,n, delta_t, f1, f2)
+  subroutine bandpass_dp(x ,n, delta_t, f1, f2, order)
     ! a double-precision wrapper around sac xapiir()
     ! modified from FLEXWIN subroutines on 26-July-2009
-    integer, intent(in) :: n
+    integer, intent(in) :: n, order
     real(kind=dp), intent(inout),  dimension(:) :: x
-    real(kind=dp), intent(in) :: delta_t,f1,f2
+    real(kind=dp), intent(in) :: delta_t
+    real(kind=cr), intent(in) :: f1,f2
     real(kind=cr), dimension(:), allocatable :: x_sngl
 
     allocate(x_sngl(n))
@@ -27,7 +28,7 @@ contains
     ! BU - butterworth
     ! BP - bandpass
     ! LQY: Shouldn't  delta_t_sngl = sngl(delta_t) still be done? same for f1,f2?
-    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),IORD,'BP',sngl(f1),sngl(f2),sngl(delta_t),PASSES)
+    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),order,'BP',sngl(f1),sngl(f2),sngl(delta_t),PASSES)
 
     x(1:n) = dble(x_sngl(1:n))
 

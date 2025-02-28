@@ -36,4 +36,23 @@ contains
       end if
     end do
   end function find_string
+
+  ! Rotation of components
+  subroutine rotate_NE_to_RT(vn,ve,vr,vt,bazi)
+  
+    real(kind=cr),   intent(in) :: bazi
+    real(kind=cr), dimension(:),  intent(in) :: vn, ve
+    real(kind=cr), dimension(:), intent(out) :: vr, vt
+    real(kind=cr) :: baz
+    integer :: it, nt
+
+    nt = size(vn)
+    baz = deg2rad * bazi
+
+    do it = 1, nt
+      vr(it) = -ve(it) * sin(baz) - vn(it) * cos(baz)
+      vt(it) = -ve(it) * cos(baz) + vn(it) * sin(baz)
+    enddo
+  
+  end subroutine rotate_NE_to_RT
 end module common_lib
