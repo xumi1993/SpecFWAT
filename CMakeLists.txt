@@ -5,6 +5,18 @@ set(project_version 0.1.0)
 
 
 # setup CUDA
+# - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
+# - CUDA 5 for Kepler,  like K20
+# - CUDA 6 for Kepler,  like K80
+# - CUDA 7 for Maxwell, like Quadro K2200
+# - CUDA 8 for Pascal,  like P100
+# - CUDA 9 for Volta,   like V100
+# - CUDA 10 for Turing, like GeForce RTX 2080
+# - CUDA 11 for Ampere, like A100
+# - CUDA 12 for Hopper, like H100
+if (NOT DEFINED CUDA_ARCH)
+  set(CUDA_ARCH 0)
+endif()
 if(USE_CUDA)
   project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran CUDA)
   find_package(CUDAToolkit REQUIRED)

@@ -56,7 +56,7 @@
   call setup_receivers_precompute_intp()
 
   ! write source and receiver VTK files for Paraview
-  call setup_sources_receivers_VTKfile()
+  ! call setup_sources_receivers_VTKfile()
 
   ! user output
   ! if (myrank == 0) then

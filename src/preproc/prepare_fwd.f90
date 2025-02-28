@@ -9,7 +9,7 @@ module preproc_fwd
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
   use input_params, fpar => fwat_par_global
-  use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files
+  use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files, read_fk_model
   use logger, only: logger_type
 
   implicit none
@@ -144,6 +144,7 @@ contains
       call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
       call couple_with_injection_prepare_boundary_fwat(evtid)
     else
+      call read_fk_model(evtid)
       call log%write('FK wavefield already calculated for event '//trim(evtid), .true.)
     endif
 
@@ -193,7 +194,9 @@ contains
     block 
       character(len=MAX_STRING_LEN) :: msg
       call log%write('-----------------------------------------------------------')
-      msg = 'Event ID: '//trim(evtid)//', Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
+      msg = 'Event ID: '//trim(evtid)
+      call log%write(msg)
+      msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
       call log%write(msg)
       write(msg, '(A, f6.4)') 'Weight: ', fpar%acqui%src_weight(this%ievt)
       call log%write(msg)

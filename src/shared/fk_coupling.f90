@@ -8,42 +8,12 @@ module fk_coupling
   
 contains
 
-subroutine couple_with_injection_prepare_boundary_fwat(evtid)
+subroutine read_fk_model(evtid)
   character(len=*), intent(in) :: evtid
-  character(len=MAX_STRING_LEN)  :: out_dir, fkprname
-  logical :: findfile
-  integer :: ier, FID=858
-
-  !! for FK point for intialization injected wavefield
+  integer :: ier
   real(kind=cr) :: Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box
-  real(kind=cr) :: ray_p,Tg,DF_FK
-
-  real(kind=cr), parameter :: TOL_ZERO_TAKEOFF = 1.e-14
-  
-  out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
-  call system('mkdir -p '//trim(out_dir))
-  write(fkprname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.bin'
-
 
   FKMODEL_FILE = trim(SRC_REC_DIR)//'/'//trim(FKMODEL_PREFIX)//'_'//trim(evtid)
-  ! checks if anything to do
-  ! for forward simulation only
-  ! user output
-  ! if (myrank == 0) then
-  !   write(IMAIN,*) "preparing injection boundary"
-  !   call flush_IMAIN()
-  ! endif
-
-  ! FK boundary
-  ! initial setup for future FK3D calculations
-  ! get MPI starting time for FK
-  ! tstart = wtime()
-
-  ! user output
-  ! if (myrank == 0) then
-  !   write(IMAIN,*) "  using FK injection technique"
-  !   call flush_IMAIN()
-  ! endif
 
   call FindBoundaryBox(Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box)
   call ReadFKModelInput(Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box)
@@ -83,6 +53,83 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
 
   call bcast_all_singlecr(tt0)
   call bcast_all_singlecr(tmax_fk)
+
+end subroutine read_fk_model
+
+subroutine couple_with_injection_prepare_boundary_fwat(evtid)
+  character(len=*), intent(in) :: evtid
+  character(len=MAX_STRING_LEN)  :: out_dir, fkprname
+  logical :: findfile
+  integer :: ier, FID=858
+
+  !! for FK point for intialization injected wavefield
+  ! real(kind=cr) :: Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box
+  real(kind=cr) :: ray_p,Tg,DF_FK
+
+  real(kind=cr), parameter :: TOL_ZERO_TAKEOFF = 1.e-14
+  
+  out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
+  call system('mkdir -p '//trim(out_dir))
+  write(fkprname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.bin'
+
+  call read_fk_model(evtid)
+  ! checks if anything to do
+  ! for forward simulation only
+  ! user output
+  ! if (myrank == 0) then
+  !   write(IMAIN,*) "preparing injection boundary"
+  !   call flush_IMAIN()
+  ! endif
+
+  ! FK boundary
+  ! initial setup for future FK3D calculations
+  ! get MPI starting time for FK
+  ! tstart = wtime()
+
+  ! user output
+  ! if (myrank == 0) then
+  !   write(IMAIN,*) "  using FK injection technique"
+  !   call flush_IMAIN()
+  ! endif
+
+  ! call FindBoundaryBox(Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box)
+  ! call ReadFKModelInput(Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box)
+
+  ! send FK parameters to others MPI slices
+  ! call bcast_all_singlei(type_kpsv_fk)
+  ! call bcast_all_singlei(nlayer)
+  
+  ! if (myrank > 0) then
+  !   allocate(alpha_FK(nlayer), &
+  !             beta_FK(nlayer), &
+  !             rho_FK(nlayer), &
+  !             mu_FK(nlayer), &
+  !             h_FK(nlayer),stat=ier)
+  !   if (ier /= 0) call exit_MPI_without_rank('error allocating arrays 2206')
+  !   alpha_FK(:) = 0._cr; beta_FK(:) = 0._cr; rho_FK(:) = 0._cr
+  !   mu_FK(:) = 0._cr; h_FK(:) = 0._cr
+  ! endif
+
+  ! call bcast_all_cr(alpha_FK, nlayer)
+  ! call bcast_all_cr(beta_FK, nlayer)
+  ! call bcast_all_cr(rho_FK, nlayer)
+  ! call bcast_all_cr(mu_FK, nlayer)
+  ! call bcast_all_cr(h_FK, nlayer)
+
+  ! call bcast_all_singlecr(phi_FK)
+  ! call bcast_all_singlecr(theta_FK)
+
+  ! call bcast_all_singlecr(ff0)
+  ! call bcast_all_singlecr(freq_sampling_fk)
+  ! call bcast_all_singlecr(amplitude_fk)
+
+  ! call bcast_all_singlecr(xx0)
+  ! call bcast_all_singlecr(yy0)
+  ! call bcast_all_singlecr(zz0)
+  ! call bcast_all_singlecr(Z_REF_for_FK)
+
+  ! call bcast_all_singlecr(tt0)
+  ! call bcast_all_singlecr(tmax_fk)
 
   ! converts origin point Z to reference framework depth for FK,
   ! where top of lower half-space has to be at z==0
@@ -235,33 +282,58 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
 
 end subroutine couple_with_injection_prepare_boundary_fwat
 
+  subroutine initialize_ipt_table()
+    use specfem_par_elastic, only: ispec_is_elastic
+    use specfem_par_acoustic, only: ispec_is_acoustic 
+    integer :: ier, ipt, ispec, igll, iface
+
+    if (allocated(ipt_table)) deallocate(ipt_table)
+    if (npt > 0) then
+      allocate(ipt_table(NGLLSQUARE,num_abs_boundary_faces), stat=ier)
+      if (ier /= 0) call exit_MPI_without_rank('error allocating array 2202')
+      ipt_table(:,:) = 0
+    else
+      ! dummy
+      allocate(ipt_table(1,1),stat=ier)
+      if (ier /= 0) call exit_MPI_without_rank('error allocating array 2204')
+    endif
+    ipt_table(:,:) = 0
+
+    ipt = 0
+    do iface = 1,num_abs_boundary_faces
+      ispec = abs_boundary_ispec(iface)
+      if (ispec_is_elastic(ispec) .or. ispec_is_acoustic(ispec)) then
+        ! reference GLL points on boundary face
+        do igll = 1,NGLLSQUARE
+          ipt = ipt + 1
+          ipt_table(igll,iface) = ipt
+        end do
+      end if
+    end do
+  end subroutine initialize_ipt_table
 
   subroutine read_fk_coupling_file(evtid)
-    integer :: ier, npt, FID=858
+    integer :: ier, FID=858
     character(len=*) :: evtid
     character(len=MAX_STRING_LEN) :: out_dir, fkprname
     real(kind=cr) :: DF_FK
 
     call count_num_boundary_points(num_abs_boundary_faces,abs_boundary_ispec,npt)
 
-    ! deltat = real(DT, cr)
-    ! call find_size_of_working_arrays(deltat, freq_sampling_fk, tmax_fk, NF_FOR_STORING, &
-    !                                 NF_FOR_FFT, NPOW_FOR_INTERP, NP_RESAMP, DF_FK)
+    deltat = real(DT, cr)
+    ! print *, deltat, freq_sampling_fk, tmax_fk
+    call find_size_of_working_arrays(deltat, freq_sampling_fk, tmax_fk, NF_FOR_STORING, &
+                                     NF_FOR_FFT, NPOW_FOR_INTERP, NP_RESAMP, DF_FK)
     
-    ! print *, NF_FOR_STORING, NP_RESAMP
-    if (allocated(Veloc_FK)) then
-      Veloc_FK(:,:,:) = 0._CUSTOM_REAL
-    else
-      allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
-      if (ier /= 0) call exit_MPI(worldrank, 'error allocating array 2210')
-    endif
+    call initialize_ipt_table()
+    if (allocated(Veloc_FK)) deallocate(Veloc_FK)
+    if (allocated(Tract_FK)) deallocate(Tract_FK)
 
-    if (allocated(Tract_FK)) then
-      Tract_FK(:,:,:) = 0._CUSTOM_REAL
-    else
-      allocate(Tract_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
-      if (ier /= 0) call exit_MPI(worldrank, 'error allocating array 2210')
-    endif
+    allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
+    if (ier /= 0) call exit_MPI(worldrank, 'error allocating array 2210')
+
+    allocate(Tract_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
+    if (ier /= 0) call exit_MPI(worldrank, 'error allocating array 2210')
 
     out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
     write(fkprname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.bin'
@@ -270,6 +342,8 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     if (ier /= 0) call exit_MPI(worldrank, 'error opening file 2205')
     read(FID) Veloc_FK, Tract_FK
     close(FID)
+
+    deallocate(alpha_FK, beta_FK, rho_FK, mu_FK, h_FK)
 
     call synchronize_all()
   end subroutine read_fk_coupling_file

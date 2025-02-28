@@ -5,13 +5,13 @@ include_directories(
 # object libraries of specfem_interface
 file(GLOB SOURCES_SPECFEM_API "specfem_interface/*.f90")
 add_library(specfem_api_objs OBJECT ${SOURCES_SPECFEM_API})
-target_link_libraries(specfem_api_objs PRIVATE specfem3D_objs)
+target_link_libraries(specfem_api_objs PRIVATE specfem3D_objs shared_fwat_objs)
 
 # object libraries of preproc
 file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
-target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs cuda_objs)
+target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs specfem_api_objs cuda_objs)
 
 # executables
 set(APP_SOURCES
