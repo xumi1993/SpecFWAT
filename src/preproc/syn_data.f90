@@ -14,6 +14,7 @@ module syn_data
   integer, parameter, private :: NCOMP=3
 
   type :: SynData
+    integer :: ievt, nrec
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp(zrt), nsta
     character(len=MAX_STRING_LEN) :: band_name
     integer :: dat_win
@@ -32,7 +33,8 @@ contains
     real(kind=dp), dimension(:, :, :), allocatable :: data_local, dat_sum
 
     ! read source and reciever files
-
+    this%ievt = ievt
+    this%nrec = nrec
     call prepare_shm_array_dp_3d(this%data, NSTEP, NCOMP, nrec, this%dat_win)
     allocate(data_local(NSTEP, NCOMP, nrec_local))
     data_local = 0.0_dp

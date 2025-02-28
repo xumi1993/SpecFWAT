@@ -12,11 +12,12 @@ module obs_data
   type ObsData
     character(len=MAX_STRING_LEN), dimension(:), pointer :: netwk, stnm
     character(len=MAX_STRING_LEN) :: evt_id
-    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, baz, arr
+    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, baz, tarr, tbeg
+    real(kind=dp) :: dt
     integer :: nsta, npts, ievt
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp, nsta
     integer :: net_win, sta_win, stla_win, stlo_win, stel_win, dat_win, &
-                baz_win, t0_win 
+                baz_win, t0_win, tb_win
     contains
     procedure :: read_stations, read_obs_data
     procedure, private :: alloc_sta_info
@@ -82,8 +83,9 @@ contains
     call prepare_shm_array_cr_1d(this%stlo, this%nsta, this%stlo_win)
     call prepare_shm_array_cr_1d(this%stel, this%nsta, this%stel_win)
     call prepare_shm_array_cr_1d(this%baz, this%nsta, this%baz_win)
+    call prepare_shm_array_cr_1d(this%tbeg, this%nsta, this%tb_win)
     if (index(dat_type, 'tele') /= 0) &
-      call prepare_shm_array_cr_1d(this%arr, this%nsta, this%t0_win)
+      call prepare_shm_array_cr_1d(this%tarr, this%nsta, this%t0_win)
   end subroutine alloc_sta_info
 
   subroutine finalize(this)
@@ -97,6 +99,7 @@ contains
     call free_shm_array(this%baz_win)
     call free_shm_array(this%t0_win)
     call free_shm_array(this%dat_win)
+    call free_shm_array(this%tb_win)
 
   end subroutine finalize
 
@@ -122,8 +125,10 @@ contains
       call sacio_readhead(sacfile, header, ier)
       if (ier /= 0) call exit_MPI(0, 'Error reading SAC header '//trim(sacfile))
       this%npts = header%npts
+      this%dt = dble(header%delta)
     endif
     call bcast_all_singlei(this%npts)
+    call bcast_all_singledp(this%dt)
     call bcast_all_singlei(ncomp)
     call prepare_shm_array_dp_3d(this%data, this%npts, ncomp, this%nsta, this%dat_win)
 
@@ -149,6 +154,7 @@ contains
 
           ! assign header info
           if (icomp == 1) then
+            this%tbeg(ista) = header%b
             if (header%baz == SAC_rnull) then
               call exit_MPI(0, 'Back azimuth not found in SAC header')
             else
@@ -156,7 +162,7 @@ contains
             endif
             if (index(dat_type, 'tele') /= 0 ) then
               if (header%t0 /= SAC_rnull) then
-                this%arr(ista) = header%t0
+                this%tarr(ista) = header%t0
               else
                 call exit_MPI(0, 't0 not found in SAC header')
               endif
@@ -167,8 +173,10 @@ contains
     endif
 
     call sync_from_main_rank_cr_1d(this%baz, this%nsta)
-    call sync_from_main_rank_cr_1d(this%arr, this%nsta)
+    call sync_from_main_rank_cr_1d(this%tarr, this%nsta)
+    call sync_from_main_rank_cr_1d(this%tbeg, this%nsta)
     call sync_from_main_rank_dp_3d(this%data, this%npts, ncomp, this%nsta)
+    call synchronize_all()
 
   end subroutine read_obs_data
   

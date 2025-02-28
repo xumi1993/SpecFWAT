@@ -56,6 +56,16 @@ subroutine read_fk_model(evtid)
 
 end subroutine read_fk_model
 
+subroutine free_fk_arrays()
+  if (allocated(alpha_FK)) deallocate(alpha_FK)
+  if (allocated(beta_FK)) deallocate(beta_FK)
+  if (allocated(rho_FK)) deallocate(rho_FK)
+  if (allocated(mu_FK)) deallocate(mu_FK)
+  if (allocated(h_FK)) deallocate(h_FK)
+
+end subroutine free_fk_arrays
+
+
 subroutine couple_with_injection_prepare_boundary_fwat(evtid)
   character(len=*), intent(in) :: evtid
   character(len=MAX_STRING_LEN)  :: out_dir, fkprname
@@ -276,7 +286,7 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
   !   call flush_IMAIN()
   ! endif
 
-  deallocate(alpha_FK, beta_FK, rho_FK, mu_FK, h_FK)
+  call free_fk_arrays()
 
   ! * end of initial setup for future FK3D calculations *
 
@@ -343,11 +353,54 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     read(FID) Veloc_FK, Tract_FK
     close(FID)
 
-    deallocate(alpha_FK, beta_FK, rho_FK, mu_FK, h_FK)
+    ! deallocate(alpha_FK, beta_FK, rho_FK, mu_FK, h_FK)
+    call free_fk_arrays()
 
     call synchronize_all()
   end subroutine read_fk_coupling_file
 
+  subroutine fktime(xx, yy, zz, tdelay)
+    real(kind=cr), intent(in) :: xx, yy, zz
+    real(kind=cr), intent(out) :: tdelay
+    real(kind=cr), dimension(:), allocatable :: h, v_fk_input
+    real(kind=cr) :: p, z0, zi, eta
+    integer :: ilayer, j
+
+    if (type_kpsv_fk == 1) then
+      v_fk_input = alpha_FK
+      p = sin(theta_FK) / v_fk_input(nlayer)
+    else if (type_kpsv_fk == 2) then
+      v_fk_input = beta_FK
+      p = sin(theta_FK) / v_fk_input(nlayer)
+    endif
+    tdelay = p * (xx - xx0) * cos(phi_FK) + p * (yy - yy0) * sin(phi_FK)
+
+    z0 = zz0 - Z_ref_for_FK
+    zi = zz - Z_ref_for_FK
+    ! h = zeros(nlayer)
+    allocate(h(nlayer))
+    h = 0._cr
+    ilayer = nlayer
+    do j = nlayer - 1, 1, -1
+      if (zi <= sum(h_FK(j:nlayer))) then
+        ilayer = j
+        exit
+      end if
+    end do
+    h(ilayer+1:nlayer) = h_FK(ilayer+1:nlayer)
+    h(ilayer) = zi - sum(h_FK(ilayer+1:nlayer))
+    h(nlayer) = 0 - z0
+    if (h(ilayer) < 0) then
+      print *, 'Error setting layer thickness'
+      stop
+    end if
+    do j = nlayer, ilayer, -1
+      eta = sqrt(1 / v_fk_input(j)**2 - p**2)
+      tdelay = tdelay + eta * h(j)
+    end do
+
+  end subroutine fktime
+  
   function check_fk_files(evtid) result(res)
     use fwat_mpi, only: land_all_all_l
 
