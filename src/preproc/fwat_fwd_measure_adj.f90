@@ -8,7 +8,7 @@ use preproc_fwd
 use specfem_par, only: DT, NSTEP
 
 implicit none
-integer :: nargs
+integer :: nargs, nsim
 integer, parameter :: max_num_args = 3
 type(PrepareFWD) :: ffwd
 character(len=MAX_STRING_LEN) :: usage, evt_index_str
@@ -55,11 +55,22 @@ call fpar%acqui%read()
 ! initialize fwd
 call ffwd%init(FORWARD_ADJOINT)
 
-call ffwd%calc_fk_wavefield()
+if (single_run) then
+  nsim = ffwd%ievt
+else
+  nsim = fpar%acqui%nevents
+  ffwd%ievt = 1
+endif
 
-call ffwd%prepare_for_event()
+do while (ffwd%ievt <= nsim)
+  call ffwd%calc_or_read_fk_wavefield()
 
-call ffwd%fwd_simulation()
+  call ffwd%prepare_for_event()
+
+  call ffwd%fwd_simulation()
+
+  ffwd%ievt = ffwd%ievt + 1
+enddo
 
 call finalize_mpi()
 

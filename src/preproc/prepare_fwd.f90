@@ -20,7 +20,7 @@ module preproc_fwd
   type :: PrepareFWD
     integer :: ievt=0, simu_opt
     contains
-    procedure :: init, calc_fk_wavefield, prepare_for_event, destroy, fwd_simulation
+    procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, fwd_simulation
     procedure, private :: initialize_kernel_matrice
   end type PrepareFWD
 
@@ -34,13 +34,13 @@ contains
 
     this%simu_opt = simu_opt
 
-    if (this%ievt == 0) then
-      call log%write('ERROR: Event index not set', .true.)
-      call exit_MPI(0, 'ERROR: Event index not set')
-    else if (this%ievt > fpar%acqui%nevents) then
-      call log%write('ERROR: Event index out of range', .true.)
-      call exit_MPI(0, 'ERROR: Event index out of range')
-    endif
+    ! if (this%ievt == 0) then
+    !   call log%write('ERROR: Event index not set', .true.)
+    !   call exit_MPI(0, 'ERROR: Event index not set')
+    ! else if (this%ievt > fpar%acqui%nevents) then
+    !   call log%write('ERROR: Event index out of range', .true.)
+    !   call exit_MPI(0, 'ERROR: Event index out of range')
+    ! endif
 
     if (single_run) then
       if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
@@ -131,7 +131,7 @@ contains
     endif
   end subroutine initialize_kernel_matrice
 
-  subroutine calc_fk_wavefield(this)
+  subroutine calc_or_read_fk_wavefield(this)
     class(PrepareFWD), intent(inout) :: this
     character(len=MAX_STRING_LEN) :: evtid
     integer :: iev
@@ -151,7 +151,7 @@ contains
     call synchronize_all()
     ! enddo
 
-  end subroutine calc_fk_wavefield
+  end subroutine calc_or_read_fk_wavefield
 
   subroutine prepare_for_event(this)
     class(PrepareFWD), intent(inout) :: this
@@ -193,7 +193,6 @@ contains
     ! print info
     block 
       character(len=MAX_STRING_LEN) :: msg
-      call log%write('-----------------------------------------------------------')
       msg = 'Event ID: '//trim(evtid)
       call log%write(msg)
       msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
