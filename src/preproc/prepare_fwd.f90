@@ -10,29 +10,28 @@ module preproc_fwd
   ! use specfem_par_poroelastic
   use input_params, fpar => fwat_par_global
   use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files, read_fk_model
-  use logger, only: logger_type
+  use logger, only: log
+  use tele_data, only: TeleData
 
   implicit none
 
   integer :: ier
-  type(logger_type) :: log
 
   type :: PrepareFWD
-    integer :: ievt=0, simu_opt
+    integer :: ievt=0, run_mode
     contains
-    procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, fwd_simulation
+    procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
     procedure, private :: initialize_kernel_matrice
   end type PrepareFWD
 
 contains
 
-  subroutine init(this, simu_opt)
+  subroutine init(this)
     use specfem_api, only: backup_rmass
 
     class(PrepareFWD), intent(inout) :: this
-    integer, intent(in) :: simu_opt
 
-    this%simu_opt = simu_opt
+    this%run_mode = run_mode
 
     ! if (this%ievt == 0) then
     !   call log%write('ERROR: Event index not set', .true.)
@@ -58,13 +57,11 @@ contains
     PRINT_SOURCE_TIME_FUNCTION=.false.
     MOVIE_VOLUME=.false.
     local_path_backup = LOCAL_PATH
-    if (simu_opt < 3) then
-      ! SIMULATION_TYPE = 1
+    if (this%run_mode < 3) then
       SAVE_FORWARD = .false.
       APPROXIMATE_HESS_KL=.false.
     else
       SAVE_FORWARD = .true.
-      ! SIMULATION_TYPE = 3
       APPROXIMATE_HESS_KL=.true.
     endif
 
@@ -166,8 +163,8 @@ contains
     if (worldrank == 0) then
       call system('mkdir -p '//trim(path))
       call system('mkdir -p '//trim(path)//'/'//trim(OUTPUT_PATH))
-      if (this%simu_opt > 1) call system('mkdir -p '//trim(path)//'/'//trim(ADJOINT_PATH))
-      if (this%simu_opt > 2) call system('mkdir -p '//trim(path)//'/'//trim(EKERNEL_PATH))
+      if (this%run_mode > 1) call system('mkdir -p '//trim(path)//'/'//trim(ADJOINT_PATH))
+      if (this%run_mode > 2) call system('mkdir -p '//trim(path)//'/'//trim(EKERNEL_PATH))
     endif
 
     ! assign local path
@@ -206,10 +203,11 @@ contains
 
   end subroutine prepare_for_event
 
-  subroutine fwd_simulation(this)
+  subroutine simulation(this)
     use specfem_api, only: InitSpecfem, FinalizeSpecfem, restore_rmass
 
     class(PrepareFWD), intent(inout) :: this
+    type(TeleData) :: td
 
     call log%write('This is forward simulations ...', .true.)
     SIMULATION_TYPE = 1
@@ -232,7 +230,12 @@ contains
     ! save absobing boundary wavefields
     call FinalizeSpecfem()
 
-  end subroutine fwd_simulation
+    if (this%run_mode == 1) then
+      ! save simulation results
+      call log%write('Writing synthetic data ...', .true.)
+      call td%semd2sac(this%ievt)
+    endif
+  end subroutine simulation
 
 
 end module

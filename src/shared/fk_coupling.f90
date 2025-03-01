@@ -2,7 +2,7 @@ module fk_coupling
   use specfem_par
   use specfem_par_coupling
   use config, only: worldrank, local_path_backup
-  use fwat_constants, only: cr, FKMODEL_PREFIX, SRC_REC_DIR
+  use fwat_constants, only: cr, FKMODEL_PREFIX, SRC_REC_DIR, DEG2RAD
 
   implicit none
   
@@ -252,7 +252,6 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
   if (npt > 0) then
     !! arrays for storing FK solution --------------------------------------------
     allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
-    print *, shape(Veloc_FK), NF_FOR_STORING
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 2210')
     if (ier /= 0) stop 'error while allocating Veloc_FK'
     Veloc_FK(:,:,:) = 0._CUSTOM_REAL
@@ -363,17 +362,19 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     real(kind=cr), intent(in) :: xx, yy, zz
     real(kind=cr), intent(out) :: tdelay
     real(kind=cr), dimension(:), allocatable :: h, v_fk_input
-    real(kind=cr) :: p, z0, zi, eta
+    real(kind=cr) :: p, z0, zi, eta, theta_rad, phi_rad
     integer :: ilayer, j
-
+    
+    theta_rad = theta_FK * DEG2RAD
+    phi_rad = phi_FK * DEG2RAD
     if (type_kpsv_fk == 1) then
       v_fk_input = alpha_FK
-      p = sin(theta_FK) / v_fk_input(nlayer)
+      p = sin(theta_rad) / v_fk_input(nlayer)
     else if (type_kpsv_fk == 2) then
       v_fk_input = beta_FK
-      p = sin(theta_FK) / v_fk_input(nlayer)
+      p = sin(theta_rad) / v_fk_input(nlayer)
     endif
-    tdelay = p * (xx - xx0) * cos(phi_FK) + p * (yy - yy0) * sin(phi_FK)
+    tdelay = p * (xx - xx0) * cos(phi_rad) + p * (yy - yy0) * sin(phi_rad)
 
     z0 = zz0 - Z_ref_for_FK
     zi = zz - Z_ref_for_FK

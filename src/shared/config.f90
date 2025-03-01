@@ -1,5 +1,6 @@
 module fwat_constants
-  include "constants.h"
+  ! include "constants.h"
+  use constants
 
   integer, parameter :: cr = SIZE_REAL
   integer, parameter :: dp = SIZE_DOUBLE
@@ -46,7 +47,7 @@ module config
   integer, dimension(:,:), allocatable :: rank_map
 
   logical :: single_run = .false.
-  integer :: event_index = 0
+  integer :: event_index = 0, run_mode
   
   character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup
   character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name

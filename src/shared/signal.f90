@@ -80,6 +80,50 @@ contains
 
   end subroutine interpolate_syn_dp
 
+  subroutine myconvolution_dp(sig1,sig2,conv,part)
+
+    integer, intent(in) :: part
+    integer :: n1, n2
+    real(kind=dp), dimension(:), intent(in) :: sig1
+    real(kind=dp), dimension(:), intent(in) :: sig2
+    real(kind=dp), dimension(:), allocatable, intent(out) ::conv
+    real(kind=dp), dimension(:), allocatable :: convtmp !, intent(out) :: conv
+    integer :: i1, i2, ind
+    
+    n1 = size(sig1)
+    n2 = size(sig2)
+    allocate(convtmp(n1+n2-1))
+    convtmp = 0.0_dp
+
+    !*** Convolve
+    do i1=1,n1
+      do i2=1,n2
+        convtmp(i1+i2-1) = convtmp(i1+i2-1) + sig1(i1) * sig2(i2)
+      enddo
+    enddo
+
+    if (part == 0) then !(middle regular)
+      !*** Take good parts (this is wrong...)
+      if (modulo(n2,2) == 0) then
+          ind = n2/2+1
+      else
+          ind = ceiling(real(n2/2,kind=cr))
+      endif
+      allocate(conv(n2))
+      conv(1:n2) = convtmp(ind:ind+n2-1)
+
+    else if (part == 1) then ! full convolution
+
+      allocate(conv(n1+n2-1))
+      conv(:) = convtmp(:)
+
+    else if (part == 2) then !(middle irregular)
+      allocate(conv(n2))
+      conv(1:n2) = convtmp(n2:n2+n2-1)
+    endif
+
+  end subroutine myconvolution_dp
+
   subroutine detrend(x)
     implicit none
     real(kind=dp), dimension(:) :: x

@@ -6,38 +6,19 @@ use input_params, fpar => fwat_par_global
 use obs_data, fdat => fwat_evt_data_global
 use preproc_fwd
 use specfem_par, only: DT, NSTEP
+use argparse, only: parse_args_fwd_meas_adj
 
 implicit none
 integer :: nargs, nsim
-integer, parameter :: max_num_args = 3
+integer, parameter :: max_num_args = 4
 type(PrepareFWD) :: ffwd
-character(len=MAX_STRING_LEN) :: usage, evt_index_str
+character(len=MAX_STRING_LEN) :: usage, evt_index_str, run_mode_str
 
 call init_mpi()
 call init_mpi_fwat()
 
-usage = 'Usage: fwat_fwd_measure_adj model data_type [event_index]'
-! read command line arguments
-nargs = command_argument_count()
-if (nargs > max_num_args) then
-  if (worldrank == 0) then
-    print *, usage
-    call exit_MPI(0, 'ERROR: Too more arguments')
-  endif
-else if (nargs < max_num_args - 1 ) then
-  if (worldrank == 0) then
-    print *, usage
-    call exit_MPI(0, 'ERROR: Too few arguments')
-  endif
-else
-  call get_command_argument(1, model_name)
-  call get_command_argument(2, dat_type)
-endif
-if (nargs == max_num_args) then
-  call get_command_argument(3, evt_index_str)
-  read(evt_index_str, *) ffwd%ievt
-  single_run = .true.
-endif
+call parse_args_fwd_meas_adj(ffwd%ievt)
+
 call get_simu_type()
 
 ! read input parameters
@@ -49,11 +30,8 @@ call fpar%select_simu_type()
 ! read src_rec for this data type
 call fpar%acqui%read()
 
-! read observed data
-! call fdat%read_stations(fpar%acqui%evtid_names(1))
-
 ! initialize fwd
-call ffwd%init(FORWARD_ADJOINT)
+call ffwd%init()
 
 if (single_run) then
   nsim = ffwd%ievt
@@ -63,11 +41,14 @@ else
 endif
 
 do while (ffwd%ievt <= nsim)
+  ! prepare fk wavefield
   call ffwd%calc_or_read_fk_wavefield()
 
+  ! prepare simulation
   call ffwd%prepare_for_event()
-
-  call ffwd%fwd_simulation()
+  
+  ! run forward simulation
+  call ffwd%simulation()
 
   ffwd%ievt = ffwd%ievt + 1
 enddo

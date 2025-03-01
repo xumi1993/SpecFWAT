@@ -10,6 +10,8 @@ module logger
     procedure :: init => logger_init, write => logger_write, finalize => logger_finalize
   end type logger_type
 
+  type(logger_type) :: log
+
 contains
 
   subroutine logger_init(this, log_file)

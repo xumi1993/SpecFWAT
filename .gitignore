@@ -49,6 +49,7 @@ DATABASES_MPI/
 solver/
 misfits/
 optimize/
+tests/toy_example_tele/fwat_data/
 
 *_ADJOINT
 *_ADJOINT_FILTERED

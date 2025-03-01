@@ -13,5 +13,5 @@ cp model_target/* DATABASES_MPI/
 NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2 | cut -d \# -f 1`
 mpirun --oversubscribe -np $NPROC ../../bin/xmeshfem3D
 mpirun --oversubscribe -np $NPROC ../../bin/xgenerate_databases
-mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj M00 tele
+mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 1 -e 2
 
