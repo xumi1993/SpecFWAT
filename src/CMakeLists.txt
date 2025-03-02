@@ -135,6 +135,24 @@ foreach(execsourcefile ${APP_SOURCES})
 endforeach()
 
 # ==============================================================================
+# -------------------------- Add Specfem AUX -----------------------------------
+# ==============================================================================
+set(AUX_DIR ${SPECFEM_DIR}/src/auxiliaries)
+set(APP_SOURCES
+  "${AUX_DIR}/combine_vol_data_vtk_binary.F90"
+) 
+foreach(execsourcefile ${APP_SOURCES})
+  get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)
+  add_executable(${EXEC_NAME} ${execsourcefile}
+    ${AUX_DIR}/combine_vol_data_impl.f90
+    ${AUX_DIR}/vtk_writer.c
+    ${HEADERS}
+  )
+  target_link_libraries(${EXEC_NAME} PUBLIC shared_objs)
+  set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
+  set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
+endforeach()
+# ==============================================================================
 # ----------------------------- Add libraries --------------------------------
 # ==============================================================================
 # add yaml-fortran library

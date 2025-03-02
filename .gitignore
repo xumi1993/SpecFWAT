@@ -38,6 +38,8 @@ build/
 .vscode/
 .DS_store
 
+*.vtk
+
 # header files
 constants.h
 precision.h

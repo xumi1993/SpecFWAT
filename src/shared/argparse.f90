@@ -20,8 +20,8 @@ contains
     do i = 1, argc
       call get_command_argument(i, argv(i))
     enddo
-    if (argc > max_num_args .or. argc < max_num_args - 1) then
-      if (worldrank == 0) print *, usage
+    if (argc > max_num_args .or. argc < max_num_args - 2) then
+      if (worldrank == 0) print *, trim(usage)
       call exit_MPI(0, 'ERROR: Too more or too less arguments')
     endif
 
