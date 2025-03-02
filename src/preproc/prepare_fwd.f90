@@ -21,7 +21,7 @@ module preproc_fwd
     integer :: ievt=0, run_mode
     contains
     procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
-    procedure, private :: initialize_kernel_matrice
+    procedure, private :: initialize_kernel_matrice, semd2sac
   end type PrepareFWD
 
 contains
@@ -83,7 +83,7 @@ contains
     ! sets up reference element GLL points/weights/derivatives
     call setup_GLL_points()
 
-    call this%initialize_kernel_matrice()
+    if(this%run_mode == FORWARD_ADJOINT) call this%initialize_kernel_matrice()
 
   end subroutine init
 
@@ -184,8 +184,8 @@ contains
     ! else
     !   call exit_MPI(worldrank, 'Unknown simulation type')
     endif
-    source_fname=fpar%acqui%src_solution_file(this%ievt)
-    station_fname=fpar%acqui%station_file(this%ievt)
+    source_fname = fpar%acqui%src_solution_file(this%ievt)
+    station_fname = fpar%acqui%station_file(this%ievt)
 
     ! print info
     block 
@@ -202,6 +202,18 @@ contains
     call synchronize_all()
 
   end subroutine prepare_for_event
+
+  subroutine semd2sac(this)
+    class(PrepareFWD), intent(inout) :: this
+    type(TeleData) :: td
+
+    if (run_mode /= 1) return
+
+    if (dat_type == 'tele') then
+      call td%semd2sac(this%ievt)
+    endif
+
+  end subroutine semd2sac
 
   subroutine simulation(this)
     use specfem_api, only: InitSpecfem, FinalizeSpecfem, restore_rmass
@@ -233,7 +245,7 @@ contains
     if (this%run_mode == 1) then
       ! save simulation results
       call log%write('Writing synthetic data ...', .true.)
-      call td%semd2sac(this%ievt)
+      call this%semd2sac()
     endif
   end subroutine simulation
 

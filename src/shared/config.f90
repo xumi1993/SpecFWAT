@@ -36,6 +36,8 @@ module fwat_constants
 
   ! math
   real(kind=cr), parameter :: deg2rad = PI / 180.0
+  real(kind=cr), parameter :: rad2deg = 180.0 / PI
+  real(kind=cr), parameter :: km2deg = 1.0 /(6371.0d0*pi/180.0d0)
 
 end module fwat_constants
 

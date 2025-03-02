@@ -133,13 +133,13 @@
   endif
 
   ! user output
-  if (myrank == 0) then
-    write(IMAIN,*) "Reading mesh databases..."
-    write(IMAIN,*) "  reads binary mesh files: proc***_external_mesh.bin"
-    write(IMAIN,*) "  from directory         : ",trim(LOCAL_PATH)
-    write(IMAIN,*)
-    call flush_IMAIN()
-  endif
+  ! if (myrank == 0) then
+  !   write(IMAIN,*) "Reading mesh databases..."
+  !   write(IMAIN,*) "  reads binary mesh files: proc***_external_mesh.bin"
+  !   write(IMAIN,*) "  from directory         : ",trim(LOCAL_PATH)
+  !   write(IMAIN,*)
+  !   call flush_IMAIN()
+  ! endif
 
   ! sets file name
   call create_name_database(prname,myrank,LOCAL_PATH)

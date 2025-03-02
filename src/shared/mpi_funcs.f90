@@ -44,6 +44,29 @@ contains
 
   end subroutine sum_all_1Darray_i
 
+
+  subroutine sum_all_1Darray_dp(sendbuf, recvbuf, nx)
+
+  integer :: nx
+  double precision, dimension(nx) :: sendbuf, recvbuf
+  integer :: ier
+
+  call MPI_REDUCE(sendbuf,recvbuf,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,my_local_mpi_comm_world,ier)
+
+  end subroutine sum_all_1Darray_dp
+
+
+  subroutine sum_all_1Darray_cr(sendbuf, recvbuf, nx)
+
+  integer :: nx
+  real(kind=CUSTOM_REAL), dimension(nx) :: sendbuf, recvbuf
+  integer :: ier
+
+  call MPI_REDUCE(sendbuf,recvbuf,nx,CUSTOM_MPI_TYPE,MPI_SUM,0,my_local_mpi_comm_world,ier)
+
+  end subroutine sum_all_1Darray_cr
+
+
   subroutine send_ch_array(sendbuf, sendcount, nlen, dest, sendtag)
     integer :: dest,sendtag,nlen
     integer :: sendcount
