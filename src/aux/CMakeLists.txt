@@ -8,6 +8,10 @@ set(APP_SOURCES
 
 foreach(execsourcefile ${APP_SOURCES})
     get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)
+    if (EXEC_NAME MATCHES "decompose_h5_gll" AND NOT ${USE_HDF5})
+        message(STATUS "decompose_h5_gll is not compiled because -DUSE_HDF5=True is not defined")
+        continue()
+    endif()
     add_executable(${EXEC_NAME} ${execsourcefile}
     )
     set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
