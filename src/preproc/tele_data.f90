@@ -1,12 +1,14 @@
 module tele_data
   use config
   use ma_constants
-  use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, myconvolution_dp
+  use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
+                    myconvolution_dp, time_deconv
   use syn_data, only: SynData
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
   use fk_coupling
   use fwat_mpi
+  use utils, only: zeros_dp, zeros
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
@@ -23,7 +25,7 @@ module tele_data
     integer :: ttp_win
     contains
     procedure :: preprocess, calc_fktimes, semd2sac!, calc_stf
-    procedure, private :: interpolate
+    procedure, private :: deconv_for_stf, seis_pca
     procedure :: finalize
   end type TeleData
 
@@ -119,40 +121,194 @@ contains
   subroutine preprocess(this, ievt)
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
+    integer :: irec, irec_local, icomp
+    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat,&
+         seismo_syn, seismo_dat_glob, seismo_syn_glob
+    real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob, stf_array
+    real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
+    real(kind=cr) :: avgamp
 
     call this%read(ievt)
-    call this%od%read_stations(this%ievt)
-    call this%od%read_obs_data()
 
-    ! calculate fk times
+    call this%od%read_stations(this%ievt)
+    
     call this%calc_fktimes()
 
+    call synchronize_all()
+
+    if (nrec_local > 0) then
+      seismo_dat = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
+      seismo_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
+      seismo_stf = zeros_dp(fpar%sim%nstep, nrec_local)
+      do irec_local = 1, nrec_local
+        irec = number_receiver_global(irec_local)
+        do icomp = 1, fpar%sim%NRCOMP
+          seismo_inp = this%od%data(:, icomp, irec)
+          call interpolate_syn_dp(seismo_inp, dble(this%ttp(irec)), dble(this%od%dt),&
+                                  this%od%npts, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+          call detrend(seismo_inp)
+          call demean(seismo_inp)
+          call bandpass_dp(seismo_inp, fpar%sim%nstep, dble(fpar%sim%dt),&
+                           1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+          seismo_dat(:, icomp, irec_local) = seismo_inp(1:fpar%sim%nstep)
+
+          seismo_syn(:, icomp, irec_local) = this%data(:, icomp, irec)
+          call detrend(seismo_syn(:, icomp, irec_local))
+          call demean(seismo_syn(:, icomp, irec_local))
+          call bandpass_dp(seismo_syn(:, icomp, irec_local), fpar%sim%nstep, dble(fpar%sim%dt),&
+                           1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+          if (icomp == 1) then
+            call this%deconv_for_stf(seismo_dat(:, 1, irec_local), seismo_syn(:, 1, irec_local),&
+                                     this%ttp(irec), stf_local)
+            seismo_stf(:, irec_local) = stf_local
+          endif
+        enddo
+      enddo
+    end if
+    call synchronize_all()
+
+    call this%assemble_3d(seismo_dat, seismo_dat_glob, fpar%sim%NRCOMP)
+    call this%assemble_3d(seismo_syn, seismo_syn_glob, fpar%sim%NRCOMP)
+    call this%assemble_2d(seismo_stf, seismo_stf_glob)
+
+    if (worldrank == 0) then
+      call this%seis_pca(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob, stf_array)
+    else
+      allocate(stf_array(fpar%sim%nstep, fpar%sim%NRCOMP))
+    endif
+    call synchronize_all()
+    call bcast_all_dp(stf_array, fpar%sim%nstep*fpar%sim%NRCOMP)
+
     ! interpolate observed data to synthetic data
+    avgamp = average_amp_scale(seismo_dat_glob, 1)
+    call synchronize_all()
   
   end subroutine preprocess
 
-  subroutine interpolate(this)
+  subroutine seis_pca(this, seismo_dat, seismo_syn, seismo_stf_glob, stf_array)
+    use spanlib, only: sl_pca
     class(TeleData), intent(inout) :: this
-    real(kind=cr) :: tstart
-    integer :: irec, icomp
+    real(kind=dp), dimension(:,:,:), intent(in) :: seismo_dat, seismo_syn
+    real(kind=dp), dimension(:,:), intent(in) :: seismo_stf_glob
+    real(kind=dp), dimension(:,:,:), allocatable :: recp_syn
+    real(kind=dp), dimension(:), allocatable :: tmpl
+    real(kind=cr), dimension(:,:), allocatable :: xeof, pc, ff
+    real(kind=cr), dimension(:), allocatable :: eig, avgarr
+    real(kind=dp), dimension(:,:), allocatable, intent(out) :: stf_array
+    real(kind=cr) :: valid_avg, valid_sum, avgamp
+    integer :: irec, icomp, valid_count, i
 
-    if (noderank == 0) then
-      do irec = 1, this%nrec
-        tstart = this%ttp(irec) - (this%od%tarr(irec) - this%od%tbeg(irec))
-        do icomp = 1, fpar%sim%NRCOMP
-          call interpolate_syn_dp(this%od%data(:, icomp, irec), dble(tstart), dble(this%od%dt),&
-                                  this%od%npts, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
-          call detrend(this%od%data(:, icomp, irec))
-          call demean(this%od%data(:, icomp, irec))
-          call bandpass_dp(this%od%data(:, icomp, irec), fpar%sim%nstep, dble(fpar%sim%dt),&
-                           1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-        enddo
+    stf_array = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP)
+    allocate(xeof(nrec, nrec))
+    allocate(pc(fpar%sim%nstep, nrec))
+    allocate(eig(nrec))
+    ff = transpose(real(seismo_stf_glob(:, :)))
+    call sl_pca(ff, nrec, xeof, pc, eig)
+
+    ! build reconstructed seismograms
+    recp_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec)
+    do irec = 1, nrec
+      do icomp = 1, fpar%sim%NRCOMP
+        call myconvolution_dp(seismo_syn(:, icomp, irec), dble(pc(:, 1)), tmpl, 0)
+        recp_syn(:, icomp, irec) = tmpl * fpar%sim%dt
       enddo
-    endif
-    call synchronize_all()
-    call this%filter(1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+    enddo
 
-  end subroutine interpolate
+    ! calculate amplitude correction
+    do icomp = 1, fpar%sim%NRCOMP
+      avgarr = zeros(nrec)
+      avgarr = -1000.0
+      valid_sum = 0.0
+      valid_count = 0
+
+      where (maxval(abs(recp_syn(:, icomp, :)), dim=1) /= 0.0)
+        avgarr = sum(seismo_dat(:, icomp, :) * recp_syn(:, icomp, :), dim=1) / &
+                 sum(recp_syn(:, icomp, :) * recp_syn(:, icomp, :), dim=1)
+      end where
+      do i = 1, size(avgarr)
+        if (avgarr(i) /= -1000.0) then
+          valid_sum = valid_sum + avgarr(i)
+          valid_count = valid_count + 1
+        endif
+      enddo
+      if (valid_count == 0) cycle
+
+      valid_avg = valid_sum / valid_count
+      valid_sum = 0.0
+      valid_count = 0
+      do i = 1, nrec
+        if (abs(avgarr(i) - valid_avg) <= 0.2 .and. avgarr(i) /= -1000.0) then
+          valid_sum = valid_sum + avgarr(i)
+          valid_count = valid_count + 1
+        endif
+      enddo
+
+      if (valid_count == 0 .or. valid_count <= 0.1 * real(nrec)) then
+        call exit_MPI(0, 'Error: Too few valid amplitude values')
+      endif
+      avgamp = valid_sum / valid_count
+      stf_array(:, icomp) = dble(pc(:, 1) * avgamp)
+    enddo
+    deallocate(xeof, pc, eig, recp_syn, ff, tmpl, avgarr)
+
+  end subroutine seis_pca
+
+  subroutine deconv_for_stf(this, data_num, data_den, tref, stf)
+    class(TeleData), intent(inout) :: this
+    real(kind=dp), dimension(:), intent(in) :: data_num, data_den
+    real(kind=dp), dimension(:), allocatable, intent(inout) :: stf
+    real(kind=cr), dimension(:), allocatable :: stf_dp
+    real(kind=cr), intent(in) :: tref
+    real(kind=cr) :: tb, te
+    integer :: nstep_cut
+    real(kind=dp), dimension(:), allocatable :: data_num_win, data_den_win
+
+    ! cut data to from fpar%sim%time_win(1) to fpar%sim%time_win(2)
+    data_num_win = data_num(1:fpar%sim%nstep)
+    data_den_win = data_den(1:fpar%sim%nstep)
+    tb = tref - fpar%sim%time_win(1)
+    te = tref + fpar%sim%time_win(2)
+    nstep_cut = int((te - tb) / fpar%sim%dt) + 1
+    call interpolate_syn_dp(data_num_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
+                            dble(tb), dble(fpar%sim%dt), nstep_cut)
+    call interpolate_syn_dp(data_den_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
+                            dble(tb), dble(fpar%sim%dt), nstep_cut)
+    call interpolate_syn_dp(data_num_win, dble(tb), dble(fpar%sim%dt), nstep_cut, &
+                            -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+    call interpolate_syn_dp(data_den_win, dble(tb), dble(fpar%sim%dt), nstep_cut, &
+                            -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+    if (maxval(abs(data_den_win)) < 1.0e-10) &
+      call exit_MPI(0, 'Error: data_den_win is zero')
+    call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
+                     fpar%sim%nstep,NITER,stf_dp)
+    stf = dble(stf_dp)
+    call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
+                     1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+
+  end subroutine deconv_for_stf
+
+  function average_amp_scale(glob_dat_tw, icomp) result(avgamp)
+    real(kind=cr) :: avgamp
+    real(kind=cr) :: avgamp0
+    integer :: igood, icomp, irec
+    real(kind=dp), dimension(:,:,:)   :: glob_dat_tw
+
+    ! use only Z component for amplitude scale
+    avgamp0=0.
+    do irec =1 ,nrec
+      avgamp0=avgamp0+maxval(abs(glob_dat_tw(:,icomp,irec))) 
+    enddo
+    avgamp0=avgamp0/nrec
+    avgamp=0
+    igood=0
+    do irec =1, nrec
+      if ((maxval(abs(glob_dat_tw(:,icomp,irec)))-avgamp0)<0.2*avgamp0) then
+        avgamp=avgamp+maxval(abs(glob_dat_tw(:,icomp,irec)))
+        igood=igood+1
+      endif
+    enddo
+    avgamp=avgamp/igood
+  end function average_amp_scale
 
   subroutine calc_fktimes(this)
     class(TeleData), intent(inout) :: this

@@ -21,7 +21,7 @@ module syn_data
     character(len=MAX_STRING_LEN) :: band_name
     integer :: dat_win
     contains
-    procedure :: read=>read_syn_data, rotate_to_rt, filter
+    procedure :: read=>read_syn_data, rotate_to_rt, filter, assemble_2d, assemble_3d
     procedure :: finalize
 
   end type SynData
@@ -101,6 +101,116 @@ contains
     call sync_from_main_rank_dp_3d(this%data, NSTEP, NCOMP, nrec)
 
   end subroutine read_syn_data
+
+  subroutine assemble_2d(this, array_local, array_global)
+    class(SynData), intent(inout) :: this
+    real(kind=dp), dimension(:,:), intent(in) :: array_local
+    real(kind=dp), dimension(:,:), allocatable, intent(out) :: array_global
+    integer :: irec, irec_local, nsta_irank, iproc, i
+    real(kind=dp), dimension(:,:), allocatable :: recv_buffer
+    integer, dimension(:), allocatable :: recv_indices, send_indices
+
+    if (.not. allocated(array_global)) allocate(array_global(NSTEP, nrec))
+    array_global = 0.0_dp
+
+    if (worldrank == 0) then
+      if (nrec_local > 0) then
+        do irec_local = 1, nrec_local
+          irec = number_receiver_global(irec_local)
+          array_global(:, irec) = array_local(:, irec_local)
+        enddo
+      endif
+      do iproc = 1, worldsize-1
+        nsta_irank=0
+        do irec = 1, nrec
+          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
+        enddo
+      
+        if (nsta_irank > 0) then
+          allocate(recv_buffer(NSTEP, nsta_irank))  ! Allocate a buffer to receive data
+          allocate(recv_indices(nsta_irank)) 
+          ! Receive the indices first
+          call recv_i(recv_indices, nsta_irank, iproc, targ)
+          ! Receive the data
+          call recv_dp(recv_buffer, NSTEP*nsta_irank, iproc, targ)
+          ! Copy the received data to the correct location
+          do i = 1, nsta_irank
+            irec = recv_indices(i)
+            array_global(:, irec) = recv_buffer(:, i)
+          enddo
+          deallocate(recv_buffer)
+          deallocate(recv_indices)
+        endif
+      enddo
+    else
+      if (nrec_local > 0) then
+        allocate(send_indices(nrec_local))
+        do irec_local = 1, nrec_local
+          send_indices(irec_local) = number_receiver_global(irec_local)
+        enddo
+        call send_i(send_indices, nrec_local, 0, targ)
+        call send_dp(array_local(:, :), NSTEP*nrec_local, 0, targ)
+        deallocate(send_indices)
+      endif
+    endif
+    call bcast_all_dp(array_global, NSTEP*nrec)
+
+  end subroutine assemble_2d
+
+  subroutine assemble_3d(this, array_local, array_global, nc)
+    class(SynData), intent(inout) :: this
+    real(kind=dp), dimension(:,:,:), intent(in) :: array_local
+    real(kind=dp), dimension(:,:,:), allocatable, intent(out) :: array_global
+    integer, intent(in) :: nc
+    integer :: irec, irec_local, nsta_irank, iproc, i
+    real(kind=dp), dimension(:,:,:), allocatable :: recv_buffer
+    integer, dimension(:), allocatable :: recv_indices, send_indices
+
+    if (.not. allocated(array_global)) allocate(array_global(NSTEP, nc, nrec))
+    array_global = 0.0_dp
+
+    if (worldrank == 0) then
+      if (nrec_local > 0) then
+        do irec_local = 1, nrec_local
+          irec = number_receiver_global(irec_local)
+          array_global(:, :, irec) = array_local(:, :, irec_local)
+        enddo
+      endif
+      do iproc = 1, worldsize-1
+        nsta_irank=0
+        do irec = 1, nrec
+          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
+        enddo
+      
+        if (nsta_irank > 0) then
+          allocate(recv_buffer(NSTEP, NCOMP, nsta_irank))  ! Allocate a buffer to receive data
+          allocate(recv_indices(nsta_irank)) 
+          ! Receive the indices first
+          call recv_i(recv_indices, nsta_irank, iproc, targ)
+          ! Receive the data
+          call recv_dp(recv_buffer, NSTEP*NCOMP*nsta_irank, iproc, targ)
+          ! Copy the received data to the correct location
+          do i = 1, nsta_irank
+            irec = recv_indices(i)
+            array_global(:, :, irec) = recv_buffer(:, :, i)
+          enddo
+          deallocate(recv_buffer)
+          deallocate(recv_indices)
+        endif
+      enddo
+    else
+      if (nrec_local > 0) then
+        allocate(send_indices(nrec_local))
+        do irec_local = 1, nrec_local
+          send_indices(irec_local) = number_receiver_global(irec_local)
+        enddo
+        call send_i(send_indices, nrec_local, 0, targ)
+        call send_dp(array_local(:, :, :), NSTEP*NCOMP*nrec_local, 0, targ)
+        deallocate(send_indices)
+      endif
+    endif
+    call bcast_all_dp(array_global, NSTEP*NCOMP*nrec)
+  end subroutine assemble_3d
 
   subroutine rotate_to_rt(this, baz)
     class(SynData), intent(inout) :: this

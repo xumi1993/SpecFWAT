@@ -2,6 +2,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/include
 )
 
+add_subdirectory(telesubs)
+
 # object libraries of specfem_interface
 file(GLOB SOURCES_SPECFEM_API "specfem_interface/*.f90")
 add_library(specfem_api_objs OBJECT ${SOURCES_SPECFEM_API})
@@ -11,7 +13,8 @@ target_link_libraries(specfem_api_objs PRIVATE specfem3D_objs shared_fwat_objs)
 file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
-target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs specfem_api_objs cuda_objs)
+target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
+                      specfem_api_objs cuda_objs tele_objs)
 
 # executables
 set(APP_SOURCES
@@ -25,7 +28,9 @@ foreach(execsourcefile ${APP_SOURCES})
   )
 
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
-  target_link_libraries(${EXEC_NAME} PUBLIC preproc_objs shared_fwat_objs shared_objs cuda_objs specfem3D_objs specfem_api_objs)
+  target_link_libraries(${EXEC_NAME} PUBLIC preproc_objs shared_fwat_objs
+                        shared_objs cuda_objs specfem3D_objs
+                        specfem_api_objs tele_objs)
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)
   endif()

@@ -13,6 +13,12 @@ foreach(execsourcefile ${APP_SOURCES})
     set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
     set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
     target_link_libraries(${EXEC_NAME} PRIVATE specfem3D_objs shared_objs shared_fwat_objs
-         cuda_objs cuda_kernels_objs fortran-yaml project_lib
-         ${MPI_LIBRARIES} ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES} ${YAML_CPP_LIBRARIES})
+                                        cuda_objs fortran-yaml project_lib
+                                        ${MPI_LIBRARIES} ${YAML_CPP_LIBRARIES})
+    if (USE_CUDA)
+        target_link_libraries(${EXEC_NAME} PRIVATE cuda_kernels_objs)
+    endif()
+    if (USE_HDF5)
+        target_link_libraries(${EXEC_NAME} PRIVATE ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES})
+    endif()
 endforeach()

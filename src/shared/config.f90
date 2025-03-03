@@ -39,6 +39,9 @@ module fwat_constants
   real(kind=cr), parameter :: rad2deg = 180.0 / PI
   real(kind=cr), parameter :: km2deg = 1.0 /(6371.0d0*pi/180.0d0)
 
+  ! meas_adj
+  integer, parameter :: NITER = 300
+
 end module fwat_constants
 
 module config

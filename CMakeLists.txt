@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.20)
 set(CMAKE_PROJECT_NAME "SpecFWI")
 set(project_version 0.1.0)
 
-
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
 # - CUDA 5 for Kepler,  like K20
@@ -32,6 +31,15 @@ else()
   project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran)
   message(STATUS "SpecFWI is compiled without cuda, because -DUSE_CUDA=True is not defined")
 endif()
+
+# setup LAPACK and BLAS
+find_package(LAPACK REQUIRED)
+message(STATUS "LAPACK_FOUND: ${LAPACK_FOUND}")
+message(STATUS "LAPACK_LIBRARIES: ${LAPACK_LIBRARIES}")
+
+find_package(BLAS REQUIRED)
+message(STATUS "BLAS_FOUND: ${BLAS_FOUND}")
+message(STATUS "BLAS_LIBRARIES: ${BLAS_LIBRARIES}")
 
 # setup MPI
 find_package(MPI REQUIRED Fortran)

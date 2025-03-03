@@ -124,6 +124,152 @@ contains
 
   end subroutine myconvolution_dp
 
+
+  ! Convolution routine
+  subroutine myconvolution(sig1,sig2,conv,part)
+
+    integer, intent(in) :: part
+
+    real(kind=cr), dimension(:), intent(in) :: sig1
+    real(kind=cr), dimension(:), intent(in) :: sig2
+
+!     real(kind=cp), dimension(n1), intent(out) ::conv
+    real(kind=cr), dimension(:), allocatable, intent(inout) ::conv
+
+    real(kind=cr), dimension(:), allocatable :: convtmp !, intent(out) :: conv
+
+    integer :: i1, i2, ind, n1, n2
+
+    n1 = size(sig1)
+    n2 = size(sig2)
+    allocate(convtmp(n1+n2-1))
+
+    !*** Put to zero
+    convtmp = 0.0_cr
+
+    !*** Convolve
+    do i1=1,n1
+      do i2=1,n2
+          convtmp(i1+i2-1) = convtmp(i1+i2-1) + sig1(i1) * sig2(i2)
+      enddo
+    enddo
+
+    if (part == 0) then !(middle regular)
+      !*** Take good parts (this is wrong...)
+      if (modulo(n2,2) == 0) then
+          ind = n2/2+1
+      else
+          ind = ceiling(real(n2/2,kind=cr))
+      endif
+      if (.not. allocated(conv)) allocate(conv(n2))
+      conv(1:n2) = convtmp(ind:ind+n2-1)
+
+    else if (part == 1) then ! full convolution
+
+      if (.not. allocated(conv)) allocate(conv(n1+n2-1))
+      conv(:) = convtmp(:)
+
+    else if (part == 2) then !(middle irregular)
+      if (.not. allocated(conv)) allocate(conv(n2))
+      conv(1:n2) = convtmp(n2:n2+n2-1)
+    endif
+
+  end subroutine myconvolution
+
+
+  subroutine mycorrelation(sig1,sig2,corr,part)
+
+    integer, intent(in) :: part
+
+    real(kind=cr), dimension(:), intent(in) :: sig1
+    real(kind=cr), dimension(:), intent(in) :: sig2
+
+!     real(kind=cp), dimension(n1), intent(out) :: corr
+    real(kind=cr), dimension(:), allocatable, intent(inout) :: corr
+
+    real(kind=cr), dimension(:), allocatable :: flipsig2
+    integer :: i, n1, n2
+
+    n1 = size(sig1)
+    n2 = size(sig2)
+    allocate(flipsig2(n2))
+    flipsig2 = 0._cr
+
+    !*** Choose size of corr
+    if (part == 0) then !(middle)
+      if (.not. allocated(corr)) allocate(corr(n2))
+    else if (part == 1) then !(full)
+      if (.not. allocated(corr)) allocate(corr(n1+n2-1))
+    endif
+
+    !*** Flip second signal
+    do i=1,n2
+      flipsig2(i) = sig2(n2-i+1)
+    enddo
+
+    !*** Use regular convolution
+    call myconvolution(sig1,flipsig2,corr,part)
+
+  end subroutine mycorrelation
+
+  !================================================================================
+! Iterative time domain deconvolution
+  subroutine time_deconv(dobs,dcal,dt,nt,nit,src_sum)
+
+    integer, intent(in) :: nt, nit
+    integer             :: i, ii
+    integer, parameter  :: part=0
+
+    real(kind=cr), intent(in) :: dt
+    real(kind=cr)             :: amp_corr
+
+    real(kind=cr), dimension(nt), intent(in)    :: dobs, dcal
+    real(kind=cr), dimension(:), allocatable, intent(inout) :: src_sum
+
+    real(kind=cr), dimension(:), allocatable :: dobs2, autocorr, crosscorr, new_obs, src_one
+
+
+    !* 0. Alloctae
+    if (.not. allocated(autocorr))  allocate(autocorr(nt))
+    if (.not. allocated(crosscorr)) allocate(crosscorr(nt))
+    if (.not. allocated(src_sum))   allocate(src_sum(nt))
+    if (.not. allocated(src_one))   allocate(src_one(nt))
+    if (.not. allocated(dobs2))     allocate(dobs2(nt))
+    if (.not. allocated(new_obs))   allocate(new_obs(nt))
+    src_sum = 0._cr
+    src_one = 0._cr
+
+    !* 1. Estimate auto-corr of computed data
+    call mycorrelation(dcal,dcal,autocorr,part)
+    autocorr = autocorr * dt
+    amp_corr = 1._cr / maxval(abs(autocorr))
+   !  write(*,*) 'amp_corr',amp_corr
+
+    !* 2. Time iteration to estimate sources
+    dobs2 = dobs
+    do i = 1, nit
+
+       !* Compute correlation
+       call mycorrelation(dobs2,dcal,crosscorr,part)
+       crosscorr = crosscorr * dt
+
+       !* Find maximum of correlation
+       ii = maxloc(abs(crosscorr),dim=1)
+
+       !* Put local contibution to src_one and src_sum
+       src_one     = 0._cr
+       src_one(ii) = crosscorr(ii) * amp_corr
+       src_sum     = src_sum + src_one
+
+       !* Convolve
+       call myconvolution(src_one,dcal,new_obs,part)
+       new_obs = new_obs * dt
+       dobs2 = dobs2 - new_obs
+
+    enddo
+
+  end subroutine time_deconv
+
   subroutine detrend(x)
     implicit none
     real(kind=dp), dimension(:) :: x

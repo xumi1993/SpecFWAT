@@ -24,6 +24,10 @@ module utils
     module procedure zeros1, zeros2, zeros3, zeros4
   end interface zeros
 
+  interface zeros_dp
+    module procedure zeros1_dp, zeros2_dp, zeros3_dp, zeros4_dp
+  end interface zeros_dp
+
   interface ones
     module procedure ones1, ones2, ones3
   end interface ones
@@ -289,6 +293,65 @@ end function
     ! end if
     return
   end function zeros4
+
+  pure function zeros1_dp(dim1)
+    real(kind = DPRE), dimension(:), allocatable :: zeros1_dp
+    integer(kind = IPRE), intent(in) :: dim1
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros1_dp(dim1), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   stop "Error: in zeros, could not allocate array."
+    ! else
+    zeros1_dp = 0.0d0
+    ! end if
+    return
+  end function zeros1_dp
+
+  pure function zeros2_dp(dim1, dim2)
+    real(kind = DPRE), dimension(:,:), allocatable :: zeros2_dp
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros2_dp(dim1, dim2), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros2_dp = 0.0d0
+    ! end if
+    return
+  end function zeros2_dp
+
+  pure function zeros3_dp(dim1, dim2, dim3)
+    real(kind = DPRE), dimension(:,:,:), allocatable :: zeros3_dp
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros3_dp(dim1, dim2, dim3), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros3_dp = 0.0d0
+    ! end if
+    return
+  end function zeros3_dp
+
+  pure function zeros4_dp(dim1, dim2, dim3, dim4)
+    real(kind = DPRE), dimension(:,:,:,:), allocatable :: zeros4_dp
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros4_dp(dim1, dim2, dim3, dim4), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros4_dp = 0.0_dp
+    ! end if
+    return
+  end function zeros4_dp
 
 !=======================================================================
 ! ones
