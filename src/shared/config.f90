@@ -78,7 +78,7 @@ module ma_constants
   real(kind=dp), parameter :: LARGE_VAL = 1.0d8
 
   ! FFT parameters
-  integer, parameter :: LNPT = 16, NPT = 2**LNPT, NDIM = 80000
+  integer, parameter :: LNPT = 16, NPT = 2**LNPT, NDIM_MA = 80000
   real(kind=dp), parameter :: FORWARD_FFT = 1.0
   real(kind=dp), parameter :: REVERSE_FFT = -1.0
 

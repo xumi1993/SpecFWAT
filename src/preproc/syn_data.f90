@@ -255,6 +255,29 @@ contains
 
   end subroutine filter
 
+  function average_amp_scale(glob_dat_tw, icomp) result(avgamp)
+    real(kind=cr) :: avgamp
+    real(kind=cr) :: avgamp0
+    integer :: igood, icomp, irec
+    real(kind=dp), dimension(:,:,:)   :: glob_dat_tw
+
+    ! use only Z component for amplitude scale
+    avgamp0=0.
+    do irec =1 ,nrec
+      avgamp0=avgamp0+maxval(abs(glob_dat_tw(:,icomp,irec))) 
+    enddo
+    avgamp0=avgamp0/nrec
+    avgamp=0
+    igood=0
+    do irec =1, nrec
+      if ((maxval(abs(glob_dat_tw(:,icomp,irec)))-avgamp0)<0.2*avgamp0) then
+        avgamp=avgamp+maxval(abs(glob_dat_tw(:,icomp,irec)))
+        igood=igood+1
+      endif
+    enddo
+    avgamp=avgamp/igood
+  end function average_amp_scale
+
   subroutine finalize(this)
     class(SynData), intent(inout) :: this
 

@@ -3,7 +3,7 @@ module tele_data
   use ma_constants
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
-  use syn_data, only: SynData
+  use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
   use fk_coupling
@@ -286,29 +286,6 @@ contains
                      1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
 
   end subroutine deconv_for_stf
-
-  function average_amp_scale(glob_dat_tw, icomp) result(avgamp)
-    real(kind=cr) :: avgamp
-    real(kind=cr) :: avgamp0
-    integer :: igood, icomp, irec
-    real(kind=dp), dimension(:,:,:)   :: glob_dat_tw
-
-    ! use only Z component for amplitude scale
-    avgamp0=0.
-    do irec =1 ,nrec
-      avgamp0=avgamp0+maxval(abs(glob_dat_tw(:,icomp,irec))) 
-    enddo
-    avgamp0=avgamp0/nrec
-    avgamp=0
-    igood=0
-    do irec =1, nrec
-      if ((maxval(abs(glob_dat_tw(:,icomp,irec)))-avgamp0)<0.2*avgamp0) then
-        avgamp=avgamp+maxval(abs(glob_dat_tw(:,icomp,irec)))
-        igood=igood+1
-      endif
-    enddo
-    avgamp=avgamp/igood
-  end function average_amp_scale
 
   subroutine calc_fktimes(this)
     class(TeleData), intent(inout) :: this
