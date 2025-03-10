@@ -61,7 +61,10 @@ module config
   real(kind=cr), dimension(:,:,:,:,:), allocatable :: sum_cijkl_kl 
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_mu_kl 
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_kappa_kl 
-  real(kind=cr), dimension(:,:,:,:), allocatable :: sum_hess_kl 
+  real(kind=cr), dimension(:,:,:,:), allocatable :: sum_hess_kl
+
+  ! output
+  logical :: is_output_preproc, is_output_adj_src
 
 end module config
 

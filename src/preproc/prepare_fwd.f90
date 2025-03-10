@@ -21,7 +21,7 @@ module preproc_fwd
     integer :: ievt=0, run_mode
     contains
     procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
-    procedure, private :: initialize_kernel_matrice, semd2sac
+    procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj
   end type PrepareFWD
 
 contains
@@ -207,13 +207,21 @@ contains
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
 
-    if (run_mode /= 1) return
-
     if (dat_type == 'tele') then
       call td%semd2sac(this%ievt)
     endif
 
   end subroutine semd2sac
+
+  subroutine measure_adj(this)
+    class(PrepareFWD), intent(inout) :: this
+    type(TeleData) :: td
+    
+    if (dat_type == 'tele') then
+      call td%preprocess(this%ievt)
+    endif
+    
+  end subroutine measure_adj
 
   subroutine simulation(this)
     use specfem_api, only: InitSpecfem, FinalizeSpecfem, restore_rmass
@@ -242,10 +250,14 @@ contains
     ! save absobing boundary wavefields
     call FinalizeSpecfem()
 
-    if (this%run_mode == 1) then
+    if (this%run_mode == FORWARD_ONLY) then
       ! save simulation results
       call log%write('Writing synthetic data ...', .true.)
       call this%semd2sac()
+    elseif (this%run_mode == FORWARD_MEASADJ) then
+      ! save simulation results
+      call log%write('Measuring adjoint source ...', .true.)
+      call this%measure_adj()
     endif
   end subroutine simulation
 

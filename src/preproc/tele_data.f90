@@ -8,11 +8,11 @@ module tele_data
   use input_params, fpar => fwat_par_global
   use fk_coupling
   use fwat_mpi
-  use utils, only: zeros_dp, zeros
+  use utils, only: zeros_dp, zeros, interp1
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
-  use specfem_par, only: T0, nrec, nrec_local, &
+  use specfem_par, only: T0, nrec, nrec_local,OUTPUT_FILES, &
                         number_receiver_global, ispec_selected_rec, islice_selected_rec
 
   implicit none
@@ -25,7 +25,7 @@ module tele_data
     integer :: ttp_win
     contains
     procedure :: preprocess, calc_fktimes, semd2sac!, calc_stf
-    procedure, private :: deconv_for_stf, seis_pca
+    procedure, private :: deconv_for_stf, seis_pca, interp_data_to_syn
     procedure :: finalize
   end type TeleData
 
@@ -131,11 +131,14 @@ contains
     call this%read(ievt)
 
     call this%od%read_stations(this%ievt)
-    
+
+    call this%od%read_obs_data()
+
     call this%calc_fktimes()
 
     call synchronize_all()
-
+    
+    call log%write('Preprocessing', .true.)
     if (nrec_local > 0) then
       seismo_dat = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
       seismo_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
@@ -143,9 +146,11 @@ contains
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
-          seismo_inp = this%od%data(:, icomp, irec)
-          call interpolate_syn_dp(seismo_inp, dble(this%ttp(irec)), dble(this%od%dt),&
-                                  this%od%npts, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+          ! seismo_inp = this%od%data(:, icomp, irec)
+          ! call interpolate_syn_dp(seismo_inp, dble(this%od%tarr(irec)), dble(this%od%dt),&
+                                  ! this%od%npts, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+          call this%interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
+                                  dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
           call detrend(seismo_inp)
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, fpar%sim%nstep, dble(fpar%sim%dt),&
@@ -170,9 +175,22 @@ contains
     call this%assemble_3d(seismo_dat, seismo_dat_glob, fpar%sim%NRCOMP)
     call this%assemble_3d(seismo_syn, seismo_syn_glob, fpar%sim%NRCOMP)
     call this%assemble_2d(seismo_stf, seismo_stf_glob)
-
+    
     if (worldrank == 0) then
+      call log%write('Calculating STF', .true.)
       call this%seis_pca(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob, stf_array)
+      if (IS_OUTPUT_PREPROC) then
+        block
+          type(sachead) :: header
+          integer :: i
+          call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+          do i = 1, fpar%sim%NRCOMP
+            call sacio_writesac(trim(OUTPUT_FILES)//'/STF_'//trim(fpar%acqui%evtid_names(this%ievt))//&
+                                '_'//trim(fpar%sim%RCOMPS(i))//'.sac', header, stf_array(:, i), ier)
+            if (ier /= 0) call exit_MPI(0, 'Error writing STF file')
+          enddo
+        end block
+      endif
     else
       allocate(stf_array(fpar%sim%nstep, fpar%sim%NRCOMP))
     endif
@@ -181,6 +199,7 @@ contains
 
     ! interpolate observed data to synthetic data
     avgamp = average_amp_scale(seismo_dat_glob, 1)
+    print *, 'Average amplitude scale factor: ', avgamp
     call synchronize_all()
   
   end subroutine preprocess
@@ -328,5 +347,19 @@ contains
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
   end subroutine finalize
+
+  subroutine interp_data_to_syn(this, dat_in, tb, tarr, ttp, deltat, dat_out)
+    class(TeleData), intent(inout) :: this
+    real(kind=dp), dimension(:), intent(in) :: dat_in
+    real(kind=dp), intent(in) :: tarr, deltat, tb, ttp
+    real(kind=dp), dimension(:), allocatable, intent(out) :: dat_out
+    real(kind=dp), dimension(:), allocatable :: time_in, time_out
+    integer :: i
+    
+    time_in = [ (dble(i-1) * deltat, i=1, size(dat_in)) ] + tb - tarr + ttp
+    time_out = [ (dble(i-1) * fpar%sim%dt, i=1, fpar%sim%nstep) ] - T0
+    dat_out = interp1(time_in, dat_in, time_out, 0.0_dp)
+
+  end subroutine interp_data_to_syn
 
 end module tele_data

@@ -158,6 +158,12 @@ contains
   end subroutine assemble_2d
 
   subroutine assemble_3d(this, array_local, array_global, nc)
+    ! Assemble 3D array from local 3D array
+    ! Input:
+    !   array_local: local 3D array
+    !   nc: number of components
+    ! Output:
+    !   array_global: global 3D array
     class(SynData), intent(inout) :: this
     real(kind=dp), dimension(:,:,:), intent(in) :: array_local
     real(kind=dp), dimension(:,:,:), allocatable, intent(out) :: array_global
@@ -181,14 +187,14 @@ contains
         do irec = 1, nrec
           if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
         enddo
-      
+        print *, 'nsta_irank', nsta_irank, 'iproc', iproc
         if (nsta_irank > 0) then
-          allocate(recv_buffer(NSTEP, NCOMP, nsta_irank))  ! Allocate a buffer to receive data
+          allocate(recv_buffer(NSTEP, nc, nsta_irank))  ! Allocate a buffer to receive data
           allocate(recv_indices(nsta_irank)) 
           ! Receive the indices first
           call recv_i(recv_indices, nsta_irank, iproc, targ)
           ! Receive the data
-          call recv_dp(recv_buffer, NSTEP*NCOMP*nsta_irank, iproc, targ)
+          call recv_dp(recv_buffer, NSTEP*nc*nsta_irank, iproc, targ)
           ! Copy the received data to the correct location
           do i = 1, nsta_irank
             irec = recv_indices(i)
@@ -205,11 +211,11 @@ contains
           send_indices(irec_local) = number_receiver_global(irec_local)
         enddo
         call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(array_local(:, :, :), NSTEP*NCOMP*nrec_local, 0, targ)
+        call send_dp(array_local(:, :, :), NSTEP*nc*nrec_local, 0, targ)
         deallocate(send_indices)
       endif
     endif
-    call bcast_all_dp(array_global, NSTEP*NCOMP*nrec)
+    call bcast_all_dp(array_global, NSTEP*nc*nrec)
   end subroutine assemble_3d
 
   subroutine rotate_to_rt(this, baz)

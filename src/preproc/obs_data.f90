@@ -112,6 +112,8 @@ contains
 
     if (worldrank == 0) then
       ! read sample to get header info
+      ista = 1
+      icomp = 1
       if (dat_type /= 'rf') then
         sacfile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%netwk(ista))//'.'//trim(this%stnm(ista))//&
                   '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//'.sac'

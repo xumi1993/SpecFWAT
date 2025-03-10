@@ -891,7 +891,7 @@ end function
     integer(kind = IPRE) :: i, n
 
     n = size(xq)
-    vq = zeros(n)
+    vq = zeros_dp(n)
     do i = 1, n
       vq(i) = interp1_0(x, v, xq(i))
     end do
@@ -905,7 +905,7 @@ end function
     integer(kind = IPRE) :: i, n
 
     n = size(xq)
-    vq = zeros(n)
+    vq = zeros_dp(n)
     do i = 1, n
       vq(i) = interp1_0(x, v, xq(i))
       if (xq(i) < x(1)) vq(i) = fill_value

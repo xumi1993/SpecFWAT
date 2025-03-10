@@ -145,7 +145,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, tomo, rf
+    class(type_dictionary), pointer :: noise, tele, tomo, rf, output
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -233,6 +233,12 @@ contains
           call read_real_list(list, this%sim%rf%F0)
           this%sim%rf%NGAUSS = size(this%sim%rf%F0)
         endif
+
+        ! output
+        output => root%get_dictionary('OUTPUT', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        is_output_preproc = output%get_logical('IS_OUTPUT_PREPROC', error=io_err, default=.false.)
+        is_output_adj_src = output%get_logical('IS_OUTPUT_ADJ_SRC', error=io_err, default=.false.)
       end select
       call root%finalize()
       deallocate(root)
@@ -297,6 +303,8 @@ contains
     if (tele_par%rf%NGAUSS > 0) then
       call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
     endif
+    call bcast_all_singlel(IS_OUTPUT_PREPROC)
+    call bcast_all_singlel(IS_OUTPUT_ADJ_SRC)
 
     call synchronize_all()
 

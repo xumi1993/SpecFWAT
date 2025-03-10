@@ -29,3 +29,7 @@ TELE:
     MAXIT: 200 # Maximum number of iterations
     MINDERR: 0.001 # Minimum residual error when the RF converges
     TSHIFT: 5.0 # Time shift before P
+
+OUTPUT:
+  IS_OUTPUT_PREPROC: True # Output preprocessed data
+  IS_OUTPUT_ADJ_SRC: False # Output adjoint sources
