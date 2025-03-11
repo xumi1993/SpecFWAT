@@ -4,6 +4,7 @@ module syn_data
   use specfem_par, only: NSTEP, DT, ELASTIC_SIMULATION, seismograms_d, nrec, nrec_local, &
                         number_receiver_global, ispec_selected_rec, islice_selected_rec
   use specfem_par_elastic, only: ispec_is_elastic
+  use shared_parameters, only: SUPPRESS_UTM_PROJECTION
   use fwat_mpi
   use input_params, fpar => fwat_par_global
   use common_lib, only: rotate_NE_to_RT
@@ -17,15 +18,16 @@ module syn_data
   integer, parameter, private :: NCOMP=3
 
   type :: SynData
+    character(len=MAX_STRING_LEN), dimension(3) :: comp_name
     integer :: ievt, nrec
     type(ObsData) :: od
-    type(WindowChi) :: wchi
+    type(WindowChi), dimension(:), allocatable :: wchi
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp(zrt), nsta
     character(len=MAX_STRING_LEN) :: band_name
     integer :: dat_win
     contains
     procedure :: read=>read_syn_data, rotate_to_rt, filter, assemble_2d, assemble_3d
-    procedure :: finalize
+    procedure :: get_comp_name_adj, finalize
 
   end type SynData
 
@@ -286,11 +288,25 @@ contains
     avgamp=avgamp/igood
   end function average_amp_scale
 
+  subroutine get_comp_name_adj(this)
+    class(SynData), intent(inout) :: this
+    
+    if (SUPPRESS_UTM_PROJECTION) then
+      this%comp_name = ['Z', 'Y', 'X']
+    else
+      this%comp_name = ['Z', 'N', 'E']
+    endif
+
+  end subroutine get_comp_name_adj
+
   subroutine finalize(this)
     class(SynData), intent(inout) :: this
+    integer :: i
 
     call this%od%finalize()
-    call this%wchi%finalize()
+    do i = 1, size(this%wchi)
+      call this%wchi(i)%finalize()
+    enddo
     call free_shm_array(this%dat_win)
 
   end subroutine finalize

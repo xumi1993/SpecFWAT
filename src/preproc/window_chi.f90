@@ -9,7 +9,7 @@ module window_chi
   implicit none
 
   type, public :: WindowChi
-    integer :: nrow, ncol = 12+NCHI
+    integer :: nrow, ncol = 12+NCHI, FID
     real(kind=dp), dimension(:,:), pointer :: chi
     real(kind=dp), dimension(:), pointer :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
     character(len=MAX_STR_CHI), dimension(:), pointer :: evtid,sta,net,chan
@@ -19,8 +19,11 @@ module window_chi
   end type WindowChi
 
 contains
-  subroutine init_window_chi(this)
+  subroutine init_window_chi(this, ievt, band_name)
     class(WindowChi), intent(inout) :: this
+    character(len=MAX_STRING_LEN) :: chifile
+    character(len=*), intent(in) :: band_name
+    integer :: ievt
     
     this%nrow = nrec
     call prepare_shm_array_dp_2d(this%chi, nrec, NCHI, this%win_chi)
@@ -32,7 +35,12 @@ contains
     call prepare_shm_array_ch_1d(this%sta, nrec, MAX_STR_CHI, this%win_sta)
     call prepare_shm_array_ch_1d(this%net, nrec, MAX_STR_CHI, this%win_net)
     call prepare_shm_array_ch_1d(this%chan, nrec, MAX_STR_CHI, this%win_chan)
-  
+    chifile = trim(MISFITS_DIR)//'/'//trim(model_name)//'.'//&
+              trim(fpar%acqui%evtid_names(ievt))//'_'//trim(band_name)//&
+              '_window_chi'
+    if (worldrank == 0) open(newunit=this%FID, file=chifile, status='unknown')
+    call synchronize_all()
+
   end subroutine init_window_chi
 
   function get_column(this, col) result(array)
@@ -123,7 +131,8 @@ contains
 
   subroutine finalize(this)
     class(WindowChi), intent(inout) :: this
-
+    
+    if (worldrank == 0) close(this%FID)
     call free_shm_array(this%win_chi)
     call free_shm_array(this%win_tr)
     call free_shm_array(this%win_am)

@@ -33,14 +33,6 @@ contains
 
     this%run_mode = run_mode
 
-    ! if (this%ievt == 0) then
-    !   call log%write('ERROR: Event index not set', .true.)
-    !   call exit_MPI(0, 'ERROR: Event index not set')
-    ! else if (this%ievt > fpar%acqui%nevents) then
-    !   call log%write('ERROR: Event index out of range', .true.)
-    !   call exit_MPI(0, 'ERROR: Event index out of range')
-    ! endif
-
     if (single_run) then
       if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
       call log%init(trim(fpar%acqui%out_fwd_path(this%ievt))//'/output_fwd_measure_adj.log')
@@ -181,8 +173,9 @@ contains
     else if (simu_type == SIMU_TYPE_NOISE) then
       USE_FORCE_POINT_SOURCE = .true.
       COUPLE_WITH_INJECTION_TECHNIQUE=.false.
-    ! else
-    !   call exit_MPI(worldrank, 'Unknown simulation type')
+      if (dat_type == 'rf') then
+        fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
+      endif
     endif
     source_fname = fpar%acqui%src_solution_file(this%ievt)
     station_fname = fpar%acqui%station_file(this%ievt)

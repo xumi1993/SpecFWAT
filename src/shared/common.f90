@@ -56,6 +56,58 @@ contains
   
   end subroutine rotate_NE_to_RT
 
+  subroutine rotate_NE_to_RT_dp(vn,ve,vr,vt,bazi)
+  
+    real(kind=cr),   intent(in) :: bazi
+    real(kind=dp), dimension(:),  intent(in) :: vn, ve
+    real(kind=dp), dimension(:), intent(out) :: vr, vt
+    real(kind=cr) :: baz
+    integer :: it, nt
+
+    nt = size(vn)
+    baz = deg2rad * bazi
+
+    do it = 1, nt
+      vr(it) = -ve(it) * sin(baz) - vn(it) * cos(baz)
+      vt(it) = -ve(it) * cos(baz) + vn(it) * sin(baz)
+    enddo
+  
+  end subroutine rotate_NE_to_RT_dp
+
+  subroutine rotate_R_to_NE(vr, vn, ve, bazi)
+    real(kind=cr), dimension(:), intent(in) :: vr
+    real(kind=cr), intent(in) :: bazi
+    real(kind=cr), dimension(:), intent(out) :: ve, vn
+    real(kind=cr), dimension(:), allocatable :: vt
+    real(kind=cr) :: baz
+    integer :: it, nt
+
+    nt = size(vr)
+    allocate(vt(nt))
+    vt = 0.0_cr
+    baz = 360.0 - bazi
+
+    call rotate_NE_to_RT(vr, vt, ve, vn, baz)  
+    
+  end subroutine rotate_R_to_NE
+
+  subroutine rotate_R_to_NE_dp(vr, vn, ve, bazi)
+    real(kind=dp), dimension(:), intent(in) :: vr
+    real(kind=cr), intent(in) :: bazi
+    real(kind=dp), dimension(:), intent(out) :: ve, vn
+    real(kind=dp), dimension(:), allocatable :: vt
+    real(kind=cr) :: baz
+    integer :: it, nt
+
+    nt = size(vr)
+    allocate(vt(nt))
+    vt = 0.0_dp
+    baz = 360.0 - bazi
+
+    call rotate_NE_to_RT_dp(vr, vt, ve, vn, baz)  
+    
+  end subroutine rotate_R_to_NE_dp
+
   subroutine get_band_name(SHORT_P, LONG_P, bandname)
     real :: SHORT_P, LONG_P, fl, fh
     character(len=MAX_STRING_LEN), intent(out) :: bandname
@@ -76,5 +128,25 @@ contains
     bandname = trim(bandstr1)//'_'//trim(bandstr2)
 
   end subroutine get_band_name
+
+  subroutine dwascii(fname,data,npt,b,dt)
+
+    character(len=*),intent(in) :: fname
+    integer, intent(in) :: npt
+    real(kind=dp), intent(in) :: data(*)
+    real(kind=dp), intent(in) :: b,dt
+    integer :: ios,i
+
+    open(9,file=trim(fname),iostat=ios,status='unknown')
+    if (ios /= 0) then
+       print *,'Error opening ascii file to write: ',trim(fname)
+       call exit_MPI(worldrank, 'Error opening ascii file to write')
+    endif
+    do i = 1,npt
+       write(9,*) b + dt*(i-1), data(i)
+    enddo
+    close(9)
+
+  end subroutine dwascii
 
 end module common_lib

@@ -1,7 +1,7 @@
 module tele_data
   use config
   use ma_constants
-  use common_lib, only: get_band_name
+  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
   use syn_data, only: SynData, average_amp_scale
@@ -125,8 +125,8 @@ contains
     integer, intent(in) :: ievt
     integer :: irec, irec_local, icomp
     real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat,&
-         seismo_syn, seismo_dat_glob, seismo_syn_glob, adj_src
-    real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob, stf_array
+         seismo_syn, seismo_dat_glob, seismo_syn_glob
+    real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob, stf_array, adj_src
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
     real(kind=cr) :: avgamp
 
@@ -139,12 +139,15 @@ contains
     ! read observed data
     call this%od%read_obs_data()
 
+    call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
+
     ! initialize misfits
-    call this%wchi%init()
+    allocate(this%wchi(1))
+    call this%wchi(1)%init(ievt, this%band_name)
+
+    call this%get_comp_name_adj()
 
     call this%calc_fktimes()
-
-    call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
 
     call synchronize_all()
     
@@ -156,9 +159,6 @@ contains
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
-          ! seismo_inp = this%od%data(:, icomp, irec)
-          ! call interpolate_syn_dp(seismo_inp, dble(this%od%tarr(irec)), dble(this%od%dt),&
-                                  ! this%od%npts, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
           call this%interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
                                   dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
           call detrend(seismo_inp)
@@ -213,7 +213,6 @@ contains
 
     ! convolution with STF
     if (nrec_local > 0) then
-      adj_src = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
@@ -223,7 +222,7 @@ contains
             character(len=MAX_STRING_LEN) :: sacfile, file_prefix
             real(kind=dp), dimension(:), allocatable :: seismo_syn_local
             real(kind=dp), dimension(NCHI) :: window_chi
-            real(kind=dp), dimension(NDIM_MA) :: adj_src_local
+            real(kind=dp), dimension(NDIM_MA) :: adj_syn_local
             real(kind=dp) :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
             integer :: out_imeas
 
@@ -248,8 +247,26 @@ contains
             call measure_adj_fwat(seismo_dat(:, icomp, irec_local), seismo_syn(:, icomp, irec_local),&
                                   tstart, tend, dble(-t0),dble(DT), NSTEP, this%od%netwk(irec), this%od%stnm(irec),&
                                   fpar%sim%CH_CODE, window_chi, tr_chi,am_chi, T_pmax_dat,T_pmax_syn,&
-                                  adj_src_local, file_prefix, out_imeas, this%band_name)
-            ! adj_src(:, icomp, irec_local) = adj_src_local(1:NSTEP)
+                                  adj_syn_local, file_prefix, out_imeas, this%band_name)
+            select case (icomp)
+            case (1)
+              ! adj_src(:, 1, irec_local) = adj_syn_local(1:NSTEP)
+              sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+                        '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                        '.'//trim(fpar%sim%CH_CODE)//trim(this%comp_name(1))//'.adj'
+              call dwascii(sacfile, adj_syn_local(1:NSTEP), NSTEP, -dble(T0), dble(DT))
+            case (2)
+              adj_src = zeros_dp(fpar%sim%nstep, 2)
+              call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 1), adj_src(:, 2), this%baz)
+              sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+                        '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                        '.'//trim(fpar%sim%CH_CODE)//trim(this%comp_name(2))//'.adj'
+              call dwascii(sacfile, adj_src(:, 1), NSTEP, -dble(T0), dble(DT))
+              sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+                        '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                        '.'//trim(fpar%sim%CH_CODE)//trim(this%comp_name(3))//'.adj'
+              call dwascii(sacfile, adj_src(:, 2), NSTEP, -dble(T0), dble(DT))
+            end select
           end block
         enddo
       enddo
