@@ -814,251 +814,251 @@ subroutine measure_adj()
 
  end subroutine measure_adj
 
-  subroutine measure_adj_rf_data(data,tstart,tend,t0,tp,dt,npts,f0,tshift,net,sta,chan_dat,&
-                                bandname,adj_r_tw, adj_z_tw)
-    use decon_mod
-    use interpolation_mod, only : PI
+  ! subroutine measure_adj_rf_data(data,tstart,tend,t0,tp,dt,npts,f0,tshift,net,sta,chan_dat,&
+  !                               bandname,adj_r_tw, adj_z_tw)
+  !   use decon_mod
+  !   use interpolation_mod, only : PI
 
-    implicit none
-    integer, intent(in)                                :: npts
-    character(len=MAX_STRING_LEN), intent(in)          :: bandname
-    double precision, dimension(npts), intent(in)      :: data
-    character(len=10), intent(in)                      :: net, sta,chan_dat
-    integer                                            :: nstart, nend, nb, i, n
-    double precision, intent(in)                       :: tstart, tend,t0, dt, tp
-    real, intent(in)                                   :: f0, tshift
-    double precision, dimension(npts)                  :: adj_r, adj_z, syn
-    double precision, dimension(npts), intent(inout)   :: adj_r_tw, adj_z_tw
-    character(len=MAX_STRING_LEN)                      :: adj_file_prefix
-    double precision                                   :: fac
+  !   implicit none
+  !   integer, intent(in)                                :: npts
+  !   character(len=MAX_STRING_LEN), intent(in)          :: bandname
+  !   double precision, dimension(npts), intent(in)      :: data
+  !   character(len=10), intent(in)                      :: net, sta,chan_dat
+  !   integer                                            :: nstart, nend, nb, i, n
+  !   double precision, intent(in)                       :: tstart, tend,t0, dt, tp
+  !   real, intent(in)                                   :: f0, tshift
+  !   double precision, dimension(npts)                  :: adj_r, adj_z, syn
+  !   double precision, dimension(npts), intent(inout)   :: adj_r_tw, adj_z_tw
+  !   character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+  !   double precision                                   :: fac
 
-    adj_r_tw(:) = 0.
-    adj_z_tw(:) = 0.
-    syn(:) = 0.
+  !   adj_r_tw(:) = 0.
+  !   adj_z_tw(:) = 0.
+  !   syn(:) = 0.
 
-    nstart = floor((-tstart + tshift)/dt+1)
-    nend = floor((tend + tshift)/dt+1)
-    nb = floor((tp - tshift - t0)/dt+1)
-    adj_r = -data(1:npts)
-    syn(int(tshift/dt+1)) = 1.
-    adj_z = 0.
-    call deconit(syn, syn, npts, real(dt), tshift, f0, 10, 0.001, 0, adj_z)
-    adj_z = -adj_z
+  !   nstart = floor((-tstart + tshift)/dt+1)
+  !   nend = floor((tend + tshift)/dt+1)
+  !   nb = floor((tp - tshift - t0)/dt+1)
+  !   adj_r = -data(1:npts)
+  !   syn(int(tshift/dt+1)) = 1.
+  !   adj_z = 0.
+  !   call deconit(syn, syn, npts, real(dt), tshift, f0, 10, 0.001, 0, adj_z)
+  !   adj_z = -adj_z
 
-    n = 1
-    ! Cosine taper
-    do i = nstart, nend
-      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-      adj_r_tw(nb+i) = adj_r(i) * fac
-      adj_z_tw(nb+i) = adj_z(i) * fac
-      n = n+1
-    enddo
+  !   n = 1
+  !   ! Cosine taper
+  !   do i = nstart, nend
+  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+  !     adj_r_tw(nb+i) = adj_r(i) * fac
+  !     adj_z_tw(nb+i) = adj_z(i) * fac
+  !     n = n+1
+  !   enddo
 
-    ! write windowed adjoint source
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
+  !   ! write windowed adjoint source
+  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
+  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
+  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
+  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
 
-  end subroutine measure_adj_rf_data
+  ! end subroutine measure_adj_rf_data
 
 
-  subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, app_half_dura, npts, net,sta,&
-                                chan_dat, bandname, window_chi)
-    !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
-    use interpolation_mod, only : myconvolution, PI
-    use utils, only : zeros
+  ! subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, app_half_dura, npts, net,sta,&
+  !                               chan_dat, bandname, window_chi)
+  !   !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
+  !   use interpolation_mod, only : myconvolution, PI
+  !   use utils, only : zeros
 
-    implicit none
-    character(len=10), intent(in)                      :: net, sta,chan_dat
-    character(len=MAX_STRING_LEN), intent(in)          :: bandname
-    integer, intent(in)                                :: npts
-    double precision, dimension(NCHI), intent(inout)   :: window_chi
-    double precision, dimension(npts)                  :: adj_r_tw, adj_z_tw, adj_r, &
-                                                          adj_z, conv1_tw, conv2_tw
-    double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
-    double precision, intent(in)                       :: tstart, tend, app_half_dura
-    character(len=MAX_STRING_LEN)                      :: adj_file_prefix
-    real(kind=CUSTOM_REAL), dimension(:), allocatable  :: conv_full, conv_diff, conv1, conv2
-    double precision                                   :: fac
-    integer                                            :: n, nc, nn, nstart, nend,i, nmax, nmax2, nconv
+  !   implicit none
+  !   character(len=10), intent(in)                      :: net, sta,chan_dat
+  !   character(len=MAX_STRING_LEN), intent(in)          :: bandname
+  !   integer, intent(in)                                :: npts
+  !   double precision, dimension(NCHI), intent(inout)   :: window_chi
+  !   double precision, dimension(npts)                  :: adj_r_tw, adj_z_tw, adj_r, &
+  !                                                         adj_z, conv1_tw, conv2_tw
+  !   double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
+  !   double precision, intent(in)                       :: tstart, tend, app_half_dura
+  !   character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+  !   real(kind=CUSTOM_REAL), dimension(:), allocatable  :: conv_full, conv_diff, conv1, conv2
+  !   double precision                                   :: fac
+  !   integer                                            :: n, nc, nn, nstart, nend,i, nmax, nmax2, nconv
 
-    nc = maxloc(synz, dim=1)
-    nmax = int(app_half_dura/SPECFEM_DT)+nc
-    ! Todo: cross-correlation for time shift
-    ! conv1 = zeros(npts)
-    ! conv2 = zeros(npts)
-    ! conv_diff = zeros(npts)
-    ! conv_full = zeros(npts)
-    conv1_tw = 0.
-    conv2_tw = 0.
+  !   nc = maxloc(synz, dim=1)
+  !   nmax = int(app_half_dura/SPECFEM_DT)+nc
+  !   ! Todo: cross-correlation for time shift
+  !   ! conv1 = zeros(npts)
+  !   ! conv2 = zeros(npts)
+  !   ! conv_diff = zeros(npts)
+  !   ! conv_full = zeros(npts)
+  !   conv1_tw = 0.
+  !   conv2_tw = 0.
 
-    call myconvolution(real(datz),real(synr),npts,npts,conv1,1)
-    conv1 = conv1 * SPECFEM_DT
+  !   call myconvolution(real(datz),real(synr),npts,npts,conv1,1)
+  !   conv1 = conv1 * SPECFEM_DT
   
-    call myconvolution(real(datr),real(synz),npts,npts,conv2,1)
-    conv2 = conv2 * SPECFEM_DT
+  !   call myconvolution(real(datr),real(synz),npts,npts,conv2,1)
+  !   conv2 = conv2 * SPECFEM_DT
 
-    conv_diff = conv1-conv2
-    nconv = size(conv_diff)
+  !   conv_diff = conv1-conv2
+  !   nconv = size(conv_diff)
 
-    call myconvolution(real(datz),conv_diff,npts,nconv,conv_full,1)
-    nn = nmax*2
-    adj_r = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
-    deallocate(conv_full)
+  !   call myconvolution(real(datz),conv_diff,npts,nconv,conv_full,1)
+  !   nn = nmax*2
+  !   adj_r = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
+  !   deallocate(conv_full)
 
-    call myconvolution(-real(datr),conv_diff,npts,nconv,conv_full,1)
-    adj_z = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
+  !   call myconvolution(-real(datr),conv_diff,npts,nconv,conv_full,1)
+  !   adj_z = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
 
-    conv1 = conv1(nmax:nmax+npts-1)
-    conv2 = conv2(nmax:nmax+npts-1)
-    conv_diff = conv1-conv2
+  !   conv1 = conv1(nmax:nmax+npts-1)
+  !   conv2 = conv2(nmax:nmax+npts-1)
+  !   conv_diff = conv1-conv2
 
-    nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT+1)
-    nend = floor((tend + SPECFEM_T0)/SPECFEM_DT+1)
+  !   nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT+1)
+  !   nend = floor((tend + SPECFEM_T0)/SPECFEM_DT+1)
 
-    n = 1
-    ! Cosine taper
-    adj_r_tw(:) = 0.
-    adj_z_tw(:) = 0.
-    do i = nstart, nend
-      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-      conv1_tw(i) = dble(conv1(i)) * fac
-      conv2_tw(i) = dble(conv2(i)) * fac
-      adj_r_tw(i) = adj_r(i) * fac
-      adj_z_tw(i) = adj_z(i) * fac
-      n = n+1
-    enddo
+  !   n = 1
+  !   ! Cosine taper
+  !   adj_r_tw(:) = 0.
+  !   adj_z_tw(:) = 0.
+  !   do i = nstart, nend
+  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+  !     conv1_tw(i) = dble(conv1(i)) * fac
+  !     conv2_tw(i) = dble(conv2(i)) * fac
+  !     adj_r_tw(i) = adj_r(i) * fac
+  !     adj_z_tw(i) = adj_z(i) * fac
+  !     n = n+1
+  !   enddo
     
-    ! write windowed adjoint source
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
-                '.'//trim(bandname),adj_r_tw,npts,-SPECFEM_T0,SPECFEM_DT)
-    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
-                ! '.'//trim(bandname),adj_r,npts,-SPECFEM_T0,SPECFEM_DT)
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
-                '.'//trim(bandname),adj_z_tw,npts,-SPECFEM_T0,SPECFEM_DT)
-    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
-                ! '.'//trim(bandname),adj_z,npts,-SPECFEM_T0,SPECFEM_DT)
+  !   ! write windowed adjoint source
+  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
+  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
+  !               '.'//trim(bandname),adj_r_tw,npts,-SPECFEM_T0,SPECFEM_DT)
+  !   ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
+  !               ! '.'//trim(bandname),adj_r,npts,-SPECFEM_T0,SPECFEM_DT)
+  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
+  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
+  !               '.'//trim(bandname),adj_z_tw,npts,-SPECFEM_T0,SPECFEM_DT)
+  !   ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
+  !               ! '.'//trim(bandname),adj_z,npts,-SPECFEM_T0,SPECFEM_DT)
 
-    window_chi(:) = 0.
+  !   window_chi(:) = 0.
 
-    ! compute integrated waveform difference, normalized by duration of the record
-    ! NOTE: (1) this is for the FULL record, not the windowed record
-    !       (2) for comparison with waveform_chi, we include the 0.5 factor
-    !       (3) we might want to include dt as an integration factor (also for waveform_chi),
-    !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
-    window_chi(13) = 0.5 * sum( conv1_tw**2 )
-    window_chi(14) = 0.5 * sum( conv2_tw**2 )
-    window_chi(15) = 0.5 * sum( (conv1_tw-conv2_tw)**2 )
-    window_chi(16) = (nend - nstart +1) *SPECFEM_DT
-    window_chi(17) = 0.5 * sum( conv1**2 )
-    window_chi(18) = 0.5 * sum( conv2**2 )
-    window_chi(19) = 0.5 * sum( conv_diff**2 )
-    window_chi(20) = npts*SPECFEM_DT
+  !   ! compute integrated waveform difference, normalized by duration of the record
+  !   ! NOTE: (1) this is for the FULL record, not the windowed record
+  !   !       (2) for comparison with waveform_chi, we include the 0.5 factor
+  !   !       (3) we might want to include dt as an integration factor (also for waveform_chi),
+  !   !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
+  !   window_chi(13) = 0.5 * sum( conv1_tw**2 )
+  !   window_chi(14) = 0.5 * sum( conv2_tw**2 )
+  !   window_chi(15) = 0.5 * sum( (conv1_tw-conv2_tw)**2 )
+  !   window_chi(16) = (nend - nstart +1) *SPECFEM_DT
+  !   window_chi(17) = 0.5 * sum( conv1**2 )
+  !   window_chi(18) = 0.5 * sum( conv2**2 )
+  !   window_chi(19) = 0.5 * sum( conv_diff**2 )
+  !   window_chi(20) = npts*SPECFEM_DT
 
-    deallocate(conv1, conv2, conv_full, conv_diff)
-  end subroutine meas_adj_conv_diff
+  !   deallocate(conv1, conv2, conv_full, conv_diff)
+  ! end subroutine meas_adj_conv_diff
 
-  subroutine measure_adj_rf(data,syn,synr,synz,tstart,tend,t0,tp,dt,npts,f0,tshift,maxit,minderr,&
-                          net,sta,chan_dat, bandname, window_chi, adj_r_tw,adj_z_tw)
-    use decon_mod
-    use interpolation_mod, only : myconvolution, PI
+  ! subroutine measure_adj_rf(data,syn,synr,synz,tstart,tend,t0,tp,dt,npts,f0,tshift,maxit,minderr,&
+  !                         net,sta,chan_dat, bandname, window_chi, adj_r_tw,adj_z_tw)
+  !   use decon_mod
+  !   use interpolation_mod, only : myconvolution, PI
 
-    implicit none
-    character(len=10), intent(in)                      :: net, sta,chan_dat
-    character(len=MAX_STRING_LEN), intent(in)          :: bandname
-    integer, intent(in)                                :: npts, maxit
-    double precision, dimension(npts)                  :: adj_r, r_rev, z_rev, diff_data, &
-                                                          synr_shift, synz_shift, data_tw, &
-                                                          synt_tw, zrf, data_norm, syn_norm
-    double precision, dimension(npts), intent(in)      :: data, syn, synr, synz
-    double precision, intent(in)                       :: tstart, tend,t0, dt, tp
-    real, intent(in)                                   :: minderr, f0, tshift
-    double precision, dimension(npts), intent(inout)   :: adj_r_tw, adj_z_tw
-    double precision, dimension(NCHI), intent(inout)   :: window_chi
-    integer                                            :: nn,nb,nstart,nend,n,i
-    real, dimension(:), allocatable                    :: tmp_n, tmp_d
-    double precision, dimension(:), allocatable        :: adj_z
-    character(len=MAX_STRING_LEN)                      :: adj_file_prefix
-    double precision                                   :: fac
-    real                                               :: e
+  !   implicit none
+  !   character(len=10), intent(in)                      :: net, sta,chan_dat
+  !   character(len=MAX_STRING_LEN), intent(in)          :: bandname
+  !   integer, intent(in)                                :: npts, maxit
+  !   double precision, dimension(npts)                  :: adj_r, r_rev, z_rev, diff_data, &
+  !                                                         synr_shift, synz_shift, data_tw, &
+  !                                                         synt_tw, zrf, data_norm, syn_norm
+  !   double precision, dimension(npts), intent(in)      :: data, syn, synr, synz
+  !   double precision, intent(in)                       :: tstart, tend,t0, dt, tp
+  !   real, intent(in)                                   :: minderr, f0, tshift
+  !   double precision, dimension(npts), intent(inout)   :: adj_r_tw, adj_z_tw
+  !   double precision, dimension(NCHI), intent(inout)   :: window_chi
+  !   integer                                            :: nn,nb,nstart,nend,n,i
+  !   real, dimension(:), allocatable                    :: tmp_n, tmp_d
+  !   double precision, dimension(:), allocatable        :: adj_z
+  !   character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+  !   double precision                                   :: fac
+  !   real                                               :: e
 
-    call deconit(synz, synz, npts, real(dt), 10., f0, 10, 0.001, 0, zrf)
-    data_norm = data/maxval(zrf)
-    syn_norm = syn/maxval(zrf)
-    do i = 1, npts
-      synr_shift(i) = 0.
-      synz_shift(i) = 0.
-      r_rev(i) = 0.
-      z_rev(i) = 0.
-      adj_r(i) = 0.
-      diff_data(i) = 0.
-      adj_r_tw(i) = 0.
-      adj_z_tw(i) = 0.
-      data_tw(i) = 0.
-      synt_tw(i) = 0.
-    enddo
-    ! Align syn waveform with P
-    nb = floor((tp - tshift - t0)/dt+1)
-    synr_shift(1:npts-nb+1) = synr(nb:npts)
-    synz_shift(1:npts-nb+1) = synz(nb:npts)
+  !   call deconit(synz, synz, npts, real(dt), 10., f0, 10, 0.001, 0, zrf)
+  !   data_norm = data/maxval(zrf)
+  !   syn_norm = syn/maxval(zrf)
+  !   do i = 1, npts
+  !     synr_shift(i) = 0.
+  !     synz_shift(i) = 0.
+  !     r_rev(i) = 0.
+  !     z_rev(i) = 0.
+  !     adj_r(i) = 0.
+  !     diff_data(i) = 0.
+  !     adj_r_tw(i) = 0.
+  !     adj_z_tw(i) = 0.
+  !     data_tw(i) = 0.
+  !     synt_tw(i) = 0.
+  !   enddo
+  !   ! Align syn waveform with P
+  !   nb = floor((tp - tshift - t0)/dt+1)
+  !   synr_shift(1:npts-nb+1) = synr(nb:npts)
+  !   synz_shift(1:npts-nb+1) = synz(nb:npts)
 
-    ! Calculate RF adjoint source in time domain (J.H.E. de Jong et al., 2022)
-    e = real(npts * dt - tshift)
-    diff_data = syn_norm-data_norm
-    nn = npts*2-1
-    if (.not. allocated(tmp_n)) allocate(tmp_n(nn))
-    if (.not. allocated(tmp_d)) allocate(tmp_d(nn))
-    allocate(adj_z(nn))
-    tmp_n = 0.
-    tmp_d = 0.
-    adj_z = 0.
-    call reverse(synr_shift, npts, r_rev)
-    call reverse(synz_shift, npts, z_rev)
-    call deconit(diff_data, z_rev, npts, real(dt), e, f0, maxit, minderr, 1, adj_r)
-    call myconvolution(-real(diff_data),real(r_rev),npts,npts,tmp_n,1)
-    call myconvolution(real(z_rev),real(z_rev),npts,npts,tmp_d,1)
-    call deconit(dble(tmp_n), dble(tmp_d), nn, real(dt), e, f0, maxit, minderr, 1, adj_z)
-    deallocate(tmp_n)
-    deallocate(tmp_d)
-    nstart = floor((-tstart + tshift)/dt+1)
-    nend = floor((tend + tshift)/dt+1)
+  !   ! Calculate RF adjoint source in time domain (J.H.E. de Jong et al., 2022)
+  !   e = real(npts * dt - tshift)
+  !   diff_data = syn_norm-data_norm
+  !   nn = npts*2-1
+  !   if (.not. allocated(tmp_n)) allocate(tmp_n(nn))
+  !   if (.not. allocated(tmp_d)) allocate(tmp_d(nn))
+  !   allocate(adj_z(nn))
+  !   tmp_n = 0.
+  !   tmp_d = 0.
+  !   adj_z = 0.
+  !   call reverse(synr_shift, npts, r_rev)
+  !   call reverse(synz_shift, npts, z_rev)
+  !   call deconit(diff_data, z_rev, npts, real(dt), e, f0, maxit, minderr, 1, adj_r)
+  !   call myconvolution(-real(diff_data),real(r_rev),npts,npts,tmp_n,1)
+  !   call myconvolution(real(z_rev),real(z_rev),npts,npts,tmp_d,1)
+  !   call deconit(dble(tmp_n), dble(tmp_d), nn, real(dt), e, f0, maxit, minderr, 1, adj_z)
+  !   deallocate(tmp_n)
+  !   deallocate(tmp_d)
+  !   nstart = floor((-tstart + tshift)/dt+1)
+  !   nend = floor((tend + tshift)/dt+1)
 
-    n = 1
-    ! Cosine taper
-    do i = nstart, nend
-      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-      data_tw(i) = data_norm(i) * fac
-      synt_tw(i) = syn_norm(i) * fac
-      adj_r_tw(nb+i) = adj_r(i) * fac
-      adj_z_tw(nb+i) = adj_z(i) * fac
-      n = n+1
-    enddo
+  !   n = 1
+  !   ! Cosine taper
+  !   do i = nstart, nend
+  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+  !     data_tw(i) = data_norm(i) * fac
+  !     synt_tw(i) = syn_norm(i) * fac
+  !     adj_r_tw(nb+i) = adj_r(i) * fac
+  !     adj_z_tw(nb+i) = adj_z(i) * fac
+  !     n = n+1
+  !   enddo
 
-    ! write windowed adjoint source
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
-    window_chi(:) = 0.
+  !   ! write windowed adjoint source
+  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
+  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
+  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
+  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
+  !   window_chi(:) = 0.
 
-    ! compute integrated waveform difference, normalized by duration of the record
-    ! NOTE: (1) this is for the FULL record, not the windowed record
-    !       (2) for comparison with waveform_chi, we include the 0.5 factor
-    !       (3) we might want to include dt as an integration factor (also for waveform_chi),
-    !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
-    window_chi(13) = 0.5 * sum( data_tw**2 )
-    window_chi(14) = 0.5 * sum( synt_tw**2 )
-    window_chi(15) = 0.5 * sum( (synt_tw-data_tw)**2 )
-    window_chi(16) = (nend - nstart +1) *dt
-    window_chi(17) = 0.5 * sum( data_norm**2 )
-    window_chi(18) = 0.5 * sum( syn_norm**2 )
-    window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
-    window_chi(20) = npts*dt
-    deallocate(adj_z)
-  end subroutine measure_adj_rf
+  !   ! compute integrated waveform difference, normalized by duration of the record
+  !   ! NOTE: (1) this is for the FULL record, not the windowed record
+  !   !       (2) for comparison with waveform_chi, we include the 0.5 factor
+  !   !       (3) we might want to include dt as an integration factor (also for waveform_chi),
+  !   !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
+  !   window_chi(13) = 0.5 * sum( data_tw**2 )
+  !   window_chi(14) = 0.5 * sum( synt_tw**2 )
+  !   window_chi(15) = 0.5 * sum( (synt_tw-data_tw)**2 )
+  !   window_chi(16) = (nend - nstart +1) *dt
+  !   window_chi(17) = 0.5 * sum( data_norm**2 )
+  !   window_chi(18) = 0.5 * sum( syn_norm**2 )
+  !   window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
+  !   window_chi(20) = npts*dt
+  !   deallocate(adj_z)
+  ! end subroutine measure_adj_rf
 
   subroutine rotate_adj_src
 

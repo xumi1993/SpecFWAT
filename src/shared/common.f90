@@ -55,4 +55,26 @@ contains
     enddo
   
   end subroutine rotate_NE_to_RT
+
+  subroutine get_band_name(SHORT_P, LONG_P, bandname)
+    real :: SHORT_P, LONG_P, fl, fh
+    character(len=MAX_STRING_LEN), intent(out) :: bandname
+    character(len=MAX_STRING_LEN) :: bandstr1, bandstr2
+
+    fh = 1./SHORT_P
+    fl = 1./LONG_P
+    if (SHORT_P < 1) then
+      write(bandstr1, '(a1,i3.3)') 'F',int(fh)
+    else
+      write(bandstr1, '(a1,i3.3)') 'T',int(SHORT_P)
+    endif
+    if (LONG_P < 1) then
+      write(bandstr2, '(a1,i3.3)') 'F',int(fl)
+    else
+      write(bandstr2, '(a1,i3.3)') 'T',int(LONG_P)
+    endif
+    bandname = trim(bandstr1)//'_'//trim(bandstr2)
+
+  end subroutine get_band_name
+
 end module common_lib

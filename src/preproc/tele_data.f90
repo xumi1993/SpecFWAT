@@ -1,6 +1,7 @@
 module tele_data
   use config
   use ma_constants
+  use common_lib, only: get_band_name
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
   use syn_data, only: SynData, average_amp_scale
@@ -119,11 +120,12 @@ contains
   end subroutine semd2sac
 
   subroutine preprocess(this, ievt)
+    use measure_adj_mod, only: measure_adj_fwat
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
     integer :: irec, irec_local, icomp
     real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat,&
-         seismo_syn, seismo_dat_glob, seismo_syn_glob
+         seismo_syn, seismo_dat_glob, seismo_syn_glob, adj_src
     real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob, stf_array
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
     real(kind=cr) :: avgamp
@@ -135,6 +137,8 @@ contains
     call this%od%read_obs_data()
 
     call this%calc_fktimes()
+
+    call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
 
     call synchronize_all()
     
@@ -179,6 +183,7 @@ contains
     if (worldrank == 0) then
       call log%write('Calculating STF', .true.)
       call this%seis_pca(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob, stf_array)
+      avgamp = average_amp_scale(seismo_dat_glob, 1)
       if (IS_OUTPUT_PREPROC) then
         block
           type(sachead) :: header
@@ -195,13 +200,55 @@ contains
       allocate(stf_array(fpar%sim%nstep, fpar%sim%NRCOMP))
     endif
     call synchronize_all()
+    call bcast_all_singlecr(avgamp)
     call bcast_all_dp(stf_array, fpar%sim%nstep*fpar%sim%NRCOMP)
 
-    ! interpolate observed data to synthetic data
-    avgamp = average_amp_scale(seismo_dat_glob, 1)
-    print *, 'Average amplitude scale factor: ', avgamp
+    if (worldrank == 0) deallocate(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob)
+
+    ! convolution with STF
+    if (nrec_local > 0) then
+      adj_src = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
+      do irec_local = 1, nrec_local
+        irec = number_receiver_global(irec_local)
+        do icomp = 1, fpar%sim%NRCOMP
+          block 
+            type(sachead) :: header
+            real(kind=dp) :: tstart, tend
+            character(len=MAX_STRING_LEN) :: sacfile, file_prefix
+            real(kind=dp), dimension(:), allocatable :: seismo_syn_local
+            real(kind=dp), dimension(NCHI) :: window_chi
+            real(kind=dp), dimension(NDIM_MA) :: adj_src_local
+            real(kind=dp) :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
+            integer :: out_imeas
+
+            call myconvolution_dp(seismo_syn(:, icomp, irec_local), stf_array(:, icomp), seismo_syn_local, 0)
+            seismo_syn(:, icomp, irec_local) = seismo_syn_local * fpar%sim%dt
+            if (IS_OUTPUT_PREPROC) then
+              call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+              sacfile = trim(OUTPUT_FILES)//'/wsyn'//trim(this%od%netwk(irec))//&
+                        '.'//trim(this%od%stnm(irec))//&
+                        '.'//trim(fpar%sim%RCOMPS(icomp))//&
+                        '.sac.'//trim(this%band_name)
+              call sacio_writesac(sacfile, header, seismo_syn(:, icomp, irec_local), ier)
+              sacfile = trim(OUTPUT_FILES)//'/wdat'//trim(this%od%netwk(irec))//&
+                        '.'//trim(this%od%stnm(irec))//&
+                        '.'//trim(fpar%sim%RCOMPS(icomp))//&
+                        '.sac.'//trim(this%band_name)
+              call sacio_writesac(sacfile, header, seismo_dat(:, icomp, irec_local), ier)
+            endif
+
+            tstart = this%ttp(irec) - fpar%sim%time_win(1)
+            tend = this%ttp(irec) + fpar%sim%time_win(2)
+            call measure_adj_fwat(seismo_dat(:, icomp, irec_local), seismo_syn(:, icomp, irec_local),&
+                                  tstart, tend, dble(-t0),dble(DT), NSTEP, this%od%netwk(irec), this%od%stnm(irec),&
+                                  fpar%sim%CH_CODE, window_chi, tr_chi,am_chi, T_pmax_dat,T_pmax_syn,&
+                                  adj_src_local, file_prefix, out_imeas, this%band_name)
+            adj_src(:, icomp, irec_local) = adj_src_local(1:NSTEP)
+          end block
+        enddo
+      enddo
+    end if
     call synchronize_all()
-  
   end subroutine preprocess
 
   subroutine seis_pca(this, seismo_dat, seismo_syn, seismo_stf_glob, stf_array)

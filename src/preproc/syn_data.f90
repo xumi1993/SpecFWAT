@@ -8,6 +8,7 @@ module syn_data
   use input_params, fpar => fwat_par_global
   use common_lib, only: rotate_NE_to_RT
   use obs_data, only: ObsData
+  use utils, only: zeros_dp
 
   implicit none
 
@@ -110,10 +111,8 @@ contains
     real(kind=dp), dimension(:,:), allocatable :: recv_buffer
     integer, dimension(:), allocatable :: recv_indices, send_indices
 
-    if (.not. allocated(array_global)) allocate(array_global(NSTEP, nrec))
-    array_global = 0.0_dp
-
     if (worldrank == 0) then
+      array_global = zeros_dp(NSTEP, nrec)
       if (nrec_local > 0) then
         do irec_local = 1, nrec_local
           irec = number_receiver_global(irec_local)
@@ -172,10 +171,11 @@ contains
     real(kind=dp), dimension(:,:,:), allocatable :: recv_buffer
     integer, dimension(:), allocatable :: recv_indices, send_indices
 
-    if (.not. allocated(array_global)) allocate(array_global(NSTEP, nc, nrec))
-    array_global = 0.0_dp
+    ! if (.not. allocated(array_global)) allocate(array_global(NSTEP, nc, nrec))
+    ! array_global = 0.0_dp
 
     if (worldrank == 0) then
+      array_global = zeros_dp(NSTEP, nc, nrec)
       if (nrec_local > 0) then
         do irec_local = 1, nrec_local
           irec = number_receiver_global(irec_local)

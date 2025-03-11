@@ -3,6 +3,7 @@ include_directories(
 )
 
 add_subdirectory(telesubs)
+add_subdirectory(measure_adj)
 
 # object libraries of specfem_interface
 file(GLOB SOURCES_SPECFEM_API "specfem_interface/*.f90")
@@ -30,7 +31,7 @@ foreach(execsourcefile ${APP_SOURCES})
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   target_link_libraries(${EXEC_NAME} PUBLIC preproc_objs shared_fwat_objs
                         shared_objs cuda_objs specfem3D_objs
-                        specfem_api_objs tele_objs)
+                        specfem_api_objs tele_objs measadj_objs)
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)
   endif()
