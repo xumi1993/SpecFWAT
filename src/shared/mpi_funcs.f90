@@ -143,6 +143,27 @@ contains
 
   end subroutine prepare_shm_array_dp_1d
 
+  subroutine prepare_shm_array_dp_2d(buffer, nx, ny, win)
+    USE, INTRINSIC :: ISO_C_BINDING
+    double precision, dimension(:,:), pointer :: buffer
+    integer :: ierr,nx,ny,n
+    integer(kind=MPI_ADDRESS_KIND) :: size
+    integer :: win, real_size
+    type(C_PTR) :: c_window_ptr
+    
+    n = nx*ny
+    if(noderank /= 0) n = 0
+    call MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
+    size = n * real_size
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    if (noderank /= 0) then
+      call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
+    endif
+    call C_F_POINTER(c_window_ptr, buffer, SHAPE=[nx, ny])
+    call MPI_Win_fence(0, win, ierr)
+
+  end subroutine prepare_shm_array_dp_2d
+
   subroutine prepare_shm_array_dp_3d(buffer, nx, ny, nz, win)
     USE, INTRINSIC :: ISO_C_BINDING
     double precision, dimension(:,:,:), pointer :: buffer

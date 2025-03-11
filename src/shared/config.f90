@@ -95,6 +95,7 @@ module ma_constants
   real(kind=dp), parameter :: APARM = 30.
   integer, parameter :: IORD = 2
   integer, parameter :: PASSES = 2
+  integer, parameter :: MAX_STR_CHI = 30
 
   ! takes waveform of first trace dat_dtw, without taking the difference waveform to the second trace syn_dtw
   ! this is useful to cissor out later reflections which appear in data (no synthetics needed)

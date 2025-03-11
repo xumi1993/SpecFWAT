@@ -130,11 +130,17 @@ contains
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
     real(kind=cr) :: avgamp
 
+    ! read syn data
     call this%read(ievt)
 
+    ! read receiver information
     call this%od%read_stations(this%ievt)
 
+    ! read observed data
     call this%od%read_obs_data()
+
+    ! initialize misfits
+    call this%wchi%init()
 
     call this%calc_fktimes()
 
@@ -243,7 +249,7 @@ contains
                                   tstart, tend, dble(-t0),dble(DT), NSTEP, this%od%netwk(irec), this%od%stnm(irec),&
                                   fpar%sim%CH_CODE, window_chi, tr_chi,am_chi, T_pmax_dat,T_pmax_syn,&
                                   adj_src_local, file_prefix, out_imeas, this%band_name)
-            adj_src(:, icomp, irec_local) = adj_src_local(1:NSTEP)
+            ! adj_src(:, icomp, irec_local) = adj_src_local(1:NSTEP)
           end block
         enddo
       enddo

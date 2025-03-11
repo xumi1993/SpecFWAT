@@ -8,6 +8,7 @@ module syn_data
   use input_params, fpar => fwat_par_global
   use common_lib, only: rotate_NE_to_RT
   use obs_data, only: ObsData
+  use window_chi, only: WindowChi
   use utils, only: zeros_dp
 
   implicit none
@@ -18,6 +19,7 @@ module syn_data
   type :: SynData
     integer :: ievt, nrec
     type(ObsData) :: od
+    type(WindowChi) :: wchi
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp(zrt), nsta
     character(len=MAX_STRING_LEN) :: band_name
     integer :: dat_win
@@ -288,7 +290,7 @@ contains
     class(SynData), intent(inout) :: this
 
     call this%od%finalize()
-
+    call this%wchi%finalize()
     call free_shm_array(this%dat_win)
 
   end subroutine finalize
