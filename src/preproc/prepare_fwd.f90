@@ -21,7 +21,7 @@ module preproc_fwd
     integer :: ievt=0, run_mode
     contains
     procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
-    procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj
+    procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj, run_simulation
   end type PrepareFWD
 
 contains
@@ -217,13 +217,36 @@ contains
   end subroutine measure_adj
 
   subroutine simulation(this)
-    use specfem_api, only: InitSpecfem, FinalizeSpecfem, restore_rmass
-
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
 
     call log%write('This is forward simulations ...', .true.)
-    SIMULATION_TYPE = 1
+    
+    call this%run_simulation(1)
+
+    if (this%run_mode == FORWARD_ONLY) then
+      ! save simulation results
+      call log%write('Writing synthetic data ...', .true.)
+      call this%semd2sac()
+    elseif (this%run_mode >= FORWARD_MEASADJ) then
+      ! save simulation results
+      call log%write('Measuring adjoint source ...', .true.)
+      call this%measure_adj()
+    endif
+
+    if (this%run_mode == FORWARD_ADJOINT) then
+      ! save adjoint source
+      call log%write('This is adjoint simulations...', .true.)
+      call this%run_simulation(3)
+    endif
+  end subroutine simulation
+
+  subroutine run_simulation(this, run_opt)
+    use specfem_api, only: InitSpecfem, FinalizeSpecfem, restore_rmass
+    class(PrepareFWD), intent(inout) :: this
+    integer, intent(in) :: run_opt
+
+    SIMULATION_TYPE = run_opt
 
     ! Initialize variables of Specfem
     call InitSpecfem()
@@ -242,17 +265,6 @@ contains
 
     ! save absobing boundary wavefields
     call FinalizeSpecfem()
-
-    if (this%run_mode == FORWARD_ONLY) then
-      ! save simulation results
-      call log%write('Writing synthetic data ...', .true.)
-      call this%semd2sac()
-    elseif (this%run_mode == FORWARD_MEASADJ) then
-      ! save simulation results
-      call log%write('Measuring adjoint source ...', .true.)
-      call this%measure_adj()
-    endif
-  end subroutine simulation
-
+  end subroutine run_simulation
 
 end module

@@ -10,12 +10,12 @@ module window_chi
 
   type, public :: WindowChi
     integer :: nrow, ncol = 12+NCHI, FID
-    real(kind=dp), dimension(:,:), pointer :: chi
-    real(kind=dp), dimension(:), pointer :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
-    character(len=MAX_STR_CHI), dimension(:), pointer :: evtid,sta,net,chan
+    real(kind=dp), dimension(:,:,:), pointer :: chi
+    real(kind=dp), dimension(:,:), pointer :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
+    character(len=MAX_STR_CHI), dimension(:), pointer :: sta,net
     integer :: win_chi, win_tr, win_am, win_dat, win_syn, win_evtid, win_sta, win_net, win_chan
     contains
-    procedure :: init => init_window_chi, finalize, get_column, mean, assemble_window_chi
+    procedure :: init => init_window_chi, finalize, get_column, mean_chi, sum_chi, assemble_window_chi
   end type WindowChi
 
 contains
@@ -26,15 +26,13 @@ contains
     integer :: ievt
     
     this%nrow = nrec
-    call prepare_shm_array_dp_2d(this%chi, nrec, NCHI, this%win_chi)
-    call prepare_shm_array_dp_1d(this%tr_chi, nrec, this%win_tr)
-    call prepare_shm_array_dp_1d(this%am_chi, nrec, this%win_am)
-    call prepare_shm_array_dp_1d(this%T_pmax_dat, nrec, this%win_dat)
-    call prepare_shm_array_dp_1d(this%T_pmax_syn, nrec, this%win_syn)
-    call prepare_shm_array_ch_1d(this%evtid, nrec, MAX_STR_CHI, this%win_evtid)
+    call prepare_shm_array_dp_3d(this%chi, nrec, NCHI, fpar%sim%NRCOMP, this%win_chi)
+    call prepare_shm_array_dp_2d(this%tr_chi, nrec, fpar%sim%NRCOMP, this%win_tr)
+    call prepare_shm_array_dp_2d(this%am_chi, nrec, fpar%sim%NRCOMP, this%win_am)
+    call prepare_shm_array_dp_2d(this%T_pmax_dat, nrec, fpar%sim%NRCOMP, this%win_dat)
+    call prepare_shm_array_dp_2d(this%T_pmax_syn, nrec, fpar%sim%NRCOMP, this%win_syn)
     call prepare_shm_array_ch_1d(this%sta, nrec, MAX_STR_CHI, this%win_sta)
     call prepare_shm_array_ch_1d(this%net, nrec, MAX_STR_CHI, this%win_net)
-    call prepare_shm_array_ch_1d(this%chan, nrec, MAX_STR_CHI, this%win_chan)
     chifile = trim(MISFITS_DIR)//'/'//trim(model_name)//'.'//&
               trim(fpar%acqui%evtid_names(ievt))//'_'//trim(band_name)//&
               '_window_chi'
@@ -43,9 +41,10 @@ contains
 
   end subroutine init_window_chi
 
-  function get_column(this, col) result(array)
+  function get_column(this, col, icomp) result(array)
     class(WindowChi), intent(inout) :: this
-    integer :: col, i
+    integer, intent(in) :: col, icomp
+    integer :: i
     real(kind=dp), dimension(:), allocatable :: array
 
     allocate(array(this%nrow))
@@ -54,41 +53,67 @@ contains
       stop 'mean value will be calculated when column > 8'
     elseif (col <= 28) then
       i = col - 8
-      array(:) = this%chi(:, i)
+      array(:) = this%chi(:, i, icomp)
     elseif (col == 29) then
-      array(:) = this%tr_chi(:)
+      array(:) = this%tr_chi(:, icomp)
     elseif (col == 30) then
-      array(:) = this%am_chi(:)
+      array(:) = this%am_chi(:, icomp)
     elseif (col == 31) then
-      array(:) = this%T_pmax_dat(:)
+      array(:) = this%T_pmax_dat(:, icomp)
     elseif (col == 32) then
-      array(:) = this%T_pmax_syn(:)
+      array(:) = this%T_pmax_syn(:, icomp)
     endif
 
   end function get_column
 
-  function mean(this, col) result(mean_value)
-    class(WindowChi) :: this
-    integer :: col
-    real(kind=dp) :: mean_value
+  function sum_chi(this, col) result(sum_value)
+    class(WindowChi), intent(inout) :: this
+    integer, intent(in) :: col
+    real(kind=dp) :: sum_value
     real(kind=dp), dimension(:), allocatable :: array
+    integer :: i
 
-    array = this%get_column(col)
-    mean_value = sum(array)/this%nrow
+    sum_value = 0.0_dp
+    do i = 1, fpar%sim%NRCOMP
+      array = this%get_column(col, i)
+      sum_value = sum_value + sum(array)
+    enddo
+
   end function
 
-  subroutine assemble_window_chi(this, window_chi_local)
+  function mean_chi(this, col) result(mean_value)
+    class(WindowChi) :: this
+    integer, intent(in) :: col
+    real(kind=dp) :: mean_value
+    real(kind=dp) :: sum_value
+
+    sum_value = this%sum_chi(col)
+    mean_value = sum_value/this%nrow/fpar%sim%NRCOMP
+  end function
+
+  subroutine assemble_window_chi(this, window_chi_local, tr_chi_local, am_chi_local,&
+                                 T_pmax_dat_local, T_pmax_syn_local, sta_local, net_local)
     class(WindowChi), intent(inout) :: this
-    real(kind=dp), dimension(:,:), intent(in) :: window_chi_local
+    real(kind=dp), dimension(:,:,:), intent(in) :: window_chi_local
+    real(kind=dp), dimension(:,:), intent(in) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
+    character(len=MAX_STR_CHI), dimension(:), intent(in) :: sta_local, net_local
     integer :: irec, irec_local, nsta_irank, iproc, i
-    real(kind=dp), dimension(:,:), allocatable :: recv_buffer
+    real(kind=dp), dimension(:,:,:), allocatable :: recv_win_chi
+    real(kind=dp), dimension(:,:), allocatable :: recv_tr_chi, recv_am_chi, recv_T_pmax_dat, recv_T_pmax_syn
+    character(len=MAX_STR_CHI), dimension(:), allocatable :: recv_sta, recv_net
     integer, dimension(:), allocatable :: recv_indices, send_indices
 
     if (worldrank == 0) then
       if (nrec_local > 0) then
         do irec_local = 1, nrec_local
           irec = number_receiver_global(irec_local)
-          this%chi(irec, :) = window_chi_local(irec_local, :)
+          this%chi(irec, :, :) = window_chi_local(irec_local, :, :)
+          this%tr_chi(irec, :) = tr_chi_local(irec_local, :)
+          this%am_chi(irec, :) = am_chi_local(irec_local, :)
+          this%T_pmax_dat(irec, :) = T_pmax_dat_local(irec_local, :)
+          this%T_pmax_syn(irec, :) = T_pmax_syn_local(irec_local, :)
+          this%sta(irec) = sta_local(irec_local)
+          this%net(irec) = net_local(irec_local)
         enddo
       endif
       do iproc = 1, worldsize-1
@@ -98,19 +123,43 @@ contains
         enddo
       
         if (nsta_irank > 0) then
-          allocate(recv_buffer(nsta_irank, NCHI))  ! Allocate a buffer to receive data
+          allocate(recv_win_chi(nsta_irank, NCHI, fpar%sim%NRCOMP))  ! Allocate a buffer to receive data
+          allocate(recv_tr_chi(nsta_irank, fpar%sim%NRCOMP))
+          allocate(recv_am_chi(nsta_irank, fpar%sim%NRCOMP))
+          allocate(recv_T_pmax_dat(nsta_irank, fpar%sim%NRCOMP))
+          allocate(recv_T_pmax_syn(nsta_irank, fpar%sim%NRCOMP))
+          allocate(recv_sta(nsta_irank))
+          allocate(recv_net(nsta_irank))
           allocate(recv_indices(nsta_irank)) 
           ! Receive the indices first
           call recv_i(recv_indices, nsta_irank, iproc, targ)
           ! Receive the data
-          call recv_dp(recv_buffer, NCHI*nsta_irank, iproc, targ)
+          call recv_dp(recv_win_chi, NCHI*nsta_irank, iproc, targ)
+          call recv_dp(recv_tr_chi, nsta_irank, iproc, targ)
+          call recv_dp(recv_am_chi, nsta_irank, iproc, targ)
+          call recv_dp(recv_T_pmax_dat, nsta_irank, iproc, targ)
+          call recv_dp(recv_T_pmax_syn, nsta_irank, iproc, targ)
+          call recv_ch_array(recv_sta, nsta_irank, MAX_STR_CHI, iproc, targ)
+          call recv_ch_array(recv_net, nsta_irank, MAX_STR_CHI, iproc, targ)
           ! Copy the received data to the correct location
           do i = 1, nsta_irank
             irec = recv_indices(i)
-            this%chi(irec, :) = recv_buffer(i, :)
+            this%chi(irec, :, :) = recv_win_chi(i, :, :)
+            this%tr_chi(irec, :) = recv_tr_chi(i, :)
+            this%am_chi(irec, :) = recv_am_chi(i, :)
+            this%T_pmax_dat(irec, :) = recv_T_pmax_dat(i, :)
+            this%T_pmax_syn(irec, :) = recv_T_pmax_syn(i, :)
+            this%sta(irec) = recv_sta(i)
+            this%net(irec) = recv_net(i)
           enddo
-          deallocate(recv_buffer)
+          deallocate(recv_win_chi)
+          deallocate(recv_tr_chi)
+          deallocate(recv_am_chi)
+          deallocate(recv_T_pmax_dat)
+          deallocate(recv_T_pmax_syn)
           deallocate(recv_indices)
+          deallocate(recv_sta)
+          deallocate(recv_net)
         endif
       enddo
     else
@@ -120,11 +169,23 @@ contains
           send_indices(irec_local) = number_receiver_global(irec_local)
         enddo
         call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(window_chi_local, NCHI*nrec_local, 0, targ)
+        call send_dp(window_chi_local, NCHI*nrec_local*fpar%sim%NRCOMP, 0, targ)
+        call send_dp(tr_chi_local, nrec_local*fpar%sim%NRCOMP, 0, targ)
+        call send_dp(am_chi_local, nrec_local*fpar%sim%NRCOMP, 0, targ)
+        call send_dp(T_pmax_dat_local, nrec_local*fpar%sim%NRCOMP, 0, targ)
+        call send_dp(T_pmax_syn_local, nrec_local*fpar%sim%NRCOMP, 0, targ)
+        call send_ch_array(sta_local, nrec_local, MAX_STR_CHI, 0, targ)
+        call send_ch_array(net_local, nrec_local, MAX_STR_CHI, 0, targ)
         deallocate(send_indices)
       endif
     endif
-    call sync_from_main_rank_dp_2d(this%chi, this%nrow, NCHI)
+    call sync_from_main_rank_dp_3d(this%chi, this%nrow, NCHI, fpar%sim%NRCOMP)
+    call sync_from_main_rank_dp_2d(this%tr_chi, this%nrow, fpar%sim%NRCOMP)
+    call sync_from_main_rank_dp_2d(this%am_chi, this%nrow, fpar%sim%NRCOMP)
+    call sync_from_main_rank_dp_2d(this%T_pmax_dat, this%nrow, fpar%sim%NRCOMP)
+    call sync_from_main_rank_dp_2d(this%T_pmax_syn, this%nrow, fpar%sim%NRCOMP)
+    call sync_from_main_rank_ch(this%sta, this%nrow, MAX_STR_CHI)
+    call sync_from_main_rank_ch(this%net, this%nrow, MAX_STR_CHI)
 
 
   end subroutine assemble_window_chi
