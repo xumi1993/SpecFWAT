@@ -46,7 +46,6 @@ contains
     real(kind=cr) :: baz
     integer :: it, nt
 
-    nt = size(vn)
     baz = deg2rad * bazi
 
     do it = 1, nt
@@ -55,6 +54,27 @@ contains
     enddo
   
   end subroutine rotate_NE_to_RT
+
+  ! subroutine rotate_RT_to_NE(vr,vt,vn,ve,bazi)
+
+  !   real(kind=CUSTOM_REAL),   intent(in) :: bazi
+
+  !   real(kind=CUSTOM_REAL), dimension(:),  intent(in) :: vz2, vr, vt
+  !   real(kind=CUSTOM_REAL), dimension(:), intent(out) :: vz,  vn, ve
+
+  !   real(kind=CUSTOM_REAL) :: baz
+  !   integer :: it, nt
+    
+  !   nt = size(vn)
+  !   baz = deg2rad * bazi
+
+  !   do it = 1, nt
+  !     ve(it) = -vr(it) * sin(baz) - vt(it) * cos(baz)
+  !     vn(it) = -vr(it) * cos(baz) + vt(it) * sin(baz)
+  !     vz(it) = vz2(it)
+  !   enddo
+
+  ! end subroutine rotate_ZRT_to_ZNE
 
   subroutine rotate_NE_to_RT_dp(vn,ve,vr,vt,bazi)
   

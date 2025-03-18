@@ -43,6 +43,7 @@ contains
     integer :: irec, irec_local, icomp
     logical :: is_conv_stf_local
     real(kind=dp), dimension(:), allocatable :: stf_array, seismo_syn
+    real(kind=cr), dimension(:), allocatable :: bazi
     character(len=MAX_STRING_LEN) :: datafile
     type(sachead) :: header
     real(kind=cr) :: az, baz, dist, gcarc
@@ -53,11 +54,13 @@ contains
       is_conv_stf_local = .false.
     endif
 
-    call this%read(ievt)
+    call this%init(ievt)
 
-    call this%od%read_stations(this%ievt)
-    
+    call this%od%read_stations(ievt, .true.)
     call this%calc_fktimes()
+
+    bazi = zeros(nrec)+this%baz
+    call this%read(bazi)
 
     if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call synchronize_all()
@@ -132,14 +135,16 @@ contains
     real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
 
-    ! read syn data
-    call this%read(ievt)
+    call this%init(ievt)
 
     ! read receiver information
     call this%od%read_stations(this%ievt)
 
     ! read observed data
     call this%od%read_obs_data()
+
+    ! read syn data
+    call this%read(this%od%baz)
 
     call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
 
@@ -187,7 +192,7 @@ contains
     call this%assemble_3d(this%seismo_dat, seismo_dat_glob, fpar%sim%NRCOMP)
     call this%assemble_3d(this%seismo_syn, seismo_syn_glob, fpar%sim%NRCOMP)
     call this%assemble_2d(seismo_stf, seismo_stf_glob)
-    
+
     if (worldrank == 0) then
       call log%write('Calculating STF', .true.)
       call this%seis_pca(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob)
@@ -212,6 +217,8 @@ contains
     call bcast_all_dp(this%stf_array, fpar%sim%nstep*fpar%sim%NRCOMP)
 
     if (worldrank == 0) deallocate(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob)
+    
+    call synchronize_all()
 
     call this%measure_adj()
 
@@ -390,18 +397,20 @@ contains
 
   subroutine measure_adj(this)
     use measure_adj_mod, only: measure_adj_fwat
+    use ma_variables, only: OUT_DIR
     class(TeleData), intent(inout) :: this
     type(sachead) :: header
     real(kind=dp) :: tstart, tend
     character(len=MAX_STRING_LEN) :: sacfile, file_prefix
     real(kind=dp), dimension(:), allocatable :: seismo_syn_local
     real(kind=dp), dimension(:, :), allocatable :: adj_src
-    real(kind=dp), dimension(NCHI) :: window_chi
+    real(kind=dp), dimension(NCHI) :: window_chi_local
     real(kind=dp), dimension(NDIM_MA) :: adj_syn_local
-    real(kind=dp) :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
+    real(kind=dp) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
     integer :: out_imeas, irec, icomp, irec_local
     
     ! allocate chi arrays
+    OUT_DIR = trim(OUTPUT_FILES)
     allocate(this%window_chi(nrec_local, NCHI, fpar%sim%NRCOMP))
     allocate(this%tr_chi(nrec_local, fpar%sim%NRCOMP))
     allocate(this%am_chi(nrec_local, fpar%sim%NRCOMP))
@@ -431,12 +440,13 @@ contains
           endif
           
           ! measure adjoint
-          tstart = this%ttp(irec) - fpar%sim%time_win(1)
+          tstart = this%ttp(irec) + fpar%sim%time_win(1)
           tend = this%ttp(irec) + fpar%sim%time_win(2)
           call measure_adj_fwat(this%seismo_dat(:, icomp, irec_local), this%seismo_syn(:, icomp, irec_local),&
-                                tstart, tend, dble(-t0),dble(DT), NSTEP, this%od%netwk(irec), this%od%stnm(irec),&
-                                fpar%sim%CH_CODE, window_chi, tr_chi,am_chi, T_pmax_dat,T_pmax_syn,&
-                                adj_syn_local, file_prefix, out_imeas, this%band_name)
+                                tstart, tend, this%od%netwk(irec), this%od%stnm(irec),&
+                                fpar%sim%CH_CODE, window_chi_local, tr_chi_local, am_chi_local,&
+                                T_pmax_dat_local, T_pmax_syn_local, adj_syn_local, file_prefix, out_imeas, this%band_name)
+          print *, 'rank,sta,tstart,tend', worldrank, trim(this%od%stnm(irec)), tstart, tend
           
           ! write adjoint source
           select case (icomp)
@@ -459,11 +469,11 @@ contains
             call dwascii(sacfile, adj_src(:, 2), NSTEP, -dble(T0), dble(DT))
           end select
           ! save misfits
-          this%window_chi(irec_local, :, icomp) = window_chi
-          this%tr_chi(irec_local, icomp) = fpar%acqui%src_weight(this%ievt)*tr_chi/this%avgamp/this%avgamp*dt
-          this%am_chi(irec_local, icomp) = fpar%acqui%src_weight(this%ievt)*am_chi/this%avgamp/this%avgamp*dt
-          this%T_pmax_dat(irec_local, icomp) = T_pmax_dat
-          this%T_pmax_syn(irec_local, icomp) = T_pmax_syn
+          this%window_chi(irec_local, :, icomp) = window_chi_local
+          this%tr_chi(irec_local, icomp) = fpar%acqui%src_weight(this%ievt)*tr_chi_local/this%avgamp/this%avgamp*dt
+          this%am_chi(irec_local, icomp) = fpar%acqui%src_weight(this%ievt)*am_chi_local/this%avgamp/this%avgamp*dt
+          this%T_pmax_dat(irec_local, icomp) = T_pmax_dat_local
+          this%T_pmax_syn(irec_local, icomp) = T_pmax_syn_local
           if (icomp == 1) then
             this%sta(irec_local) = this%od%stnm(irec)
             this%net(irec_local) = this%od%netwk(irec)

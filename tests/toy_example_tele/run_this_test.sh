@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# rm -rf DATABASES_MPI
+rm -rf DATABASES_MPI
 rm -rf OUTPUT_FILES
 
-# mkdir -p DATABASES_MPI
+mkdir -p DATABASES_MPI
 mkdir -p OUTPUT_FILES
 
 

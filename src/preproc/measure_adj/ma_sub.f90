@@ -82,8 +82,8 @@ contains
        print *, 'tstart, t0, tend, t0+(npts-1)*dt:'
        print *, tstart, t0, tend, t0+(npts-1)*dt
        stop 'Check tstart and tend'
-    else
-       print *, '   start and end time of window: ' ,sngl(tstart),sngl(tend)
+    ! else
+    !    print *, '   start and end time of window: ' ,sngl(tstart),sngl(tend)
     endif
 
     ! initializes i_right

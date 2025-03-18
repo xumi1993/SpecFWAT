@@ -134,11 +134,11 @@ contains
           ! Receive the indices first
           call recv_i(recv_indices, nsta_irank, iproc, targ)
           ! Receive the data
-          call recv_dp(recv_win_chi, NCHI*nsta_irank, iproc, targ)
-          call recv_dp(recv_tr_chi, nsta_irank, iproc, targ)
-          call recv_dp(recv_am_chi, nsta_irank, iproc, targ)
-          call recv_dp(recv_T_pmax_dat, nsta_irank, iproc, targ)
-          call recv_dp(recv_T_pmax_syn, nsta_irank, iproc, targ)
+          call recv_dp(recv_win_chi, NCHI*nsta_irank*fpar%sim%NRCOMP, iproc, targ)
+          call recv_dp(recv_tr_chi, nsta_irank*fpar%sim%NRCOMP, iproc, targ)
+          call recv_dp(recv_am_chi, nsta_irank*fpar%sim%NRCOMP, iproc, targ)
+          call recv_dp(recv_T_pmax_dat, nsta_irank*fpar%sim%NRCOMP, iproc, targ)
+          call recv_dp(recv_T_pmax_syn, nsta_irank*fpar%sim%NRCOMP, iproc, targ)
           call recv_ch_array(recv_sta, nsta_irank, MAX_STR_CHI, iproc, targ)
           call recv_ch_array(recv_net, nsta_irank, MAX_STR_CHI, iproc, targ)
           ! Copy the received data to the correct location

@@ -22,7 +22,7 @@ TELE:
   DT: 0.025 # Time step for the teleseismic data
   SHORT_P: [5] # Short period of filters
   LONG_P: [50] # Long period of filters
-  TIME_WIN: [-5, 45] # Time window for the teleseismic data
+  TIME_WIN: [-5, 35] # Time window for the teleseismic data
   PRECOND_TYPE: 2 # 2: root squared z
   RF:
     F0: [1.0] # Gaussian width for the RF

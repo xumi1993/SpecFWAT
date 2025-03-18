@@ -5,14 +5,15 @@ module measure_adj_mod
   use ma_sub2        ! fft(), fftinv()
   use ma_sub         ! mt_measure(), mt_adj()
   use ma_weighting
+  use config, only: worldrank
 
   use specfem_par, only: OUTPUT_FILES,MAX_STRING_LEN, SPECFEM_T0 => T0, CUSTOM_REAL
   use shared_input_parameters, only: NSTEP, SPECFEM_DT => DT 
 
 contains
 
-  subroutine measure_adj_fwat(data,syn,tstart,tend,t0,dt,npts,net,sta,&
-                              chan_dat,window_chi,tr_chi,am_chi,&
+  subroutine measure_adj_fwat(data_in,syn_in,tstart,tend,net_in,sta_in,&
+                              chan_dat_in,window_chi,tr_chi,am_chi,&
                               T_pmax_dat,T_pmax_syn,adj_syn_all,file_prefix0,out_imeas,bandname)
   !  main program that calls the subroutines to make measurements within input time windows
   !  and then compute the corresponding adjoint sources
@@ -39,10 +40,13 @@ contains
 
   character(len=150) :: datafile,file_prefix,file_prefix0,file_prefix2,measure_file_prefix,adj_file_prefix
   integer :: num_meas, j, npts, nn !, ios, npt3
+  double precision, dimension(:), intent(in) :: data_in, syn_in
+  character(len=*), intent(in) :: net_in,sta_in,chan_dat_in
+  double precision, dimension(:), intent(inout) :: window_chi
+
   double precision, dimension(NDIM_MA) :: data, syn, syn_phydisp, adj_syn_all, &
                         tr_adj_src, am_adj_src, recon_cc_all, syn_dtw_cc, syn_dtw_mt
   double precision :: t0, dt, tstart, tend, tt, dtt, df
-  double precision, dimension(NCHI) :: window_chi
   double precision :: fend0, fstart0, fend, fstart
 
   character(len=10) :: net,sta,chan_dat,chan,cmp,chan_syn
@@ -73,6 +77,15 @@ contains
   fend0=1.0/shortp
   TSHORT=shortp
   TLONG=longp
+
+  t0 = -dble(SPECFEM_T0)
+  dt = dble(SPECFEM_DT)
+  npts = NSTEP
+  data(1:npts) = data_in
+  syn(1:npts) = syn_in
+  net = trim(net_in)
+  sta = trim(sta_in)
+  chan_dat = trim(chan_dat_in)
 
   nwin = 0; all_chi=0.
   do ipair = 1, 1
@@ -131,7 +144,6 @@ contains
 
       ! write values to output file
       nwin = nwin + 1       ! overall window counter
-      !write(12,'(a3,a8,a5,a5,3i5,2f12.3)') net,sta,chan_syn,chan_dat,nwin,ipair,j,tstart,tend
 
       ! add taper type to file prefix: OUT/PAS.CI.BHZ.01.mtm
       write(file_prefix,'(a,i2.2)') trim(file_prefix2)//'.', j
@@ -148,6 +160,7 @@ contains
       !print *, ' Measurement window No.', j, ' ... '
 
       ! initialize the measurements
+
       window_chi(:) = 0.
 
       ! compute integrated waveform difference, normalized by duration of the record
@@ -187,15 +200,15 @@ contains
         ! if MT measurement window is rejected by mt_measure_select, then use a CC measurement
         if(.not. use_trace) then
           !stop 'Check why this MT measurement was rejected'
-          print *, '   reverting from MT measurement to CC measurement...'
+          ! print *, '   reverting from MT measurement to CC measurement...'
           imeas = imeas0 - 2
           is_mtm = 3  ! LQY: WHY not is_mtm = 2?
           call mt_measure(datafile,measure_file_prefix,data,syn,syn_phydisp,t0,dt,npts,tstart,tend,&
                 istart,data_dtw,syn_dtw,syn_dtw_phydisp,nlen,&
                 tshift,sigma_dt_cc,dlnA,sigma_dlnA_cc,cc_max,syn_dtw_cc,&
                 i_pmax_dat,i_pmax_syn,i_right,trans_mtm,dtau_w,dlnA_w,sigma_dt,sigma_dlnA,syn_dtw_mt)
-        else
-          print *, '     using this MTM. '
+        ! else
+        !   ! print *, '     using this MTM. '
         endif
       endif
 

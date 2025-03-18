@@ -7,7 +7,7 @@ module syn_data
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
   use fwat_mpi
   use input_params, fpar => fwat_par_global
-  use common_lib, only: rotate_NE_to_RT
+  use common_lib, only: rotate_NE_to_RT, rotate_NE_to_RT_dp
   use obs_data, only: ObsData
   use window_chi, only: WindowChi
   use utils, only: zeros_dp
@@ -26,41 +26,53 @@ module syn_data
     character(len=MAX_STRING_LEN) :: band_name
     integer :: dat_win
     contains
-    procedure :: read=>read_syn_data, rotate_to_rt, filter, assemble_2d, assemble_3d
+    procedure :: read=>read_syn_data, filter, assemble_2d, assemble_3d, init
     procedure :: get_comp_name_adj, finalize
 
   end type SynData
 
 contains
 
-  subroutine read_syn_data(this, ievt)
+  subroutine init(this, ievt)
     class(SynData), intent(inout) :: this
     integer, intent(in) :: ievt
+
+    this%ievt = ievt
+    this%nrec = nrec
+
+  end subroutine init
+
+  subroutine read_syn_data(this, bazi)
+    class(SynData), intent(inout) :: this
+    real(kind=cr), dimension(:), intent(in) :: bazi
     integer :: irec, irec_local, ispec, iproc, nsta_irank, i
     real(kind=dp), dimension(:, :, :), allocatable :: data_local, dat_sum
     real(kind=dp), dimension(:,:,:), allocatable :: recv_buffer
     integer, dimension(:), allocatable :: recv_indices, send_indices
 
     ! read source and reciever files
-    this%ievt = ievt
-    this%nrec = nrec
     call prepare_shm_array_dp_3d(this%data, NSTEP, NCOMP, nrec, this%dat_win)
-    allocate(data_local(NSTEP, NCOMP, nrec_local))
-    data_local = 0.0_dp
+    ! allocate(data_local(NSTEP, NCOMP, nrec_local))
+    ! data_local = 0.0_dp
 
     if (nrec_local > 0) then
+      data_local = zeros_dp(NSTEP, NCOMP, nrec_local)
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
         ispec = ispec_selected_rec(irec)
         if (ELASTIC_SIMULATION) then
           if (ispec_is_elastic(ispec)) then
+            call rotate_NE_to_RT_dp(dble(seismograms_d(2, irec_local, 1:NSTEP)), dble(seismograms_d(1, irec_local, 1:NSTEP)),&
+                                    data_local(:, 2, irec_local), data_local(:, 3, irec_local), bazi(irec))
             data_local(:, 1, irec_local) = dble(seismograms_d(3, irec_local, 1:NSTEP))
-            data_local(:, 2, irec_local) = dble(seismograms_d(2, irec_local, 1:NSTEP))
-            data_local(:, 3, irec_local) = dble(seismograms_d(1, irec_local, 1:NSTEP))
+            ! data_local(:, 2, irec_local) = dble(seismograms_d(2, irec_local, 1:NSTEP))
+            ! data_local(:, 3, irec_local) = dble(seismograms_d(1, irec_local, 1:NSTEP))
+
           endif
         endif
       enddo
     endif
+
 
     ! collect data to rank 0
     if (worldrank == 0) then
@@ -156,7 +168,6 @@ contains
         deallocate(send_indices)
       endif
     endif
-    call bcast_all_dp(array_global, NSTEP*nrec)
 
   end subroutine assemble_2d
 
@@ -191,7 +202,6 @@ contains
         do irec = 1, nrec
           if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
         enddo
-        print *, 'nsta_irank', nsta_irank, 'iproc', iproc
         if (nsta_irank > 0) then
           allocate(recv_buffer(NSTEP, nc, nsta_irank))  ! Allocate a buffer to receive data
           allocate(recv_indices(nsta_irank)) 
@@ -219,26 +229,25 @@ contains
         deallocate(send_indices)
       endif
     endif
-    call bcast_all_dp(array_global, NSTEP*nc*nrec)
   end subroutine assemble_3d
 
-  subroutine rotate_to_rt(this, baz)
-    class(SynData), intent(inout) :: this
-    real(kind=cr), dimension(:), intent(in) :: baz
-    real(kind=cr), dimension(:), allocatable :: data_r, data_t
-    integer :: irec, it
+  ! subroutine rotate_to_rt(this, baz)
+  !   class(SynData), intent(inout) :: this
+  !   real(kind=cr), dimension(:), intent(in) :: baz
+  !   real(kind=cr), dimension(:), allocatable :: data_r, data_t
+  !   integer :: irec, it
 
-    allocate(data_r(NSTEP), data_t(NSTEP))
-    if (noderank == 0) then
-      do irec = 1, nrec
-        call rotate_NE_to_RT(real(this%data(:, 2, irec)), real(this%data(:, 3, irec)), data_r, data_t, baz(irec))
-        this%data(:, 2, irec) = dble(data_r)
-        this%data(:, 3, irec) = dble(data_t)
-      enddo
-    endif
-    call synchronize_all()
+  !   allocate(data_r(NSTEP), data_t(NSTEP))
+  !   if (noderank == 0) then
+  !     do irec = 1, nrec
+  !       call rotate_NE_to_RT(real(this%data(:, 3, irec)), real(this%data(:, 2, irec)), data_r, data_t, baz(irec))
+  !       this%data(:, 2, irec) = dble(data_r)
+  !       this%data(:, 3, irec) = dble(data_t)
+  !     enddo
+  !   endif
+  !   call synchronize_all()
 
-  end subroutine rotate_to_rt
+  ! end subroutine rotate_to_rt
 
   subroutine filter(this, freqmin, freqmax, order)
     use signal, only: bandpass_dp

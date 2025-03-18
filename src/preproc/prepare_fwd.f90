@@ -157,6 +157,7 @@ contains
       call system('mkdir -p '//trim(path)//'/'//trim(OUTPUT_PATH))
       if (this%run_mode > 1) call system('mkdir -p '//trim(path)//'/'//trim(ADJOINT_PATH))
       if (this%run_mode > 2) call system('mkdir -p '//trim(path)//'/'//trim(EKERNEL_PATH))
+      if (run_mode >= FORWARD_MEASADJ) call system('mkdir -p misfits')
     endif
 
     ! assign local path
