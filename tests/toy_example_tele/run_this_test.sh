@@ -12,7 +12,7 @@ NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2 |
 # cp model_target/* DATABASES_MPI/
 # mpirun --oversubscribe -np $NPROC ../../bin/xmeshfem3D
 # mpirun --oversubscribe -np $NPROC ../../bin/xgenerate_databases
-# mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 1 -e 3
+# mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 1
 
 # Run Inversion
 mkdir -p model_initial
@@ -22,4 +22,4 @@ mkdir -p model_initial
 cp model_initial/* DATABASES_MPI/
 mpirun --oversubscribe -np $NPROC ../../bin/xmeshfem3D
 mpirun --oversubscribe -np $NPROC ../../bin/xgenerate_databases
-mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 3 -e 3
+mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 3

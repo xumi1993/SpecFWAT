@@ -41,6 +41,7 @@ contains
     else
       call log%init('output_fwd_measure_adj.log')
     endif
+    call log%write('*******************************************', .false.)
 
     call force_ftz()
 
@@ -233,11 +234,6 @@ contains
     if (this%run_mode == FORWARD_ADJOINT) then
       ! save adjoint source
       call log%write('This is adjoint simulations...', .true.)
-      SAVE_FORWARD=.false.
-      COMPUTE_AND_STORE_STRAIN=.true.
-      APPROXIMATE_HESS_KL=.true.
-      ! COUPLE_WITH_INJECTION_TECHNIQUE = .false.
-      ATTENUATION = .false.
       call this%run_simulation(3)
       call this%postproc_adjoint()
     endif
@@ -250,6 +246,17 @@ contains
     integer, intent(in) :: run_opt
 
     SIMULATION_TYPE = run_opt
+    if (run_mode == FORWARD_ADJOINT) then
+      SAVE_FORWARD = .true.
+    else
+      SAVE_FORWARD = .false.
+    endif
+    if (SIMULATION_TYPE == 1) then
+      COMPUTE_AND_STORE_STRAIN = .false.
+    else
+      COMPUTE_AND_STORE_STRAIN = .true.
+      ATTENUATION = .false.
+    endif
 
     ! Initialize variables of Specfem
     call InitSpecfem()

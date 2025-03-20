@@ -195,7 +195,7 @@ contains
     call this%assemble_2d(seismo_stf, seismo_stf_glob)
 
     if (worldrank == 0) then
-      call log%write('Calculating STF', .true.)
+      ! call log%write('Calculating STF', .true.)
       call this%seis_pca(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob)
       this%avgamp = average_amp_scale(seismo_dat_glob, 1)
       if (IS_OUTPUT_PREPROC) then
@@ -226,7 +226,18 @@ contains
     call this%wchi(1)%assemble_window_chi(this%window_chi, this%tr_chi, this%am_chi,&
                                           this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net,&
                                           this%tstart, this%tend)
-       
+      
+    if (worldrank == 0) then
+      block 
+        real(kind=dp) :: total_missfit
+        character(len=MAX_STRING_LEN) :: msg
+
+        call this%wchi(1)%write()
+        total_missfit = this%wchi(1)%sum_chi(29)
+        write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', total_missfit
+        call log%write(msg, .true.)
+      end block
+    endif
     call synchronize_all()
   end subroutine preprocess
 
