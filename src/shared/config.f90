@@ -25,14 +25,24 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
   character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
 
+  ! Kernel types
+  character(len=MAX_STRING_LEN), dimension(3), parameter :: KERNEL_ISO = ['alpha', 'beta ', 'rhop ']
+  character(len=MAX_STRING_LEN), dimension(4), parameter :: KERNEL_AZI_ANI = ['L ', 'N ', 'Gc', 'Gs']
+
+  ! model types
+  character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
+
   ! Preconditioner parameters
   integer, parameter :: DEFAULT_PRECOND = 1
   integer, parameter :: Z_PRECOND = 2
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_NOISE = 'noise'
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_TELE = 'tele'
+  character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_LEQ = 'leq'
   integer, parameter :: FORWARD_ONLY = 1
   integer, parameter :: FORWARD_MEASADJ = 2
   integer, parameter :: FORWARD_ADJOINT = 3
+  character(len=MAX_STRING_LEN), dimension(3), parameter :: INV_TYPE_NAMES = [SIMU_TYPE_NOISE, SIMU_TYPE_TELE, SIMU_TYPE_LEQ]
+
 
   ! math
   real(kind=cr), parameter :: deg2rad = PI / 180.0

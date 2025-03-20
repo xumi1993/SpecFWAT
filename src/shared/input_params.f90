@@ -34,15 +34,32 @@ module input_params
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
-    real(kind=cr) :: DT
+    real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF
     type(rf_params) :: rf
   end type sim_params
 
+  type postproc_params
+    logical, dimension(2) :: INV_TYPE
+    integer :: TELE_TYPE 
+    real(kind=cr), dimension(2) :: JOINT_WEIGHT
+    real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
+    logical :: USE_RHO_SCALING_NOISE, IS_PRECOND
+  end type postproc_params
+
+  type update_params
+    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD
+    real(kind=cr) :: MAX_SLEN, MAX_SHRINK
+    logical :: DO_LS
+    real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
+  end type update_params
+
   type fwat_params
     type(acqui_params) :: acqui
     type(sim_params), pointer :: sim
+    type(postproc_params) :: postproc
+    type(update_params) :: update
     contains
     procedure :: read => read_parameter_file, select_simu_type
   end type fwat_params
@@ -145,7 +162,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, tomo, rf, output
+    class(type_dictionary), pointer :: noise, tele, tomo, rf, output, post, update
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -195,6 +212,8 @@ contains
         this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
         this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
         this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+        this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
+        this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
 
         ! read parameters for teleseismic FWI
         this%sim => tele_par
@@ -221,6 +240,8 @@ contains
         call read_real_list(list, this%sim%LONG_P)
         this%sim%NUM_FILTER = 1
         this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
+        this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
+        this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -239,6 +260,35 @@ contains
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         is_output_preproc = output%get_logical('IS_OUTPUT_PREPROC', error=io_err, default=.false.)
         is_output_adj_src = output%get_logical('IS_OUTPUT_ADJ_SRC', error=io_err, default=.false.)
+
+        ! POSTPROC
+        post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        list => post%get_list('INV_TYPE', required=.true., error=io_err)
+        call read_static_logi_list(list, this%postproc%INV_TYPE)
+        this%postproc%TELE_TYPE = post%get_integer('TELE_TYPE', error=io_err)
+        list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
+        call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
+        this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
+        this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
+        this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
+        this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err)
+        this%postproc%USE_RHO_SCALING_NOISE = post%get_logical('USE_RHO_SCALING_NOISE', error=io_err)
+        this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
+
+        ! Model UPDATE
+        update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err)
+        this%update%ITER_START = update%get_integer('ITER_START', error=io_err)
+        this%update%LBFGS_M_STORE = update%get_integer('LBFGS_M_STORE', error=io_err)
+        this%update%OPT_METHOD = update%get_integer('OPT_METHOD', error=io_err)
+        this%update%MAX_SLEN = update%get_real('MAX_SLEN', error=io_err)
+        this%update%MAX_SHRINK = update%get_real('MAX_SHRINK', error=io_err)
+        this%update%DO_LS = update%get_logical('DO_LS', error=io_err)
+        list => update%get_list('VPVS_RATIO_RANGE', required=.true., error=io_err)
+        call read_static_real_list(list, this%update%VPVS_RATIO_RANGE)
+
       end select
       call root%finalize()
       deallocate(root)
@@ -256,6 +306,8 @@ contains
     call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
     call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
     call bcast_all_singlel(noise_par%SUPPRESS_EGF)
+    call bcast_all_singlecr(noise_par%SIGMA_H)
+    call bcast_all_singlecr(noise_par%SIGMA_V)
     if (worldrank > 0) then
       allocate(noise_par%RCOMPS(noise_par%NRCOMP))
       allocate(noise_par%SCOMPS(noise_par%NSCOMP))
@@ -285,6 +337,8 @@ contains
     call bcast_all_singlecr(tele_par%rf%MINDERR)
     call bcast_all_singlecr(tele_par%rf%TSHIFT)
     call bcast_all_singlei(tele_par%rf%NGAUSS)
+    call bcast_all_singlecr(tele_par%SIGMA_H)
+    call bcast_all_singlecr(tele_par%SIGMA_V)
     if (worldrank > 0) then
       allocate(tele_par%RCOMPS(tele_par%NRCOMP))
       allocate(tele_par%TIME_WIN(2))
@@ -303,9 +357,31 @@ contains
     if (tele_par%rf%NGAUSS > 0) then
       call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
     endif
+
+    ! output
     call bcast_all_singlel(IS_OUTPUT_PREPROC)
     call bcast_all_singlel(IS_OUTPUT_ADJ_SRC)
 
+    ! POSTPROC
+    call bcast_all_singlei(this%postproc%TELE_TYPE)
+    call bcast_all_singlecr(this%postproc%TAPER_H_SUPPRESS)
+    call bcast_all_singlecr(this%postproc%TAPER_V_SUPPRESS)
+    call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
+    call bcast_all_singlecr(this%postproc%TAPER_V_BUFFER)
+    call bcast_all_singlel(this%postproc%USE_RHO_SCALING_NOISE)
+    call bcast_all_singlel(this%postproc%IS_PRECOND)
+    call bcast_all_l_array(this%postproc%INV_TYPE, 2)
+    call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
+
+    ! Model UPDATE
+    call bcast_all_singlei(this%update%MODEL_TYPE)
+    call bcast_all_singlei(this%update%ITER_START)
+    call bcast_all_singlei(this%update%LBFGS_M_STORE)
+    call bcast_all_singlei(this%update%OPT_METHOD)
+    call bcast_all_singlecr(this%update%MAX_SLEN)
+    call bcast_all_singlecr(this%update%MAX_SHRINK)
+    call bcast_all_singlel(this%update%DO_LS)
+    call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)
     call synchronize_all()
 
   end subroutine read_parameter_file
@@ -338,6 +414,44 @@ contains
       end if
     end do
   end subroutine select_simu_type
+
+  subroutine read_static_real_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    real(kind=cr), dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_real(0.)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_static_real_list
+
+  subroutine read_static_logi_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    logical, dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_logical(.true.)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_static_logi_list
 
   subroutine read_string_list(list, list_out)
     use yaml_types, only: type_scalar, type_list, type_list_item
