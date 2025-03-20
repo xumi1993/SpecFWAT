@@ -131,7 +131,8 @@ module ma_variables
   integer, public :: ntaper, ipwr_t, ipwr_w, ERROR_TYPE
   integer, public :: imeas0, imeas, itaper, is_mtm0, is_mtm
 
-  logical, public :: DISPLAY_DETAILS,OUTPUT_MEASUREMENT_FILES,RUN_BANDPASS,COMPUTE_ADJOINT_SOURCE,USE_PHYSICAL_DISPERSION
+  logical, public :: DISPLAY_DETAILS=.false.,OUTPUT_MEASUREMENT_FILES=.false.,&
+                     RUN_BANDPASS=.false.,COMPUTE_ADJOINT_SOURCE=.true.,USE_PHYSICAL_DISPERSION=.false.
   
   contains
 

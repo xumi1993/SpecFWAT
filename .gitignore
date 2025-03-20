@@ -52,6 +52,7 @@ solver/
 misfits/
 optimize/
 tests/toy_example_tele/fwat_data/
+model_initial/
 
 *_ADJOINT
 *_ADJOINT_FILTERED

@@ -8,18 +8,19 @@ module obs_data
   implicit none
 
   integer, private :: ier
+  integer, parameter :: FID = 868
 
   type ObsData
     character(len=MAX_STRING_LEN), dimension(:), pointer :: netwk, stnm
     character(len=MAX_STRING_LEN) :: evt_id
-    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, baz, tarr, tbeg
+    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, stbur, baz, tarr, tbeg
     real(kind=dp) :: dt
     integer :: nsta, npts, ievt
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp, nsta
     integer :: net_win, sta_win, stla_win, stlo_win, stel_win, dat_win, &
-                baz_win, t0_win, tb_win
+                baz_win, t0_win, tb_win, bur_win
     contains
-    procedure :: read_stations, read_obs_data
+    procedure :: read_stations, read_obs_data, copy_adjoint_stations
     procedure, private :: alloc_sta_info
     procedure :: finalize
   end type ObsData
@@ -34,7 +35,6 @@ contains
     logical, intent(in), optional :: is_filted
     character(len=MAX_STRING_LEN) :: line, fname
     integer :: idx, ista
-    integer, parameter :: FID = 868
 
     this%ievt = ievt
     this%evt_id = fpar%acqui%evtid_names(ievt)
@@ -62,7 +62,8 @@ contains
 
     if (worldrank == 0) then
       do ista = 1, this%nsta
-        read(FID, *, iostat=ier) this%stnm(ista), this%netwk(ista), this%stla(ista), this%stlo(ista), this%stel(ista), line
+        read(FID, *, iostat=ier) this%stnm(ista), this%netwk(ista), this%stla(ista), &
+                                 this%stlo(ista), this%stel(ista), this%stbur(ista)
       enddo
       close(FID)
     endif
@@ -71,6 +72,7 @@ contains
     call sync_from_main_rank_cr_1d(this%stla, this%nsta)
     call sync_from_main_rank_cr_1d(this%stlo, this%nsta)
     call sync_from_main_rank_cr_1d(this%stel, this%nsta)
+    call sync_from_main_rank_cr_1d(this%stbur, this%nsta)
 
   end subroutine read_stations
 
@@ -82,6 +84,7 @@ contains
     call prepare_shm_array_cr_1d(this%stla, this%nsta, this%stla_win)
     call prepare_shm_array_cr_1d(this%stlo, this%nsta, this%stlo_win)
     call prepare_shm_array_cr_1d(this%stel, this%nsta, this%stel_win)
+    call prepare_shm_array_cr_1d(this%stbur, this%nsta, this%bur_win)
     call prepare_shm_array_cr_1d(this%baz, this%nsta, this%baz_win)
     call prepare_shm_array_cr_1d(this%tbeg, this%nsta, this%tb_win)
     if (index(dat_type, 'tele') /= 0) &
@@ -100,6 +103,7 @@ contains
     call free_shm_array(this%t0_win)
     call free_shm_array(this%dat_win)
     call free_shm_array(this%tb_win)
+    call free_shm_array(this%bur_win)
 
   end subroutine finalize
 
@@ -181,5 +185,22 @@ contains
     call synchronize_all()
 
   end subroutine read_obs_data
+
+  subroutine copy_adjoint_stations(this)
+    class(ObsData), intent(inout) :: this
+    integer :: i
+
+    if (worldrank == 0) then
+      open(unit=FID, file=trim(fpar%acqui%station_file(this%ievt))//'_ADJOINT', iostat=ier)
+      if (ier /= 0) call exit_MPI(0, 'Error opening adjoint station file')
+      do i = 1, this%nsta
+        write(FID, '(A, 1x, A, 4F18.6)') trim(this%stnm(i)), trim(this%netwk(i)), this%stla(i), this%stlo(i), &
+                                         this%stel(i), this%stbur(i)
+      enddo
+      close(FID)
+    endif
+    call synchronize_all()
+
+  end subroutine copy_adjoint_stations
   
 end module obs_data

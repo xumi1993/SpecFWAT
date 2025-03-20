@@ -232,6 +232,24 @@ contains
     
   end subroutine sync_from_main_rank_cr_1d
 
+  subroutine sync_from_main_rank_dp_1d(buffer, nx)
+    integer, intent(in) :: nx
+    double precision, dimension(:), intent(inout) :: buffer
+    integer :: tag = 1000, i
+
+    if (worldrank == 0) then
+      do i = 2, worldsize
+        if (rank_map(i, 2) == 0) then
+          call send_dp(buffer, nx, rank_map(i, 1), tag)
+        endif
+      enddo
+    elseif (noderank == 0) then
+      call recv_dp(buffer, nx, 0, tag)
+    endif
+    call synchronize_all()
+    
+  end subroutine sync_from_main_rank_dp_1d
+
   subroutine sync_from_main_rank_dp_2d(buffer, nx, ny)
     integer, intent(in) :: nx, ny
     double precision, dimension(:,:), intent(inout) :: buffer

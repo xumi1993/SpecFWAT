@@ -1596,6 +1596,7 @@ contains
   use specfem_par_acoustic
   use specfem_par_poroelastic
   use specfem_par_noise
+  use config, only: run_mode
 
   implicit none
 
@@ -1607,7 +1608,7 @@ contains
   if (.not. IO_compute_task) return
 
   ! allocates adjoint arrays for elastic simulations
-  if (ELASTIC_SIMULATION .and. SIMULATION_TYPE == 3) then
+  if (ELASTIC_SIMULATION .and. run_mode == 3) then
     ! backward displacement,velocity,acceleration fields
     allocate(b_displ(NDIM,NGLOB_ADJOINT),stat=ier)
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 1587')

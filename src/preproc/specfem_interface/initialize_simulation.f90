@@ -33,6 +33,8 @@
   use specfem_par_acoustic
   use specfem_par_poroelastic
   use specfem_par_movie
+  use config, only: run_mode, local_path_backup
+  use fwat_constants, only: FORWARD_ADJOINT
 
   use manager_adios
   use io_server_hdf5
@@ -72,6 +74,24 @@
   ! read the parameter file
   BROADCAST_AFTER_READ = .true.
   call read_parameter_file(BROADCAST_AFTER_READ)
+  ! MJ: change SIMULATION_TYPE to 3 for adjoint simulations
+  if (run_mode >= FORWARD_ADJOINT) then
+    SIMULATION_TYPE = 3
+  else
+    SIMULATION_TYPE = 1
+  endif
+
+  SAVE_MESH_FILES=.false.
+  PRINT_SOURCE_TIME_FUNCTION=.false.
+  MOVIE_VOLUME=.false.
+  local_path_backup = LOCAL_PATH
+  if (run_mode < FORWARD_ADJOINT) then
+    SAVE_FORWARD = .false.
+    APPROXIMATE_HESS_KL=.false.
+  else
+    SAVE_FORWARD = .true.
+    APPROXIMATE_HESS_KL=.true.
+  endif
 
   ! hdf5 i/o server
   ! HDF5 separate nodes for i/o server

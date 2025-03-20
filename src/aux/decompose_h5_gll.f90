@@ -33,7 +33,7 @@ program decompose_h5_gll
 
   ! needs local_path for mesh files
   BROADCAST_AFTER_READ = .true.
-  call read_parameter_file(worldrank,BROADCAST_AFTER_READ)
+  call read_parameter_file(BROADCAST_AFTER_READ)
 
   ! parse command line arguments
   if (command_argument_count() /= NARGS) then

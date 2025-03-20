@@ -22,6 +22,7 @@ module tele_data
 
   type, extends(SynData) :: TeleData
     real(kind=cr), dimension(:), pointer :: ttp ! travel time of P
+    real(kind=dp), dimension(:), allocatable :: tstart, tend
     real(kind=dp), dimension(:,:), allocatable :: stf_array
     real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
     real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat, seismo_syn, window_chi
@@ -223,7 +224,8 @@ contains
     call this%measure_adj()
 
     call this%wchi(1)%assemble_window_chi(this%window_chi, this%tr_chi, this%am_chi,&
-                                          this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net)
+                                          this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net,&
+                                          this%tstart, this%tend)
        
     call synchronize_all()
   end subroutine preprocess
@@ -367,6 +369,7 @@ contains
     class(TeleData), intent(inout) :: this
 
     call this%od%finalize()
+    call this%wchi(1)%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
     deallocate(this%stf_array)
@@ -379,6 +382,8 @@ contains
     deallocate(this%T_pmax_syn)
     deallocate(this%sta)
     deallocate(this%net)
+    deallocate(this%tstart)
+    deallocate(this%tend)
   end subroutine finalize
 
   subroutine interp_data_to_syn(this, dat_in, tb, tarr, ttp, deltat, dat_out)
@@ -418,6 +423,8 @@ contains
     allocate(this%T_pmax_syn(nrec_local, fpar%sim%NRCOMP))
     allocate(this%sta(nrec_local))
     allocate(this%net(nrec_local))
+    allocate(this%tstart(nrec_local))
+    allocate(this%tend(nrec_local))
     if (nrec_local > 0) then
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
@@ -427,27 +434,26 @@ contains
           this%seismo_syn(:, icomp, irec_local) = seismo_syn_local * fpar%sim%dt
           if (IS_OUTPUT_PREPROC) then
             call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-            sacfile = trim(OUTPUT_FILES)//'/wsyn'//trim(this%od%netwk(irec))//&
-                      '.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%RCOMPS(icomp))//&
-                      '.sac.'//trim(this%band_name)
+            sacfile = trim(OUTPUT_FILES)//'/wsyn.'//trim(this%od%netwk(irec))//&
+                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, this%seismo_syn(:, icomp, irec_local), ier)
-            sacfile = trim(OUTPUT_FILES)//'/wdat'//trim(this%od%netwk(irec))//&
-                      '.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%RCOMPS(icomp))//&
-                      '.sac.'//trim(this%band_name)
+            sacfile = trim(OUTPUT_FILES)//'/wdat.'//trim(this%od%netwk(irec))//&
+                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, this%seismo_dat(:, icomp, irec_local), ier)
           endif
-          
+
           ! measure adjoint
           tstart = this%ttp(irec) + fpar%sim%time_win(1)
           tend = this%ttp(irec) + fpar%sim%time_win(2)
           call measure_adj_fwat(this%seismo_dat(:, icomp, irec_local), this%seismo_syn(:, icomp, irec_local),&
                                 tstart, tend, this%od%netwk(irec), this%od%stnm(irec),&
-                                fpar%sim%CH_CODE, window_chi_local, tr_chi_local, am_chi_local,&
-                                T_pmax_dat_local, T_pmax_syn_local, adj_syn_local, file_prefix, out_imeas, this%band_name)
-          print *, 'rank,sta,tstart,tend', worldrank, trim(this%od%stnm(irec)), tstart, tend
-          
+                                trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
+                                window_chi_local, tr_chi_local, am_chi_local,&
+                                T_pmax_dat_local, T_pmax_syn_local, adj_syn_local, &
+                                file_prefix, out_imeas, this%band_name)
+
           ! write adjoint source
           select case (icomp)
           case (1)
@@ -477,6 +483,8 @@ contains
           if (icomp == 1) then
             this%sta(irec_local) = this%od%stnm(irec)
             this%net(irec_local) = this%od%netwk(irec)
+            this%tstart(irec_local) = tstart
+            this%tend(irec_local) = tend
           endif
         enddo
       enddo

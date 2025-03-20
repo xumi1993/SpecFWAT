@@ -597,15 +597,15 @@ contains
     if (istart + nlen > NDIM_MA) stop 'Check istart + nlen and NPT'
 
     ! waveform
-    if(imeas==1 .or. imeas==2) then
-       print *, '     computing waveform adjoint source'
-    else if(imeas==3 .or. imeas==4) then
-       print *, '     computing banana-doughtnut adjoint source'
-    else if(imeas==5 .or. imeas==6) then
-       print *, '     computing cross-correlation adjoint source'
-    else if(imeas==7 .or. imeas==8) then
-       print *, '     computing multitaper adjoint source'
-    endif
+    ! if(imeas==1 .or. imeas==2) then
+    !    print *, '     computing waveform adjoint source'
+    ! else if(imeas==3 .or. imeas==4) then
+    !    print *, '     computing banana-doughtnut adjoint source'
+    ! else if(imeas==5 .or. imeas==6) then
+    !    print *, '     computing cross-correlation adjoint source'
+    ! else if(imeas==7 .or. imeas==8) then
+    !    print *, '     computing multitaper adjoint source'
+    ! endif
 
     ! define post-processing time-domain taper
     ! NOTE: If the adjoint sources will be band-pass filtered at the end,

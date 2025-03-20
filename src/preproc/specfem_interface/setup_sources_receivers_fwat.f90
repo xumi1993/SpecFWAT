@@ -270,7 +270,7 @@
       ! rec_filename = IN_DATA_FILES(1:len_trim(IN_DATA_FILES))//'STATIONS_ADJOINT'
       rec_filename = trim(fpar%acqui%station_file(ievt))//'_ADJOINT'
       ! filtered_rec_filename = IN_DATA_FILES(1:len_trim(IN_DATA_FILES))//'STATIONS_ADJOINT_FILTERED'
-      rec_filename = trim(fpar%acqui%station_file(ievt))//'_ADJOINT_FILTERED'
+      filtered_rec_filename = trim(fpar%acqui%station_file(ievt))//'_ADJOINT_FILTERED'
     endif
 
     ! see if we are running several independent runs in parallel

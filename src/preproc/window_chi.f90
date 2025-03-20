@@ -12,10 +12,14 @@ module window_chi
     integer :: nrow, ncol = 12+NCHI, FID
     real(kind=dp), dimension(:,:,:), pointer :: chi
     real(kind=dp), dimension(:,:), pointer :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
+    real(kind=dp), dimension(:), pointer :: tstart, tend
     character(len=MAX_STR_CHI), dimension(:), pointer :: sta,net
-    integer :: win_chi, win_tr, win_am, win_dat, win_syn, win_evtid, win_sta, win_net, win_chan
+    character(len=MAX_STRING_LEN) :: evtid
+    integer :: win_chi, win_tr, win_am, win_dat, win_syn, win_sta, win_net,&
+                win_tstart, win_tend
     contains
-    procedure :: init => init_window_chi, finalize, get_column, mean_chi, sum_chi, assemble_window_chi
+    procedure :: init => init_window_chi, finalize, get_column, mean_chi, sum_chi, assemble_window_chi,&
+                  write
   end type WindowChi
 
 contains
@@ -26,6 +30,7 @@ contains
     integer :: ievt
     
     this%nrow = nrec
+    this%evtid = fpar%acqui%evtid_names(ievt)
     call prepare_shm_array_dp_3d(this%chi, nrec, NCHI, fpar%sim%NRCOMP, this%win_chi)
     call prepare_shm_array_dp_2d(this%tr_chi, nrec, fpar%sim%NRCOMP, this%win_tr)
     call prepare_shm_array_dp_2d(this%am_chi, nrec, fpar%sim%NRCOMP, this%win_am)
@@ -33,6 +38,8 @@ contains
     call prepare_shm_array_dp_2d(this%T_pmax_syn, nrec, fpar%sim%NRCOMP, this%win_syn)
     call prepare_shm_array_ch_1d(this%sta, nrec, MAX_STR_CHI, this%win_sta)
     call prepare_shm_array_ch_1d(this%net, nrec, MAX_STR_CHI, this%win_net)
+    call prepare_shm_array_dp_1d(this%tstart, nrec, this%win_tstart)
+    call prepare_shm_array_dp_1d(this%tend, nrec, this%win_tend)
     chifile = trim(MISFITS_DIR)//'/'//trim(model_name)//'.'//&
               trim(fpar%acqui%evtid_names(ievt))//'_'//trim(band_name)//&
               '_window_chi'
@@ -92,15 +99,18 @@ contains
   end function
 
   subroutine assemble_window_chi(this, window_chi_local, tr_chi_local, am_chi_local,&
-                                 T_pmax_dat_local, T_pmax_syn_local, sta_local, net_local)
+                                 T_pmax_dat_local, T_pmax_syn_local, sta_local, net_local,&
+                                 tstart_local, tend_local)
     class(WindowChi), intent(inout) :: this
     real(kind=dp), dimension(:,:,:), intent(in) :: window_chi_local
     real(kind=dp), dimension(:,:), intent(in) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
+    real(kind=dp), dimension(:), intent(in) :: tstart_local, tend_local
     character(len=MAX_STR_CHI), dimension(:), intent(in) :: sta_local, net_local
     integer :: irec, irec_local, nsta_irank, iproc, i
     real(kind=dp), dimension(:,:,:), allocatable :: recv_win_chi
     real(kind=dp), dimension(:,:), allocatable :: recv_tr_chi, recv_am_chi, recv_T_pmax_dat, recv_T_pmax_syn
     character(len=MAX_STR_CHI), dimension(:), allocatable :: recv_sta, recv_net
+    real(kind=dp), dimension(:), allocatable :: recv_tstart, recv_tend
     integer, dimension(:), allocatable :: recv_indices, send_indices
 
     if (worldrank == 0) then
@@ -114,6 +124,8 @@ contains
           this%T_pmax_syn(irec, :) = T_pmax_syn_local(irec_local, :)
           this%sta(irec) = sta_local(irec_local)
           this%net(irec) = net_local(irec_local)
+          this%tstart(irec) = tstart_local(irec_local)
+          this%tend(irec) = tend_local(irec_local)
         enddo
       endif
       do iproc = 1, worldsize-1
@@ -130,6 +142,8 @@ contains
           allocate(recv_T_pmax_syn(nsta_irank, fpar%sim%NRCOMP))
           allocate(recv_sta(nsta_irank))
           allocate(recv_net(nsta_irank))
+          allocate(recv_tstart(nsta_irank))
+          allocate(recv_tend(nsta_irank))
           allocate(recv_indices(nsta_irank)) 
           ! Receive the indices first
           call recv_i(recv_indices, nsta_irank, iproc, targ)
@@ -141,6 +155,8 @@ contains
           call recv_dp(recv_T_pmax_syn, nsta_irank*fpar%sim%NRCOMP, iproc, targ)
           call recv_ch_array(recv_sta, nsta_irank, MAX_STR_CHI, iproc, targ)
           call recv_ch_array(recv_net, nsta_irank, MAX_STR_CHI, iproc, targ)
+          call recv_dp(recv_tstart, nsta_irank, iproc, targ)
+          call recv_dp(recv_tend, nsta_irank, iproc, targ)
           ! Copy the received data to the correct location
           do i = 1, nsta_irank
             irec = recv_indices(i)
@@ -151,6 +167,8 @@ contains
             this%T_pmax_syn(irec, :) = recv_T_pmax_syn(i, :)
             this%sta(irec) = recv_sta(i)
             this%net(irec) = recv_net(i)
+            this%tstart(irec) = recv_tstart(i)
+            this%tend(irec) = recv_tend(i)
           enddo
           deallocate(recv_win_chi)
           deallocate(recv_tr_chi)
@@ -160,6 +178,8 @@ contains
           deallocate(recv_indices)
           deallocate(recv_sta)
           deallocate(recv_net)
+          deallocate(recv_tstart)
+          deallocate(recv_tend)
         endif
       enddo
     else
@@ -176,6 +196,8 @@ contains
         call send_dp(T_pmax_syn_local, nrec_local*fpar%sim%NRCOMP, 0, targ)
         call send_ch_array(sta_local, nrec_local, MAX_STR_CHI, 0, targ)
         call send_ch_array(net_local, nrec_local, MAX_STR_CHI, 0, targ)
+        call send_dp(tstart_local, nrec_local, 0, targ)
+        call send_dp(tend_local, nrec_local, 0, targ)
         deallocate(send_indices)
       endif
     endif
@@ -186,9 +208,29 @@ contains
     call sync_from_main_rank_dp_2d(this%T_pmax_syn, this%nrow, fpar%sim%NRCOMP)
     call sync_from_main_rank_ch(this%sta, this%nrow, MAX_STR_CHI)
     call sync_from_main_rank_ch(this%net, this%nrow, MAX_STR_CHI)
-
+    call sync_from_main_rank_dp_1d(this%tstart, this%nrow)
+    call sync_from_main_rank_dp_1d(this%tend, this%nrow)
 
   end subroutine assemble_window_chi
+
+  subroutine write(this)
+    class(WindowChi), intent(inout) :: this
+    integer :: irec, icomp
+    
+    if (worldrank == 0) then
+      do irec = 1, this%nrow
+        do icomp = 1, fpar%sim%NRCOMP
+          write(this%FID, '(a20,a8,a4,a5,i4,i4,2e14.6,20e14.6,2e14.6,2f14.6)') &
+            this%evtid, this%sta(irec), this%net(irec), &
+            trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), irec, & 
+            fpar%sim%IMEAS, this%tstart(irec), this%tend(irec), &
+            this%chi(irec, :, icomp), this%tr_chi(irec, icomp), this%am_chi(irec, icomp), &
+            this%T_pmax_dat(irec, icomp), this%T_pmax_syn(irec, icomp)
+        enddo
+      enddo
+    endif
+
+  end subroutine write
 
   subroutine finalize(this)
     class(WindowChi), intent(inout) :: this
@@ -199,10 +241,10 @@ contains
     call free_shm_array(this%win_am)
     call free_shm_array(this%win_dat)
     call free_shm_array(this%win_syn)
-    call free_shm_array(this%win_evtid)
     call free_shm_array(this%win_sta)
     call free_shm_array(this%win_net)
-    call free_shm_array(this%win_chan)
+    call free_shm_array(this%win_tstart)
+    call free_shm_array(this%win_tend)
     
   end subroutine finalize
 end module window_chi 

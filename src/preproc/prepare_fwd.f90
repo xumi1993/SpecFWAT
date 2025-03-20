@@ -4,8 +4,9 @@ module preproc_fwd
   use specfem_par, only: ACOUSTIC_SIMULATION, APPROXIMATE_HESS_KL, ELASTIC_SIMULATION, MOVIE_VOLUME, NGLOB_AB,&
                          PRINT_SOURCE_TIME_FUNCTION, SAVE_FORWARD, SAVE_MESH_FILES, SIMULATION_TYPE, LOCAL_PATH,&
                          ANISOTROPIC_KL, NSPEC_ADJOINT, FKMODEL_FILE, prname, COUPLE_WITH_INJECTION_TECHNIQUE,&
-                         USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH
-  use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz
+                         USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH, &
+                         ATTENUATION
+  use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz, COMPUTE_AND_STORE_STRAIN
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
   use input_params, fpar => fwat_par_global
@@ -21,7 +22,8 @@ module preproc_fwd
     integer :: ievt=0, run_mode
     contains
     procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
-    procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj, run_simulation
+    procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj, run_simulation,&
+                          postproc_adjoint
   end type PrepareFWD
 
 contains
@@ -45,18 +47,6 @@ contains
     ! reads in parameters
     call initialize_simulation_fwat()
     
-    SAVE_MESH_FILES=.false.
-    PRINT_SOURCE_TIME_FUNCTION=.false.
-    MOVIE_VOLUME=.false.
-    local_path_backup = LOCAL_PATH
-    if (this%run_mode < 3) then
-      SAVE_FORWARD = .false.
-      APPROXIMATE_HESS_KL=.false.
-    else
-      SAVE_FORWARD = .true.
-      APPROXIMATE_HESS_KL=.true.
-    endif
-
     call read_mesh_databases_fwat()
 
     ! copy mass matrixs for prepare_timerun()
@@ -69,11 +59,14 @@ contains
       call read_mesh_databases_moho_fwat()
     endif
 
-    ! reads adjoint parameters
     call read_mesh_databases_adjoint_fwat()
+
+    ! call couple_with_injection_setup()
 
     ! sets up reference element GLL points/weights/derivatives
     call setup_GLL_points()
+
+    call detect_mesh_surfaces()
 
     if(this%run_mode == FORWARD_ADJOINT) call this%initialize_kernel_matrice()
 
@@ -213,6 +206,8 @@ contains
     
     if (dat_type == 'tele') then
       call td%preprocess(this%ievt)
+      call td%od%copy_adjoint_stations()
+      call td%finalize()
     endif
     
   end subroutine measure_adj
@@ -238,8 +233,15 @@ contains
     if (this%run_mode == FORWARD_ADJOINT) then
       ! save adjoint source
       call log%write('This is adjoint simulations...', .true.)
+      SAVE_FORWARD=.false.
+      COMPUTE_AND_STORE_STRAIN=.true.
+      APPROXIMATE_HESS_KL=.true.
+      ! COUPLE_WITH_INJECTION_TECHNIQUE = .false.
+      ATTENUATION = .false.
       call this%run_simulation(3)
+      call this%postproc_adjoint()
     endif
+    call log%write('*******************************************', .false.)
   end subroutine simulation
 
   subroutine run_simulation(this, run_opt)
@@ -267,5 +269,19 @@ contains
     ! save absobing boundary wavefields
     call FinalizeSpecfem()
   end subroutine run_simulation
+
+  subroutine postproc_adjoint(this)
+    class(PrepareFWD), intent(inout) :: this
+
+    open(unit=1234, iostat=ier, file=trim(prname)//'save_forward_arrays.bin', status='old')
+    if (ier == 0) close(1234, status='delete') 
+    open(unit=1234, iostat=ier, file=trim(prname)//'absorb_field.bin', status='old')
+    if (ier == 0) close(1234, status='delete') 
+    
+    call synchronize_all()
+    call log%write('This is saving kernels ...', .true.)
+    call save_adjoint_kernels() 
+
+  end subroutine postproc_adjoint
 
 end module
