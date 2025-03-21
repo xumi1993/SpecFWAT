@@ -3,7 +3,7 @@ module kernel_io
   use input_params, fpar => fwat_par_global
   use fwat_mpi
   use config
-  use generate_databases_par
+  use specfem_par
 
   implicit none
   integer :: ier
@@ -13,7 +13,6 @@ contains
 
   subroutine read_mesh_databases_minimum()
     character(len=MAX_STRING_LEN) :: database_name
-    integer :: NSPEC_IRREGULAR
 
     ! read mesh databases
     ! sets file name
@@ -29,17 +28,46 @@ contains
     read(IIN) NSPEC_AB
     read(IIN) NGLOB_AB
     read(IIN) NSPEC_IRREGULAR
-
+  
     allocate(ibool(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
-    allocate(xstore(NGLLX,NGLLY,NGLLZ,NGLOB_AB),&
-             ystore(NGLLX,NGLLY,NGLLZ,NGLOB_AB),&
-             zstore(NGLLX,NGLLY,NGLLZ,NGLOB_AB),stat=ier)
+    allocate(xstore(NGLOB_AB),ystore(NGLOB_AB),zstore(NGLOB_AB), &
+             xixstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             xiystore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             xizstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             etaxstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             etaystore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             etazstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             gammaxstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             gammaystore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             gammazstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             jacobianstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+            !  kappastore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+            !  mustore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
+             stat=ier)
 
     read(IIN) ibool
 
     read(IIN) xstore
     read(IIN) ystore
     read(IIN) zstore
+    read(IIN) irregular_element_number
+    read(IIN) xix_regular
+    read(IIN) jacobian_regular
+
+    read(IIN) xixstore
+    read(IIN) xiystore
+    read(IIN) xizstore
+    read(IIN) etaxstore
+    read(IIN) etaystore
+    read(IIN) etazstore
+    read(IIN) gammaxstore
+    read(IIN) gammaystore
+    read(IIN) gammazstore
+    read(IIN) jacobianstore
+
+    ! read(IIN) kappastore
+    ! read(IIN) mustore
+
     close(IIN)
     call synchronize_all()
 
@@ -47,10 +75,20 @@ contains
                               x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
                               elemsize_min_glob,elemsize_max_glob, &
                               distance_min_glob,distance_max_glob)
+    call bcast_all_singlecr(x_min_glob)
+    call bcast_all_singlecr(x_max_glob)
+    call bcast_all_singlecr(y_min_glob)
+    call bcast_all_singlecr(y_max_glob)
+    call bcast_all_singlecr(z_min_glob)
+    call bcast_all_singlecr(z_max_glob)
+    call bcast_all_singlecr(elemsize_min_glob)
+    call bcast_all_singlecr(elemsize_max_glob)
+    call bcast_all_singlecr(distance_min_glob)
+    call bcast_all_singlecr(distance_max_glob)
 
   end subroutine read_mesh_databases_minimum
 
-  subroutine read_kernel(ievt, dataname, data)
+  subroutine read_event_kernel(ievt, dataname, data)
     integer, intent(in) :: ievt
     character(len=*), intent(in) :: dataname
     character(len=MAX_STRING_LEN) :: path
@@ -69,14 +107,37 @@ contains
     read(IIN) data
     close(IIN)
 
+  end subroutine read_event_kernel
+
+  subroutine read_kernel(kernel_path, dataname, data)
+    character(len=*), intent(in) :: dataname
+    character(len=MAX_STRING_LEN) :: kernel_path
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: data
+
+    call create_name_database(fprname, worldrank, kernel_path)
+    open(unit=IIN, file=trim(fprname)//trim(dataname)//'.bin', status='old', action='read', form='unformatted', iostat=ier)
+    if (ier /= 0) then
+      write(0, *) 'Error could not open database file: ',trim(fprname)//trim(dataname)//'.bin'
+      call exit_mpi(myrank,'Error opening database file')
+    endif
+
+    allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
+    read(IIN) data
+    close(IIN)
+
   end subroutine read_kernel
 
-  subroutine write_kernel(dataname, data)
+  subroutine write_kernel(dataname, data, is_simu_type)
     character(len=*), intent(in) :: dataname
+    logical, optional, intent(in) :: is_simu_type
     real(kind=cr), dimension(:,:,:,:), intent(in) :: data
     character(len=MAX_STRING_LEN) :: path
 
     path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
+    if (present(is_simu_type) .and. is_simu_type) then
+      path = path//'_'//trim(simu_type)
+    endif
+
     call create_name_database(fprname, worldrank, path)
     ! path = fprname(1:len_trim(fprname))//'/'//trim(dataname)
     open(unit=IOUT, file=trim(fprname)//trim(dataname)//'.bin', status='replace', action='write', form='unformatted', iostat=ier)

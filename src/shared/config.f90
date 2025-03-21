@@ -32,6 +32,7 @@ module fwat_constants
   ! model types
   character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
   real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3
+  integer, parameter :: NUM_INV_TYPE = 2
 
   ! Preconditioner parameters
   integer, parameter :: DEFAULT_PRECOND = 1
@@ -82,6 +83,9 @@ module config
   real(kind=cr) :: x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
                    elemsize_min_glob,elemsize_max_glob, &
                    distance_min_glob,distance_max_glob
+
+  ! post
+  logical :: is_joint
 
 end module config
 
