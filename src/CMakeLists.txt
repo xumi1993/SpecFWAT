@@ -170,4 +170,5 @@ add_subdirectory(shared)
 # ------------------------ Add FWAT executables --------------------------------
 # ==============================================================================
 add_subdirectory(preproc)
+add_subdirectory(postproc)
 add_subdirectory(aux)

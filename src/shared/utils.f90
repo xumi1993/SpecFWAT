@@ -21,7 +21,7 @@ module utils
   integer, public, parameter :: DPRE = dp
 
   interface zeros
-    module procedure zeros1, zeros2, zeros3, zeros4
+    module procedure zeros1, zeros2, zeros3, zeros4, zeros5
   end interface zeros
 
   interface zeros_dp
@@ -293,6 +293,21 @@ end function
     ! end if
     return
   end function zeros4
+
+  pure function zeros5(dim1, dim2, dim3, dim4, dim5)
+    real(kind = RPRE), dimension(:,:,:,:,:), allocatable :: zeros5
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4, dim5
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros5(dim1, dim2, dim3, dim4, dim5), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros5 = 0.0d0
+    ! end if
+    return
+  end function zeros5
 
   pure function zeros1_dp(dim1)
     real(kind = DPRE), dimension(:), allocatable :: zeros1_dp

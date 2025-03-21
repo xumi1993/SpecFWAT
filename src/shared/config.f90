@@ -31,10 +31,12 @@ module fwat_constants
 
   ! model types
   character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
+  real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3
 
   ! Preconditioner parameters
   integer, parameter :: DEFAULT_PRECOND = 1
   integer, parameter :: Z_PRECOND = 2
+  integer, parameter :: Z_SQRT_PRECOND = 3
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_NOISE = 'noise'
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_TELE = 'tele'
   character(len=MAX_STRING_LEN), parameter :: SIMU_TYPE_LEQ = 'leq'
@@ -74,7 +76,12 @@ module config
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_hess_kl
 
   ! output
-  logical :: is_output_preproc, is_output_adj_src
+  logical :: is_output_preproc, is_output_adj_src, is_output_kernel
+
+  ! mesh
+  real(kind=cr) :: x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
+                   elemsize_min_glob,elemsize_max_glob, &
+                   distance_min_glob,distance_max_glob
 
 end module config
 

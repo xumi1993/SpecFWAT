@@ -260,6 +260,7 @@ contains
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         is_output_preproc = output%get_logical('IS_OUTPUT_PREPROC', error=io_err, default=.false.)
         is_output_adj_src = output%get_logical('IS_OUTPUT_ADJ_SRC', error=io_err, default=.false.)
+        is_output_kernel = output%get_logical('IS_OUTPUT_KERNEL', error=io_err, default=.false.)
 
         ! POSTPROC
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
