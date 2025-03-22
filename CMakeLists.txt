@@ -77,10 +77,10 @@ if (USE_HDF5)
   endif()
 endif()
 
-option(FORCE_DOWNLOAD_EXTERNAL_LIBS "Force download and use external libraries" OFF)
+option(USE_EXTERNAL_LIBS "Force download and use external libraries" OFF)
 # yaml parser
 find_package(yaml-cpp 0.8 QUIET)
-if (yaml-cpp_FOUND AND NOT ${FORCE_DOWNLOAD_EXTERNAL_LIBS})
+if (yaml-cpp_FOUND AND NOT ${USE_EXTERNAL_LIBS})
   message(STATUS "yaml-cpp found")
 else()
   message(STATUS "yaml-cpp not found. Using external_libs/yaml-cpp ...")
