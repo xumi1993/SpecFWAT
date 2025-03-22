@@ -13,6 +13,7 @@ module preproc_fwd
   use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files, read_fk_model
   use logger, only: log
   use tele_data, only: TeleData
+  use rf_data, only: RFData
 
   implicit none
 
@@ -194,10 +195,14 @@ contains
   subroutine semd2sac(this)
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
+    type(RFData) :: rd
 
-    if (dat_type == 'tele') then
+    select case (dat_type)
+    case ('tele') 
       call td%semd2sac(this%ievt)
-    endif
+    case ('rf')
+      call rd%semd2sac(this%ievt)
+    end select
 
   end subroutine semd2sac
 
