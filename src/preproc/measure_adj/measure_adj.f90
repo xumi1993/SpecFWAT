@@ -974,104 +974,96 @@ subroutine measure_adj()
   !   deallocate(conv1, conv2, conv_full, conv_diff)
   ! end subroutine meas_adj_conv_diff
 
-  ! subroutine measure_adj_rf(data,syn,synr,synz,tstart,tend,t0,tp,dt,npts,f0,tshift,maxit,minderr,&
-  !                         net,sta,chan_dat, bandname, window_chi, adj_r_tw,adj_z_tw)
-  !   use decon_mod
-  !   use interpolation_mod, only : myconvolution, PI
+  subroutine measure_adj_rf(data,syn,synr,synz,tstart,tend,t0,tp,dt,npts,f0,tshift,maxit,minderr,&
+                            window_chi, adj_r_tw,adj_z_tw)
+    use decon_mod, only : deconit
+    use signal, only : myconvolution
+    use fwat_constants, only : PI
+    use utils, only: zeros_dp, zeros
 
-  !   implicit none
-  !   character(len=10), intent(in)                      :: net, sta,chan_dat
-  !   character(len=MAX_STRING_LEN), intent(in)          :: bandname
-  !   integer, intent(in)                                :: npts, maxit
-  !   double precision, dimension(npts)                  :: adj_r, r_rev, z_rev, diff_data, &
-  !                                                         synr_shift, synz_shift, data_tw, &
-  !                                                         synt_tw, zrf, data_norm, syn_norm
-  !   double precision, dimension(npts), intent(in)      :: data, syn, synr, synz
-  !   double precision, intent(in)                       :: tstart, tend,t0, dt, tp
-  !   real, intent(in)                                   :: minderr, f0, tshift
-  !   double precision, dimension(npts), intent(inout)   :: adj_r_tw, adj_z_tw
-  !   double precision, dimension(NCHI), intent(inout)   :: window_chi
-  !   integer                                            :: nn,nb,nstart,nend,n,i
-  !   real, dimension(:), allocatable                    :: tmp_n, tmp_d
-  !   double precision, dimension(:), allocatable        :: adj_z
-  !   character(len=MAX_STRING_LEN)                      :: adj_file_prefix
-  !   double precision                                   :: fac
-  !   real                                               :: e
+    implicit none
+    integer, intent(in)                                :: npts, maxit
+    double precision, dimension(npts)                  :: r_rev, z_rev, diff_data, &
+                                                          synr_shift, synz_shift, data_tw, &
+                                                          synt_tw, data_norm, syn_norm
+    double precision, dimension(npts), intent(in)      :: data, syn, synr, synz
+    double precision, intent(in)                       :: tstart, tend,t0, dt, tp
+    real, intent(in)                                   :: minderr, f0, tshift
+    double precision, dimension(:), intent(inout)      :: adj_r_tw, adj_z_tw
+    double precision, dimension(NCHI), intent(inout)   :: window_chi
+    integer                                            :: nn,nb,nstart,nend,n,i
+    real, dimension(:), allocatable                    :: tmp_n, tmp_d
+    double precision, dimension(:), allocatable        :: adj_z, zrf, adj_r
+    character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+    double precision                                   :: fac
+    real                                               :: e
 
-  !   call deconit(synz, synz, npts, real(dt), 10., f0, 10, 0.001, 0, zrf)
-  !   data_norm = data/maxval(zrf)
-  !   syn_norm = syn/maxval(zrf)
-  !   do i = 1, npts
-  !     synr_shift(i) = 0.
-  !     synz_shift(i) = 0.
-  !     r_rev(i) = 0.
-  !     z_rev(i) = 0.
-  !     adj_r(i) = 0.
-  !     diff_data(i) = 0.
-  !     adj_r_tw(i) = 0.
-  !     adj_z_tw(i) = 0.
-  !     data_tw(i) = 0.
-  !     synt_tw(i) = 0.
-  !   enddo
-  !   ! Align syn waveform with P
-  !   nb = floor((tp - tshift - t0)/dt+1)
-  !   synr_shift(1:npts-nb+1) = synr(nb:npts)
-  !   synz_shift(1:npts-nb+1) = synz(nb:npts)
+    call deconit(synz, synz, real(dt), 10., f0, 10, 0.001, 0, zrf)
+    data_norm = data/maxval(zrf)
+    syn_norm = syn/maxval(zrf)
+    synr_shift = 0.
+    synz_shift = 0.
+    r_rev = 0.
+    z_rev = 0.
+    diff_data = 0.
+    adj_r_tw = 0.
+    adj_z_tw = 0.
+    data_tw = 0.
+    synt_tw = 0.
+    ! Align syn waveform with P
+    nb = floor((tp - tshift - t0)/dt+1)
+    synr_shift(1:npts-nb+1) = synr(nb:npts)
+    synz_shift(1:npts-nb+1) = synz(nb:npts)
 
-  !   ! Calculate RF adjoint source in time domain (J.H.E. de Jong et al., 2022)
-  !   e = real(npts * dt - tshift)
-  !   diff_data = syn_norm-data_norm
-  !   nn = npts*2-1
-  !   if (.not. allocated(tmp_n)) allocate(tmp_n(nn))
-  !   if (.not. allocated(tmp_d)) allocate(tmp_d(nn))
-  !   allocate(adj_z(nn))
-  !   tmp_n = 0.
-  !   tmp_d = 0.
-  !   adj_z = 0.
-  !   call reverse(synr_shift, npts, r_rev)
-  !   call reverse(synz_shift, npts, z_rev)
-  !   call deconit(diff_data, z_rev, npts, real(dt), e, f0, maxit, minderr, 1, adj_r)
-  !   call myconvolution(-real(diff_data),real(r_rev),npts,npts,tmp_n,1)
-  !   call myconvolution(real(z_rev),real(z_rev),npts,npts,tmp_d,1)
-  !   call deconit(dble(tmp_n), dble(tmp_d), nn, real(dt), e, f0, maxit, minderr, 1, adj_z)
-  !   deallocate(tmp_n)
-  !   deallocate(tmp_d)
-  !   nstart = floor((-tstart + tshift)/dt+1)
-  !   nend = floor((tend + tshift)/dt+1)
+    ! Calculate RF adjoint source in time domain (J.H.E. de Jong et al., 2022)
+    e = real(npts * dt - tshift)
+    diff_data = syn_norm-data_norm
+    nn = npts*2-1
+    tmp_n = zeros(nn)
+    tmp_d = zeros(nn)
+    ! adj_z = zeros_dp(nn)
+    call reverse(synr_shift, npts, r_rev)
+    call reverse(synz_shift, npts, z_rev)
+    call deconit(diff_data, z_rev, real(dt), e, f0, maxit, minderr, 1, adj_r)
+    call myconvolution(-real(diff_data),real(r_rev),tmp_n,1)
+    call myconvolution(real(z_rev),real(z_rev),tmp_d,1)
+    call deconit(dble(tmp_n), dble(tmp_d), real(dt), e, f0, maxit, minderr, 1, adj_z)
+    nstart = floor((-tstart + tshift)/dt+1)
+    nend = floor((tend + tshift)/dt+1)
 
-  !   n = 1
-  !   ! Cosine taper
-  !   do i = nstart, nend
-  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-  !     data_tw(i) = data_norm(i) * fac
-  !     synt_tw(i) = syn_norm(i) * fac
-  !     adj_r_tw(nb+i) = adj_r(i) * fac
-  !     adj_z_tw(nb+i) = adj_z(i) * fac
-  !     n = n+1
-  !   enddo
+    n = 1
+    ! Cosine taper
+    do i = nstart, nend
+      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+      data_tw(i) = data_norm(i) * fac
+      synt_tw(i) = syn_norm(i) * fac
+      adj_r_tw(nb+i) = adj_r(i) * fac
+      adj_z_tw(nb+i) = adj_z(i) * fac
+      n = n+1
+    enddo
 
-  !   ! write windowed adjoint source
-  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
-  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
-  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
-  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
-  !   window_chi(:) = 0.
+    ! write windowed adjoint source
+    ! adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
+    ! adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
+    window_chi(:) = 0.
 
-  !   ! compute integrated waveform difference, normalized by duration of the record
-  !   ! NOTE: (1) this is for the FULL record, not the windowed record
-  !   !       (2) for comparison with waveform_chi, we include the 0.5 factor
-  !   !       (3) we might want to include dt as an integration factor (also for waveform_chi),
-  !   !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
-  !   window_chi(13) = 0.5 * sum( data_tw**2 )
-  !   window_chi(14) = 0.5 * sum( synt_tw**2 )
-  !   window_chi(15) = 0.5 * sum( (synt_tw-data_tw)**2 )
-  !   window_chi(16) = (nend - nstart +1) *dt
-  !   window_chi(17) = 0.5 * sum( data_norm**2 )
-  !   window_chi(18) = 0.5 * sum( syn_norm**2 )
-  !   window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
-  !   window_chi(20) = npts*dt
-  !   deallocate(adj_z)
-  ! end subroutine measure_adj_rf
+    ! compute integrated waveform difference, normalized by duration of the record
+    ! NOTE: (1) this is for the FULL record, not the windowed record
+    !       (2) for comparison with waveform_chi, we include the 0.5 factor
+    !       (3) we might want to include dt as an integration factor (also for waveform_chi),
+    !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
+    window_chi(13) = 0.5 * sum( data_tw**2 )
+    window_chi(14) = 0.5 * sum( synt_tw**2 )
+    window_chi(15) = 0.5 * sum( (synt_tw-data_tw)**2 )
+    window_chi(16) = (nend - nstart +1) *dt
+    window_chi(17) = 0.5 * sum( data_norm**2 )
+    window_chi(18) = 0.5 * sum( syn_norm**2 )
+    window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
+    window_chi(20) = npts*dt
+    deallocate(adj_z)
+  end subroutine measure_adj_rf
 
   subroutine rotate_adj_src
 

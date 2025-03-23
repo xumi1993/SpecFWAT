@@ -1,13 +1,13 @@
 module syn_data
   use config
   use fwat_constants, only: targ
-  use specfem_par, only: NSTEP, DT, ELASTIC_SIMULATION, seismograms_d, nrec, nrec_local, &
+  use specfem_par, only: NSTEP, DT, T0, ELASTIC_SIMULATION, seismograms_d, nrec, nrec_local, &
                         number_receiver_global, ispec_selected_rec, islice_selected_rec
   use specfem_par_elastic, only: ispec_is_elastic
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
   use fwat_mpi
   use input_params, fpar => fwat_par_global
-  use common_lib, only: rotate_NE_to_RT, rotate_NE_to_RT_dp
+  use common_lib, only: rotate_NE_to_RT, rotate_NE_to_RT_dp, dwascii
   use obs_data, only: ObsData
   use window_chi, only: WindowChi
   use utils, only: zeros_dp
@@ -27,7 +27,7 @@ module syn_data
     integer :: dat_win
     contains
     procedure :: read=>read_syn_data, filter, assemble_2d, assemble_3d, init
-    procedure :: get_comp_name_adj, finalize
+    procedure :: get_comp_name_adj, finalize, write_adj
 
   end type SynData
 
@@ -230,6 +230,19 @@ contains
       endif
     endif
   end subroutine assemble_3d
+
+  subroutine write_adj(this, adj_data, kcmp, irec)
+    class(SynData), intent(inout) :: this
+    real(kind=dp), dimension(:), intent(in) :: adj_data
+    character(len=*), intent(in) :: kcmp
+    integer, intent(in) :: irec
+    character(len=MAX_STRING_LEN) :: adj_file
+
+    adj_file = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+               '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+               '.'//trim(fpar%sim%CH_CODE)//trim(kcmp)//'.adj'
+    call dwascii(adj_file, adj_data, NSTEP, -dble(T0), dble(DT))
+  end subroutine write_adj
 
   ! subroutine rotate_to_rt(this, baz)
   !   class(SynData), intent(inout) :: this

@@ -229,12 +229,12 @@ contains
       
     if (worldrank == 0) then
       block 
-        real(kind=dp) :: total_missfit
+        real(kind=dp) :: total_misfit
         character(len=MAX_STRING_LEN) :: msg
 
         call this%wchi(1)%write()
-        total_missfit = this%wchi(1)%sum_chi(29)
-        write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', total_missfit
+        total_misfit = this%wchi(1)%sum_chi(29)
+        write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', total_misfit
         call log%write(msg, .true.)
       end block
     endif
@@ -468,22 +468,12 @@ contains
           ! write adjoint source
           select case (icomp)
           case (1)
-            ! adj_src(:, 1, irec_local) = adj_syn_local(1:NSTEP)
-            sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
-                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%CH_CODE)//trim(this%comp_name(1))//'.adj'
-            call dwascii(sacfile, adj_syn_local(1:NSTEP), NSTEP, -dble(T0), dble(DT))
+            call this%write_adj(adj_syn_local(1:NSTEP), trim(this%comp_name(1)), irec)
           case (2)
             adj_src = zeros_dp(fpar%sim%nstep, 2)
             call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 1), adj_src(:, 2), this%baz)
-            sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
-                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%CH_CODE)//trim(this%comp_name(2))//'.adj'
-            call dwascii(sacfile, adj_src(:, 1), NSTEP, -dble(T0), dble(DT))
-            sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
-                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%CH_CODE)//trim(this%comp_name(3))//'.adj'
-            call dwascii(sacfile, adj_src(:, 2), NSTEP, -dble(T0), dble(DT))
+            call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
+            call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
           end select
           ! save misfits
           this%window_chi(irec_local, :, icomp) = window_chi_local

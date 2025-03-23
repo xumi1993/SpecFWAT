@@ -148,7 +148,7 @@ contains
           else
             write(gaus_str, '("F",F3.1)') fpar%sim%rf%F0(icomp)
             sacfile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%netwk(ista))//'.'//trim(this%stnm(ista))//&
-                      '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//'.'//trim(gaus_str)//'.rf.sac'
+                      '.'//trim(fpar%sim%CH_CODE)//'R.'//trim(gaus_str)//'.rf.sac'
           endif
 
           ! read sac file
@@ -172,6 +172,8 @@ contains
               else
                 call exit_MPI(0, 't0 not found in SAC header')
               endif
+            elseif(dat_type == 'rf') then
+              this%tarr(ista) = 0._cr
             endif
           endif
         enddo

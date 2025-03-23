@@ -209,12 +209,18 @@ contains
   subroutine measure_adj(this)
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
+    type(RFData) :: rd
     
-    if (dat_type == 'tele') then
+    select case(dat_type)
+    case ('tele')
       call td%preprocess(this%ievt)
       call td%od%copy_adjoint_stations()
       call td%finalize()
-    endif
+    case ('rf')
+      call rd%preprocess(this%ievt)
+      call rd%od%copy_adjoint_stations()
+      call rd%finalize()
+    end select
     
   end subroutine measure_adj
 
