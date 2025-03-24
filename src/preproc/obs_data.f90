@@ -87,7 +87,7 @@ contains
     call prepare_shm_array_cr_1d(this%stbur, this%nsta, this%bur_win)
     call prepare_shm_array_cr_1d(this%baz, this%nsta, this%baz_win)
     call prepare_shm_array_cr_1d(this%tbeg, this%nsta, this%tb_win)
-    if (index(dat_type, 'tele') /= 0) &
+    if (simu_type == SIMU_TYPE_TELE) &
       call prepare_shm_array_cr_1d(this%tarr, this%nsta, this%t0_win)
   end subroutine alloc_sta_info
 
@@ -125,7 +125,7 @@ contains
       else
         write(gaus_str, '("F",F3.1)') fpar%sim%rf%F0(1)
         sacfile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%netwk(ista))//'.'//trim(this%stnm(ista))//&
-                  '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//'.'//trim(gaus_str)//'.rf.sac'
+                  '.'//trim(fpar%sim%CH_CODE)//'R.'//trim(gaus_str)//'.rf.sac'
         ncomp = fpar%sim%rf%NGAUSS
       endif
       call sacio_readhead(sacfile, header, ier)

@@ -105,6 +105,8 @@ module rf_data
     call this%read(this%od%baz)
     call this%calc_rf()
 
+    call this%calc_times()
+
     allocate(this%wchi(fpar%sim%rf%NGAUSS))
 
     ! measure adjoint source
@@ -150,7 +152,7 @@ module rf_data
           call bandpass_dp(synz, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call bandpass_dp(synr, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call measure_adj_rf(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec),&
-                              synr, synz, dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
+                              synr, synz, -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
                               dble(-t0), dble(this%ttp(irec)), dble(DT), NSTEP, fpar%sim%rf%f0(igaus),&
                               fpar%sim%rf%tshift, fpar%sim%rf%maxit, fpar%sim%rf%minderr, &
                               window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw)
@@ -179,6 +181,7 @@ module rf_data
     call synchronize_all()
 
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
+    call this%get_comp_name_adj()
     if (nrec_local > 0) then
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
@@ -238,6 +241,7 @@ module rf_data
         enddo
       enddo
     endif
+    call synchronize_all()
 
     ! collect to main rank
     if (worldrank == 0) then
@@ -250,7 +254,7 @@ module rf_data
       do iproc = 1, worldsize-1
         nsta_irank = 0
         do irec = 1, nrec
-          if (ispec_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
+          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
         enddo
         if (nsta_irank > 0) then
           allocate(recv_buffer(NSTEP, fpar%sim%rf%NGAUSS, nsta_irank))
@@ -276,6 +280,7 @@ module rf_data
         deallocate(send_indices)
       endif
     endif
+    call synchronize_all()
     call sync_from_main_rank_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
   end subroutine calc_rf
 

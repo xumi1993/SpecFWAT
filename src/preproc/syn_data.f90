@@ -318,7 +318,7 @@ contains
     else
       this%comp_name = ['Z', 'N', 'E']
     endif
-
+    call synchronize_all()
   end subroutine get_comp_name_adj
 
   subroutine finalize(this)
