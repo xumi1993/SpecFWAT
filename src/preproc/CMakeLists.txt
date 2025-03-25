@@ -15,7 +15,7 @@ file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
-                      specfem_api_objs cuda_objs tele_objs)
+                      specfem_api_objs cuda_objs tele_objs measadj_objs)
 
 # executables
 set(APP_SOURCES

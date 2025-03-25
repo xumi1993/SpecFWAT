@@ -117,8 +117,9 @@ module rf_data
   subroutine measure_adj(this)
     use measure_adj_mod, only: measure_adj_rf
     class(RFData), intent(inout) :: this
+    type(sachead) :: header
     character(len=MAX_STRING_LEN) :: chan, msg
-    integer :: irec_local, irec, igaus
+    integer :: irec_local, irec, igaus, icomp
     real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
     real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
     real(kind=dp), dimension(:,:,:), allocatable :: window_chi, adj_src
@@ -147,15 +148,17 @@ module rf_data
           irec = number_receiver_global(irec_local)
           synz = this%data(:, 1, irec)
           synr = this%data(:, 2, irec)
-          adj_z_tw = zeros_dp(NSTEP)
-          adj_r_tw = zeros_dp(NSTEP)
+          ! adj_z_tw = zeros_dp(NSTEP)
+          ! adj_r_tw = zeros_dp(NSTEP)
           call bandpass_dp(synz, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call bandpass_dp(synr, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call measure_adj_rf(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec),&
                               synr, synz, -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
                               dble(-t0), dble(this%ttp(irec)), dble(DT), NSTEP, fpar%sim%rf%f0(igaus),&
                               fpar%sim%rf%tshift, fpar%sim%rf%maxit, fpar%sim%rf%minderr, &
-                              window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw)
+                              window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
+                              this%od%netwk(irec), this%od%stnm(irec) &
+                              )
           adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw
           adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw
           tr_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
@@ -181,6 +184,29 @@ module rf_data
     call synchronize_all()
 
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
+    if (IS_OUTPUT_ADJ_SRC) then
+      call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+      header%kstnm = this%od%stnm(irec)
+      header%knetwk = this%od%netwk(irec)
+      if (nrec_local > 0) then
+        do irec_local = 1, nrec_local
+          irec = number_receiver_global(irec_local)
+          do icomp = 1, 2
+            if (icomp == 1) then
+              header%kcmpnm = 'Z'
+            else
+              header%kcmpnm = 'R'
+            end if
+            call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
+                                trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                                '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
+                                header, adj_src(:, icomp, irec_local), ier)
+          enddo
+        enddo
+      endif
+    endif
+    call synchronize_all()
+
     call this%get_comp_name_adj()
     if (nrec_local > 0) then
       do irec_local = 1, nrec_local
@@ -188,8 +214,10 @@ module rf_data
         call this%write_adj(adj_src(:, 1, irec_local), this%comp_name(1), irec)
         adj_2 = zeros_dp(NSTEP)
         adj_3 = zeros_dp(NSTEP)
-        call rotate_R_to_NE_dp(adj_src(:, 2, irec_local), adj_2, adj_3, this%baz)
+        call rotate_R_to_NE_dp(adj_src(:, 2, irec_local), adj_3, adj_2, this%baz)
+        ! write N component
         call this%write_adj(adj_2, this%comp_name(2), irec)
+        ! write E component
         call this%write_adj(adj_3, this%comp_name(3), irec)
       enddo
     endif
@@ -200,18 +228,19 @@ module rf_data
     class(RFData), intent(inout) :: this
     integer :: irec, igaus
 
-    call prepare_shm_array_dp_3d(this%rf_syn, NSTEP, fpar%sim%rf%NGAUSS, this%nrec, this%syn_win)
+    call prepare_shm_array_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec, this%syn_win)
     if (worldrank == 0) then
       do igaus = 1, fpar%sim%rf%NGAUSS
         do irec = 1, this%nrec
           call interpolate_syn_dp(this%od%data(:, igaus, irec), dble(this%od%tbeg(irec)),&
                                   dble(this%od%dt), this%od%npts, &
                                   -dble(fpar%sim%rf%tshift), dble(fpar%sim%dt),NSTEP)
+          this%rf_dat(:, igaus, irec) = this%od%data(:, igaus, irec)
         enddo
       enddo
     endif
     call synchronize_all()
-    call sync_from_main_rank_dp_3d(this%rf_syn, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
+    call sync_from_main_rank_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
 
   end subroutine interp_data
 
@@ -221,8 +250,9 @@ module rf_data
     real(kind=dp), dimension(:,:,:), allocatable :: rf_data_local, recv_buffer
     integer, dimension(:), allocatable :: recv_indices, send_indices
     integer :: igaus, irec_local, irec, iproc, nsta_irank, i
+    type(sachead) :: header
 
-    call prepare_shm_array_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec, this%rf_win)
+    call prepare_shm_array_dp_3d(this%rf_syn, NSTEP, fpar%sim%rf%NGAUSS, this%nrec, this%rf_win)
 
     if (nrec_local > 0) then
       rf_data_local = zeros_dp(NSTEP, fpar%sim%rf%NGAUSS, nrec_local)
@@ -234,10 +264,39 @@ module rf_data
                          1/fpar%sim%SHORT_P(1), IORD)
         call bandpass_dp(win ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&
                          1/fpar%sim%SHORT_P(1), IORD)
+        if (IS_OUTPUT_PREPROC) then
+          call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+          header%az = this%az
+          header%baz = this%baz
+          header%kstnm = this%od%stnm(irec)
+          header%knetwk = this%od%netwk(irec)
+          header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
+          call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/wsyn.'//&
+                              trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                              '.'//trim(fpar%sim%CH_CODE)//'Z.sac', header, win, ier)
+          header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
+          call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/wsyn.'//&
+                              trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                              '.'//trim(fpar%sim%CH_CODE)//'R.sac', header, uin, ier)
+        endif
         do igaus = 1, fpar%sim%rf%NGAUSS
           call deconit(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igaus),&
                        fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi)
           rf_data_local(:, igaus, irec_local) = rfi
+          if (IS_OUTPUT_PREPROC) then
+            call sacio_newhead(header, real(DT), NSTEP, -real(fpar%sim%rf%tshift))
+            write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
+            header%az = this%az
+            header%baz = this%baz
+            header%kstnm = this%od%stnm(irec)
+            header%knetwk = this%od%netwk(irec)
+            header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
+            header%user1 = fpar%sim%rf%f0(igaus)
+            header%kuser1 = 'gauss'
+            call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/syn.'//&
+                                trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                                '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), header, rfi, ier)
+          endif
         enddo
       enddo
     endif
@@ -248,7 +307,7 @@ module rf_data
       if (nrec_local > 0) then
         do irec_local = 1, nrec_local
           irec = number_receiver_global(irec_local)
-          this%rf_dat(:, :, irec) = rf_data_local(:, :, irec_local)
+          this%rf_syn(:, :, irec) = rf_data_local(:, :, irec_local)
         enddo
       endif
       do iproc = 1, worldsize-1
@@ -263,7 +322,7 @@ module rf_data
           call recv_dp(recv_buffer, NSTEP*fpar%sim%rf%NGAUSS*nsta_irank, iproc, targ)
           do i = 1, nsta_irank
             irec = recv_indices(i)
-            this%rf_dat(:, :, irec) = recv_buffer(:, :, i)
+            this%rf_syn(:, :, irec) = recv_buffer(:, :, i)
           enddo
           deallocate(recv_buffer)
           deallocate(recv_indices)
@@ -281,7 +340,7 @@ module rf_data
       endif
     endif
     call synchronize_all()
-    call sync_from_main_rank_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
+    call sync_from_main_rank_dp_3d(this%rf_syn, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
   end subroutine calc_rf
 
   subroutine calc_times(this)

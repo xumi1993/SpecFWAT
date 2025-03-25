@@ -72,4 +72,36 @@ contains
       call exit_MPI(0, 'ERROR: Invalid arguments')
     endif
   end subroutine parse_args_fwd_meas_adj
+
+  subroutine parse_args_post_process()
+    integer, parameter :: max_num_args = 2
+    character(len=MAX_STRING_LEN), dimension(max_num_args) :: argv
+    integer :: i, iarg, argc
+    character(len=MAX_STRING_LEN) :: usage
+
+    usage = 'Usage: fwat_post_proc -m <model>'
+
+    argc = command_argument_count()
+    do i = 1, argc
+      call get_command_argument(i, argv(i))
+    enddo
+
+    if (argc > max_num_args) then
+      if (worldrank == 0) print *, trim(usage)
+      call exit_MPI(0, 'ERROR: Too more arguments')
+    endif
+
+    ! parse arguments
+    do i = 1, argc
+      if (argv(i) == '-m' .or. argv(i) == '--model') then
+        iarg = i + 1
+        if (iarg > argc) then
+          if (worldrank == 0) print *, usage
+          call exit_MPI(0, 'ERROR: Model name not set')
+        endif
+        model_name = argv(iarg)
+      endif
+    enddo
+
+  end subroutine parse_args_post_process
 end module argparse

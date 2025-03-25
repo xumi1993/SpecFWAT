@@ -975,7 +975,7 @@ subroutine measure_adj()
   ! end subroutine meas_adj_conv_diff
 
   subroutine measure_adj_rf(data,syn,synr,synz,tstart,tend,t0,tp,dt,npts,f0,tshift,maxit,minderr,&
-                            window_chi, adj_r_tw,adj_z_tw)
+                            window_chi, adj_r_tw,adj_z_tw, net, sta)
     use decon_mod, only : deconit
     use signal, only : myconvolution
     use fwat_constants, only : PI
@@ -989,12 +989,13 @@ subroutine measure_adj()
     double precision, dimension(npts), intent(in)      :: data, syn, synr, synz
     double precision, intent(in)                       :: tstart, tend,t0, dt, tp
     real, intent(in)                                   :: minderr, f0, tshift
-    double precision, dimension(:), intent(inout)      :: adj_r_tw, adj_z_tw
+    double precision, dimension(:), allocatable, intent(out)      :: adj_r_tw, adj_z_tw
     double precision, dimension(NCHI), intent(inout)   :: window_chi
     integer                                            :: nn,nb,nstart,nend,n,i
     real, dimension(:), allocatable                    :: tmp_n, tmp_d
     double precision, dimension(:), allocatable        :: adj_z, zrf, adj_r
     character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+    character(len=*), intent(in) :: net, sta
     double precision                                   :: fac
     real                                               :: e
 
@@ -1006,21 +1007,21 @@ subroutine measure_adj()
     r_rev = 0.
     z_rev = 0.
     diff_data = 0.
-    adj_r_tw = 0.
-    adj_z_tw = 0.
     data_tw = 0.
     synt_tw = 0.
+    adj_r_tw = zeros_dp(npts)
+    adj_z_tw = zeros_dp(npts)
     ! Align syn waveform with P
     nb = floor((tp - tshift - t0)/dt+1)
     synr_shift(1:npts-nb+1) = synr(nb:npts)
     synz_shift(1:npts-nb+1) = synz(nb:npts)
 
-    ! Calculate RF adjoint source in time domain (J.H.E. de Jong et al., 2022)
+    ! Calculate RF adjoint source in time domain
     e = real(npts * dt - tshift)
     diff_data = syn_norm-data_norm
     nn = npts*2-1
-    tmp_n = zeros(nn)
-    tmp_d = zeros(nn)
+    ! tmp_n = zeros(nn)
+    ! tmp_d = zeros(nn)
     ! adj_z = zeros_dp(nn)
     call reverse(synr_shift, npts, r_rev)
     call reverse(synz_shift, npts, z_rev)
@@ -1043,10 +1044,10 @@ subroutine measure_adj()
     enddo
 
     ! write windowed adjoint source
-    ! adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
-    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_r_tw,npts,t0,dt)
-    ! adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
-    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//'.'//trim(bandname),adj_z_tw,npts,t0,dt)
+    adj_file_prefix = trim(net)//'.'//trim(sta)//'.BXR'
+    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac.F1.5',adj_r,npts,t0,dt)
+    adj_file_prefix = trim(net)//'.'//trim(sta)//'.BXZ'
+    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac.F1.5',adj_r,npts,t0,dt)
     window_chi(:) = 0.
 
     ! compute integrated waveform difference, normalized by duration of the record

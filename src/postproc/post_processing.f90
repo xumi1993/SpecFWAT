@@ -38,12 +38,42 @@ contains
 
     call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name))
 
-    call log%init('output_fwd_post_processing.log')
+    call log%init('output_post_processing_'//trim(model_name)//'.log')
 
   end subroutine init
 
-  subroutine generate_for_type(this)
+  subroutine generate_for_type(this, itype)
     class(PostFlow), intent(inout) :: this
+    integer, intent(in) :: itype
+    character(len=MAX_STRING_LEN) :: msg
+
+    ! set simu type
+    simu_type = this%simu_types(itype)
+    call fpar%select_simu_type()
+    
+    ! read src_rec for this data type
+    if (itype == 2) then
+      select case(fpar%postproc%TELE_TYPE)
+        case(1)
+          dat_type = 'tele'
+        case(2)
+          dat_type = 'rf'
+        case(3)
+          dat_type = 'telecd'
+      end select
+    endif
+    ! read src_rec for this data type
+    call fpar%acqui%read()
+
+    call log%write('*******************************************', .false.)
+    call log%write('Simulation type: '//trim(simu_type), .false.)
+    write(msg, '(a, F12.2, F12.2)') 'Smoothing: ', fpar%sim%SIGMA_H, fpar%sim%SIGMA_V
+    call log%write(msg, .false.)
+    write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_PRECOND
+    call log%write(msg, .false.)
+    write(msg, '(a, I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE
+    call log%write('-------------------------------------------', .false.)
+
     if (worldrank == 0) then
       if (is_joint) then
         call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(simu_type))
@@ -59,7 +89,7 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
     integer :: iker, ievt
 
-    call log%write('This is sum kernel...', .true.)
+    call log%write('This is taking sum of kernels...', .true.)
     do iker = 1, this%nker
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(this%ker_names(iker))//'_kernel', ker)
@@ -73,9 +103,11 @@ contains
     class(PostFlow), intent(inout) :: this
     character(len=MAX_STRING_LEN), parameter :: hess_name = 'hess'
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
-    real(kind=cr) :: zdep
+    real(kind=cr), dimension(:), allocatable :: z_precond
+    real(kind=cr) :: precond
     integer :: iker, ievt, igllx, iglly, igllz, ispec, iglob
 
+    call log%write('This is applying preconditioned kernels...', .true.)
     if (simu_type /= SIMU_TYPE_TELE) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
       do ievt = 1, fpar%acqui%nevents
@@ -93,12 +125,8 @@ contains
           do iglly = 1, NGLLY
             do igllz = 1, NGLLZ
               iglob = ibool(igllx,iglly,igllz,ispec)
-              if (tele_par%PRECOND_TYPE == Z_PRECOND) then
-                zdep = abs(zstore(iglob))/abs(z_min_glob)
-              elseif (tele_par%PRECOND_TYPE == Z_SQRT_PRECOND) then
-                zdep = sqrt(abs(zstore(iglob))/abs(z_min_glob))
-              endif
-              this%ker_data(igllx,iglly,igllz,ispec,:) = this%ker_data(igllx,iglly,igllz,ispec,:) / zdep
+              precond = set_z_precond(zstore(iglob))
+              this%ker_data(igllx,iglly,igllz,ispec,:) = this%ker_data(igllx,iglly,igllz,ispec,:) * precond
             enddo
           enddo
         enddo
@@ -107,12 +135,38 @@ contains
 
   end subroutine sum_precond
 
+  function set_z_precond(z) result(precond)
+    use utils, only: arange
+    real(kind=cr) :: precond
+    real(kind=cr) :: z_max
+    real(kind=cr), intent(in) :: z
+    integer :: ndep
+
+    if (z > -THRESHOLD_HESS) then
+      precond = THRESHOLD_HESS
+    else
+      precond = z
+    endif
+    if (tele_par%PRECOND_TYPE == Z_PRECOND) then
+      precond = sqrt(precond**2)
+      z_max = abs(z_min_glob)
+    elseif (tele_par%PRECOND_TYPE == Z_SQRT_PRECOND) then
+      precond = sqrt(sqrt(precond**2))
+      z_max = sqrt(abs(z_min_glob))
+    endif
+    precond = precond / z_max 
+  end function set_z_precond
+
   subroutine smooth_kernel(this)
+    use smooth_mod, only: smooth_sem_pde
     class(PostFlow), intent(inout) :: this
     integer :: iker
+    real(kind=cr), dimension(:,:,:,:), allocatable :: ker
 
+    call log%write('This is smoothing kernels...', .true.)
     do iker = 1, this%nker
-      call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V)
+      call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
+      this%ker_data(:,:,:,:,iker) = ker
     enddo
 
   end subroutine smooth_kernel

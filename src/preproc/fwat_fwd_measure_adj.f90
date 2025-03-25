@@ -53,6 +53,10 @@ do while (ffwd%ievt <= nsim)
   ffwd%ievt = ffwd%ievt + 1
 enddo
 
+call log%write('*******************************************', .false.)
+call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
+call log%write('*******************************************', .false.)
+
 call finalize_mpi()
 
 end program fwat_fwd_measure_adj

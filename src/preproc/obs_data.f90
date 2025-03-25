@@ -67,6 +67,7 @@ contains
       enddo
       close(FID)
     endif
+    call synchronize_all()
     call sync_from_main_rank_ch(this%netwk, this%nsta, MAX_STRING_LEN)
     call sync_from_main_rank_ch(this%stnm, this%nsta, MAX_STRING_LEN)
     call sync_from_main_rank_cr_1d(this%stla, this%nsta)

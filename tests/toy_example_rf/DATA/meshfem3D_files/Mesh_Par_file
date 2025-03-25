@@ -10,7 +10,7 @@ LATITUDE_MAX                    = 0.4
 LONGITUDE_MIN                   = 0.0
 LONGITUDE_MAX                   =  1.8
 DEPTH_BLOCK_KM                  = 80.0
-UTM_PROJECTION_ZONE             = 31
+UTM_PROJECTION_ZONE             = 30
 SUPPRESS_UTM_PROJECTION         = .false.
 
 # file that contains the interfaces of the model / mesh

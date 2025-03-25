@@ -4,6 +4,7 @@ program fwat_post_proc
   use post_processing
   use input_params, fpar => fwat_par_global
   use common_lib, only: get_simu_type
+  use argparse, only: parse_args_post_process
 
   implicit none
 
@@ -12,6 +13,10 @@ program fwat_post_proc
 
   call init_mpi()
   call init_mpi_fwat()
+
+  call parse_args_post_process()
+
+  call fpar%read(FWAT_PAR_FILE)
 
   if (count(fpar%postproc%INV_TYPE) > 1) then
     is_joint = .true.
@@ -24,16 +29,14 @@ program fwat_post_proc
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then
       ! set simu type
-      simu_type = fpp%simu_types(itype)
-      call fpar%select_simu_type()
 
       ! generate kernels for this type
-      call fpp%generate_for_type()
-
+      call fpp%generate_for_type(itype)
+    
       ! sum kernels for this type
       call fpp%sum_kernel()
 
-      if (.not. is_joint .or. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
+      if (.not. is_joint .and. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
 
       ! smooth kernels
       call fpp%smooth_kernel()
@@ -46,6 +49,9 @@ program fwat_post_proc
   if (is_joint) then
     call fpp%sum_joint_kernel()
   endif
+  call log%write('*******************************************', .false.)
+  call log%write('********** POST-PROCESSING DONE ***********', .false.)
+  call log%write('*******************************************', .false.)
 
   call finalize_mpi()
     

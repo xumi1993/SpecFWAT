@@ -1,68 +1,28 @@
-!=====================================================================
-!
-!                          S p e c f e m 3 D
-!                          -----------------
-!
-!     Main historical authors: Dimitri Komatitsch and Jeroen Tromp
-!                              CNRS, France
-!                       and Princeton University, USA
-!                 (there are currently many more authors!)
-!                           (c) October 2017
-!
-! This program is free software; you can redistribute it and/or modify
-! it under the terms of the GNU General Public License as published by
-! the Free Software Foundation; either version 3 of the License, or
-! (at your option) any later version.
-!
-! This program is distributed in the hope that it will be useful,
-! but WITHOUT ANY WARRANTY; without even the implied warranty of
-! MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-! GNU General Public License for more details.
-!
-! You should have received a copy of the GNU General Public License along
-! with this program; if not, write to the Free Software Foundation, Inc.,
-! 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-!
-!=====================================================================
-
-!! Usage:
-!! mpirun -np NPROC bin/xsmooth_sem SIGMA_H SIGMA_V KERNEL_NAME INPUT_DIR OUPUT_DIR GPU_MODE [SET_ZERO_IN_PML]
-!! The last argument (optional, FALSE by default) only functions in case of PML.
-!! If set to be TRUE, then the PML domain will be set to zero.
-!! If the last argument is omitted, then the command-line arguments
-!! are identical to smooth_sem.
-!! Ideally, the result of this program should be identical to
-!! smooth_sem, but will be tens of times faster
-
-!! GPU is not supported yet, but should be straightforward to
-!! implement.
-!! Currently, only NGLL=5 is optimized with force inline
-
-!! This implementation solves a diffusion PDE with explicit
-!! time stepping. The parameter CFL_CONST is set to guarantee
-!! stability. It can be increased in case of instability.
-
-! #include "config.fh"
-
-subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
-
-  use constants, only: m1, m2, CUSTOM_REAL,NGLLX,NGLLY,NGLLZ, MAX_STRING_LEN,IIN,IOUT
+module smooth_mod
   use specfem_par
   use specfem_par_elastic, only: &
       !ispec_is_elastic, &
       nspec_inner_elastic,nspec_outer_elastic,phase_ispec_inner_elastic
+  use config
+
+implicit none
+
+contains
+
+subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
+
+  use constants, only: m1, m2, CUSTOM_REAL,NGLLX,NGLLY,NGLLZ, MAX_STRING_LEN,IIN,IOUT
+
   !use specfem_par_acoustic, only: ispec_is_acoustic
   !use specfem_par_poroelastic, only: ispec_is_poroelastic
   use pml_par, only: is_CPML
-  use config
-
-  implicit none
 
   ! integer, parameter :: NARGS = 7
   integer, parameter :: PRINT_INFO_PER_STEP = 1000000
   real(kind=CUSTOM_REAL), parameter :: CFL_CONST = 9.0
 
-  real(kind=CUSTOM_REAL), dimension(:,:,:,:), intent(inout) :: dat
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), intent(in) :: dat_in
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(out) :: dat
   !! spherical coordinate !!
   !real(kind=CUSTOM_REAL), dimension(:,:,:,:,:),allocatable :: rotate_r
   !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -83,7 +43,7 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
 
   !character(len=MAX_STRING_LEN) :: kernel_names(MAX_KERNEL_NAMES)
   !character(len=MAX_STRING_LEN) :: kernel_names_comma_delimited
-  character(len=MAX_STRING_LEN) :: kernel_name
+  ! character(len=MAX_STRING_LEN) :: kernel_name
   integer :: num_elements
   real t1,t2,tnow,tlast
 
@@ -276,7 +236,8 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
     enddo
   enddo
 
-  ! allocate(dat(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
+  allocate(dat(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
+  dat = dat_in
   allocate(dat_glob(NGLOB_AB))
   allocate(ddat_glob(NGLOB_AB))
   allocate(buffer_send_vector_ext_mesh_smooth( &
@@ -306,6 +267,7 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
                        nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
                        my_neighbors_ext_mesh)
   rvol(:) = 1.0 / rvol(:)
+
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    ! read in data to be smoothed
   ! data file
@@ -325,6 +287,7 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! project
   dat_glob(:) = 0.0
+  print *, size(dat), size(rvol_local), size(dat_glob)
   do ispec = 1, NSPEC_AB
     do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
       iglob = ibool(i,j,k,ispec)
@@ -354,8 +317,9 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
   max_val = maxval(dat_glob)
   call min_all_cr(min_val, min_val_glob)
   call max_all_cr(max_val, max_val_glob)
+  ! print *, myrank, 'minval:', min_val, 'maxval:', max_val
   if (myrank == 0) then
-    print *, '  '//trim(kernel_name)
+    ! print *, '  '//trim(kernel_name)
     print *, '    minval:', min_val_glob
     print *, '    maxval:', max_val_glob
     if (myrank == 0) call cpu_time(tlast)
@@ -370,9 +334,8 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
     enddo;enddo;enddo
   enddo
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
   do istep = 1, ntstep
-    !if (myrank == 0) print *, istep
+    ! if (myrank == 0) print *, istep
     ddat_glob(:) = 0.0
     do iphase = 1,2
       if (iphase == 1) then
@@ -529,7 +492,7 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
       call min_all_cr(min_val, min_val_glob)
       call max_all_cr(max_val, max_val_glob)
       if (myrank == 0) then
-        print *, '  '//trim(kernel_name)
+        ! print *, '  '//trim(kernel_name)
         print *, '    minval:', min_val_glob
         print *, '    maxval:', max_val_glob
         call cpu_time(tnow)
@@ -569,7 +532,7 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
   call max_all_cr(max_val, max_val_glob)
   if (myrank == 0) then
     print *, 'After smoothing:'
-    print *, '  '//trim(kernel_name)
+    ! print *, '  '//trim(kernel_name)
     print *, '    minval:', min_val_glob
     print *, '    maxval:', max_val_glob
   endif
@@ -581,16 +544,16 @@ subroutine smooth_sem_pde(dat, sigma_h, sigma_v)
   ! close(IOUT)
   ! if (myrank == 0) print *,'written: ',trim(ks_file)
 
-  deallocate(ibool,irregular_element_number)
-  deallocate(xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &
-             gammaxstore,gammaystore,gammazstore,jacobianstore)
-  !! spherical coordinate !!
-  !deallocate(rotate_r)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!
-  deallocate(dat_glob, ddat_glob)
-  deallocate(buffer_send_vector_ext_mesh_smooth, &
-             buffer_recv_vector_ext_mesh_smooth)
-  deallocate(rvol, rvol_local)
+  ! deallocate(ibool,irregular_element_number)
+  ! deallocate(xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &
+  !            gammaxstore,gammaystore,gammazstore,jacobianstore)
+  ! !! spherical coordinate !!
+  ! !deallocate(rotate_r)
+  ! !!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! deallocate(dat_glob, ddat_glob)
+  ! deallocate(buffer_send_vector_ext_mesh_smooth, &
+  !            buffer_recv_vector_ext_mesh_smooth)
+  ! deallocate(rvol, rvol_local)
 
   contains
 
@@ -845,4 +808,6 @@ end subroutine smooth_sem_pde
     end subroutine add_my_contrib
 
   end subroutine assemble_MPI_w_ord_smooth
+
+end module smooth_mod
 

@@ -471,7 +471,7 @@ contains
             call this%write_adj(adj_syn_local(1:NSTEP), trim(this%comp_name(1)), irec)
           case (2)
             adj_src = zeros_dp(fpar%sim%nstep, 2)
-            call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 1), adj_src(:, 2), this%baz)
+            call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
             call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
             call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
           end select

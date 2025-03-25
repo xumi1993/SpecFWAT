@@ -1,6 +1,6 @@
 module kernel_io
   use fwat_constants
-  use input_params, fpar => fwat_par_global
+  use input_params, only: fpar => fwat_par_global
   use fwat_mpi
   use config
   use specfem_par
@@ -14,62 +14,13 @@ contains
   subroutine read_mesh_databases_minimum()
     character(len=MAX_STRING_LEN) :: database_name
 
-    ! read mesh databases
-    ! sets file name
-    call create_name_database(fprname,worldrank,LOCAL_PATH)
-    database_name = fprname(1:len_trim(fprname))//'external_mesh.bin'
+    call read_parameter_file(.true.)
 
-    open(unit=IIN,file=trim(database_name),status='old',action='read',form='unformatted',iostat=ier)
-    if (ier /= 0) then
-      print *,'Error could not open database file: ',trim(database_name)
-      call exit_mpi(myrank,'Error opening database file')
-    endif
+    call initialize_simulation()
 
-    read(IIN) NSPEC_AB
-    read(IIN) NGLOB_AB
-    read(IIN) NSPEC_IRREGULAR
-  
-    allocate(ibool(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
-    allocate(xstore(NGLOB_AB),ystore(NGLOB_AB),zstore(NGLOB_AB), &
-             xixstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             xiystore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             xizstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             etaxstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             etaystore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             etazstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             gammaxstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             gammaystore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             gammazstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             jacobianstore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-            !  kappastore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-            !  mustore(NGLLX,NGLLY,NGLLZ,NSPEC_AB), &
-             stat=ier)
-
-    read(IIN) ibool
-
-    read(IIN) xstore
-    read(IIN) ystore
-    read(IIN) zstore
-    read(IIN) irregular_element_number
-    read(IIN) xix_regular
-    read(IIN) jacobian_regular
-
-    read(IIN) xixstore
-    read(IIN) xiystore
-    read(IIN) xizstore
-    read(IIN) etaxstore
-    read(IIN) etaystore
-    read(IIN) etazstore
-    read(IIN) gammaxstore
-    read(IIN) gammaystore
-    read(IIN) gammazstore
-    read(IIN) jacobianstore
-
-    ! read(IIN) kappastore
-    ! read(IIN) mustore
-
-    close(IIN)
-    call synchronize_all()
+    ! reads in external mesh
+    call read_mesh_databases()
+    ! call synchronize_all()
 
     call check_mesh_distances(worldrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
                               x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &

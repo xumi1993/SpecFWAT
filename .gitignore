@@ -45,6 +45,7 @@ constants.h
 precision.h
 config.fh
 version.fh
+fort.*
 
 OUTPUT_FILES/
 DATABASES_MPI/

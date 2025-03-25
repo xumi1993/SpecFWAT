@@ -40,7 +40,7 @@ contains
       if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
       call log%init(trim(fpar%acqui%out_fwd_path(this%ievt))//'/output_fwd_measure_adj.log')
     else
-      call log%init('output_fwd_measure_adj.log')
+      call log%init('output_fwd_measure_adj'//trim(model_name)//'.log')
     endif
     call log%write('*******************************************', .false.)
 
@@ -248,7 +248,7 @@ contains
       call this%run_simulation(3)
       call this%postproc_adjoint()
     endif
-    call log%write('*******************************************', .false.)
+    call log%write('---------------------------------------', .false.)
   end subroutine simulation
 
   subroutine run_simulation(this, run_opt)
