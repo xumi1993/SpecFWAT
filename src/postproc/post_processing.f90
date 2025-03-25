@@ -6,6 +6,7 @@ module post_processing
   use input_params, fpar => fwat_par_global
   use utils, only: zeros
   use kernel_io
+  use taper3d
 
   implicit none
 
@@ -15,7 +16,7 @@ module post_processing
     integer :: nker
     character(len=MAX_STRING_LEN), dimension(2) :: simu_types = [SIMU_TYPE_NOISE, SIMU_TYPE_TELE]
     contains
-    procedure :: sum_kernel, init, sum_precond, write, generate_for_type, smooth_kernel, sum_joint_kernel
+    procedure :: sum_kernel, init, sum_precond, write, generate_for_type, smooth_kernel, sum_joint_kernel, taper_kernel
     procedure, private :: calc_kernel0_std_weight
   end type PostFlow
 contains
@@ -72,6 +73,7 @@ contains
     write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_PRECOND
     call log%write(msg, .false.)
     write(msg, '(a, I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE
+    call log%write(msg, .false.)
     call log%write('-------------------------------------------', .false.)
 
     if (worldrank == 0) then
@@ -96,7 +98,8 @@ contains
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
       enddo
     enddo
-
+    call synchronize_all()
+  
   end subroutine sum_kernel
 
   subroutine sum_precond(this)
@@ -132,7 +135,8 @@ contains
         enddo
       enddo
     endif
-
+    call synchronize_all()
+  
   end subroutine sum_precond
 
   function set_z_precond(z) result(precond)
@@ -168,8 +172,42 @@ contains
       call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
       this%ker_data(:,:,:,:,iker) = ker
     enddo
-
+    call synchronize_all()
+  
   end subroutine smooth_kernel
+
+  subroutine taper_kernel(this)
+    class(PostFlow), intent(inout) :: this
+    type(taper_cls) :: tap
+    integer :: iker
+    real(kind=cr) :: dh, val
+    integer :: ispec, igllx, iglly, igllz, iglob
+
+    call log%write('This is tapering kernels...', .true.)
+    dh = (distance_max_glob+distance_min_glob)/2.0_cr
+    call tap%create(x_min_glob, x_max_glob, y_min_glob, y_max_glob,&
+                    z_min_glob, z_max_glob, dh, dh, dh, &
+                    fpar%postproc%TAPER_H_SUPPRESS, &
+                    fpar%postproc%TAPER_H_BUFFER, &
+                    fpar%postproc%TAPER_V_SUPPRESS, &
+                    fpar%postproc%TAPER_V_BUFFER)
+    do iker = 1, this%nker
+      do ispec = 1, NSPEC_AB
+        do igllx = 1, NGLLX
+          do iglly = 1, NGLLY
+            do igllz = 1, NGLLZ
+              iglob = ibool(igllx,iglly,igllz,ispec)
+              val = tap%interp(xstore(iglob), ystore(iglob), zstore(iglob))
+              this%ker_data(igllx,iglly,igllz,ispec,iker) = this%ker_data(igllx,iglly,igllz,ispec,iker) * val
+            enddo
+          enddo
+        enddo
+      enddo
+    enddo
+    call tap%Destroy()
+    call synchronize_all()
+
+  end subroutine taper_kernel
 
   subroutine invert_hess( hess_matrix )
 

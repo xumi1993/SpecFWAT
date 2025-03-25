@@ -287,7 +287,6 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! project
   dat_glob(:) = 0.0
-  print *, size(dat), size(rvol_local), size(dat_glob)
   do ispec = 1, NSPEC_AB
     do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
       iglob = ibool(i,j,k,ispec)
@@ -309,7 +308,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
                                  request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
                                  my_neighbors_ext_mesh,myrank)
 
-  if (myrank == 0) print *, 'Before smoothing: '
+  ! if (myrank == 0) print *, 'Before smoothing: '
 
   dat_glob(:) = dat_glob(:) * rvol(:)
 
@@ -318,12 +317,12 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
   call min_all_cr(min_val, min_val_glob)
   call max_all_cr(max_val, max_val_glob)
   ! print *, myrank, 'minval:', min_val, 'maxval:', max_val
-  if (myrank == 0) then
-    ! print *, '  '//trim(kernel_name)
-    print *, '    minval:', min_val_glob
-    print *, '    maxval:', max_val_glob
-    if (myrank == 0) call cpu_time(tlast)
-  endif
+  ! if (myrank == 0) then
+  !   ! print *, '  '//trim(kernel_name)
+  !   print *, '    minval:', min_val_glob
+  !   print *, '    maxval:', max_val_glob
+  !   if (myrank == 0) call cpu_time(tlast)
+  ! endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !! broadcast glob array back to local array
@@ -486,19 +485,19 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
 
     !! info
     if (mod(istep, PRINT_INFO_PER_STEP) == 0) then
-      if (myrank == 0) print *, 'Step:', istep
+      ! if (myrank == 0) print *, 'Step:', istep
       min_val = minval(dat_glob)
       max_val = maxval(dat_glob)
       call min_all_cr(min_val, min_val_glob)
       call max_all_cr(max_val, max_val_glob)
-      if (myrank == 0) then
-        ! print *, '  '//trim(kernel_name)
-        print *, '    minval:', min_val_glob
-        print *, '    maxval:', max_val_glob
-        call cpu_time(tnow)
-        print *, 'time since last message:', tnow-tlast
-        call cpu_time(tlast)
-      endif
+      ! if (myrank == 0) then
+      !   ! print *, '  '//trim(kernel_name)
+      !   print *, '    minval:', min_val_glob
+      !   print *, '    maxval:', max_val_glob
+      !   call cpu_time(tnow)
+      !   print *, 'time since last message:', tnow-tlast
+      !   call cpu_time(tlast)
+      ! endif
     endif
 
     !!!!!!!!!!!!!
@@ -519,8 +518,8 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
 
   call synchronize_all()
   call cpu_time(t2)
-  if (myrank == 0) &
-    print *, 'Computation time with PDE-based smoothing on CPU:', t2-t1
+  ! if (myrank == 0) &
+    ! print *, 'Computation time with PDE-based smoothing on CPU:', t2-t1
 
   !! output
   ! file output
@@ -530,12 +529,12 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
   max_val = maxval(dat_glob)
   call min_all_cr(min_val, min_val_glob)
   call max_all_cr(max_val, max_val_glob)
-  if (myrank == 0) then
-    print *, 'After smoothing:'
-    ! print *, '  '//trim(kernel_name)
-    print *, '    minval:', min_val_glob
-    print *, '    maxval:', max_val_glob
-  endif
+  ! if (myrank == 0) then
+  !   print *, 'After smoothing:'
+  !   ! print *, '  '//trim(kernel_name)
+  !   print *, '    minval:', min_val_glob
+  !   print *, '    maxval:', max_val_glob
+  ! endif
 
   ! write(ks_file,'(a,i6.6,a)') trim(output_dir)//'/proc',myrank,'_'//trim(kernel_name)//'_smooth.bin'
   ! open(IOUT,file=trim(ks_file),status='unknown',form='unformatted',iostat=ier)

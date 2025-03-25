@@ -41,6 +41,9 @@ program fwat_post_proc
       ! smooth kernels
       call fpp%smooth_kernel()
 
+      ! taper kernels
+      call fpp%taper_kernel()
+
       ! write kernels
       call fpp%write()
     end if
