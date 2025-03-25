@@ -60,6 +60,18 @@ contains
 
   end subroutine read_event_kernel
 
+  subroutine remove_event_kernel(ievt, dataname)
+    integer, intent(in) :: ievt
+    character(len=*), intent(in) :: dataname
+    character(len=MAX_STRING_LEN) :: path
+
+    path = trim(fpar%acqui%out_fwd_path(ievt))//'/'//trim(EKERNEL_PATH)
+    call create_name_database(fprname, worldrank, path)
+    open(IOUT, file=trim(fprname)//trim(dataname)//'.bin', status='old', iostat=ier)
+    if(ier == 0) close(IOUT, status='delete')
+
+  end subroutine remove_event_kernel
+
   subroutine read_kernel(kernel_path, dataname, data)
     character(len=*), intent(in) :: dataname
     character(len=MAX_STRING_LEN) :: kernel_path

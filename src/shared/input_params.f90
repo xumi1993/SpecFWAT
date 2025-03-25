@@ -21,7 +21,7 @@ module input_params
 
     contains
     procedure, private :: alloc => acqui_alloc
-    procedure :: read => acqui_read_source_set
+    procedure :: read => acqui_read_source_set, finalize => acqui_finalize
   end type acqui_params
 
   type rf_params
@@ -155,6 +155,25 @@ contains
 
   end subroutine acqui_alloc
 
+  subroutine acqui_finalize(this)
+    class(acqui_params), intent(inout) :: this
+
+    ! deallocate arrays on shared memory
+    call free_shm_array(this%sta_win)
+    call free_shm_array(this%src_win)
+    call free_shm_array(this%evid_win)
+    call free_shm_array(this%ofp_win)
+    call free_shm_array(this%idp_win)
+    if (simu_type == SIMU_TYPE_TELE) then
+      call free_shm_array(this%fk_win)
+    endif
+    call free_shm_array(this%evla_win)
+    call free_shm_array(this%evlo_win)
+    call free_shm_array(this%evdp_win)
+    call free_shm_array(this%w_win)
+
+  end subroutine acqui_finalize
+
   subroutine read_parameter_file(this, fname)
     use yaml, only: parse, error_length
     use yaml_types, only: type_node, type_dictionary, type_error, real_kind, &
@@ -260,7 +279,7 @@ contains
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         is_output_preproc = output%get_logical('IS_OUTPUT_PREPROC', error=io_err, default=.false.)
         is_output_adj_src = output%get_logical('IS_OUTPUT_ADJ_SRC', error=io_err, default=.false.)
-        is_output_kernel = output%get_logical('IS_OUTPUT_KERNEL', error=io_err, default=.false.)
+        is_output_event_kernel = output%get_logical('IS_OUTPUT_EVENT_KERNEL', error=io_err, default=.false.)
 
         ! POSTPROC
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
@@ -362,6 +381,7 @@ contains
     ! output
     call bcast_all_singlel(IS_OUTPUT_PREPROC)
     call bcast_all_singlel(IS_OUTPUT_ADJ_SRC)
+    call bcast_all_singlel(IS_OUTPUT_EVENT_KERNEL)
 
     ! POSTPROC
     call bcast_all_singlei(this%postproc%TELE_TYPE)

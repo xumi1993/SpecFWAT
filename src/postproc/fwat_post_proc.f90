@@ -28,10 +28,9 @@ program fwat_post_proc
 
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then
-      ! set simu type
 
       ! generate kernels for this type
-      call fpp%generate_for_type(itype)
+      call fpp%init_for_type(itype)
     
       ! sum kernels for this type
       call fpp%sum_kernel()
@@ -46,12 +45,20 @@ program fwat_post_proc
 
       ! write kernels
       call fpp%write()
+
+      ! remove event kernels
+      call fpp%remove_ekernel()
+
+      call fpar%acqui%finalize()
+
+      call synchronize_all()
     end if
   end do
 
   if (is_joint) then
     call fpp%sum_joint_kernel()
   endif
+
   call log%write('*******************************************', .false.)
   call log%write('********** POST-PROCESSING DONE ***********', .false.)
   call log%write('*******************************************', .false.)

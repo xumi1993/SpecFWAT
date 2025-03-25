@@ -37,7 +37,7 @@ TELE:
 OUTPUT:
   IS_OUTPUT_PREPROC: True # Output preprocessed data
   IS_OUTPUT_ADJ_SRC: True # Output adjoint sources
-  IS_OUTPUT_KERNEL: True # Output kernels
+  IS_OUTPUT_EVENT_KERNEL: True # Output kernels
 
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data

@@ -16,7 +16,8 @@ module post_processing
     integer :: nker
     character(len=MAX_STRING_LEN), dimension(2) :: simu_types = [SIMU_TYPE_NOISE, SIMU_TYPE_TELE]
     contains
-    procedure :: sum_kernel, init, sum_precond, write, generate_for_type, smooth_kernel, sum_joint_kernel, taper_kernel
+    procedure :: sum_kernel, init, sum_precond, write, init_for_type, smooth_kernel,&
+                 sum_joint_kernel, taper_kernel, remove_ekernel
     procedure, private :: calc_kernel0_std_weight
   end type PostFlow
 contains
@@ -43,7 +44,7 @@ contains
 
   end subroutine init
 
-  subroutine generate_for_type(this, itype)
+  subroutine init_for_type(this, itype)
     class(PostFlow), intent(inout) :: this
     integer, intent(in) :: itype
     character(len=MAX_STRING_LEN) :: msg
@@ -84,7 +85,7 @@ contains
     call synchronize_all()
 
     this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB, this%nker)
-  end subroutine generate_for_type
+  end subroutine init_for_type
   
   subroutine sum_kernel(this)
     class(PostFlow), intent(inout) :: this
@@ -273,6 +274,41 @@ contains
     enddo
 
   end subroutine write
+
+  subroutine remove_ekernel(this)
+    use specfem_par
+    class(PostFlow), intent(inout) :: this
+    integer :: ievt
+
+    if (is_output_event_kernel) return
+
+    do ievt = 1, fpar%acqui%nevents
+      if (ELASTIC_SIMULATION) then
+        if (ANISOTROPIC_KL) then
+          if (SAVE_TRANSVERSE_KL) then
+            call remove_event_kernel(ievt, 'alphav_kernel')
+            call remove_event_kernel(ievt, 'alphah_kernel')
+            call remove_event_kernel(ievt, 'betav_kernel')
+            call remove_event_kernel(ievt, 'betah_kernel')
+            call remove_event_kernel(ievt, 'eta_kernel')
+          else
+            call remove_event_kernel(ievt, 'rho_kernel')
+            call remove_event_kernel(ievt, 'cijkl_kernel')
+          endif
+        else
+          call remove_event_kernel(ievt, 'rho_kernel')
+          call remove_event_kernel(ievt, 'mu_kernel')
+          call remove_event_kernel(ievt, 'kappa_kernel')
+          call remove_event_kernel(ievt, 'rhop_kernel')
+          call remove_event_kernel(ievt, 'beta_kernel')
+          call remove_event_kernel(ievt, 'alpha_kernel')
+        endif
+      endif
+      call remove_event_kernel(ievt, 'hess_kernel')
+    enddo
+    call synchronize_all()
+
+  end subroutine remove_ekernel
 
   subroutine sum_joint_kernel(this)
     class(PostFlow), intent(inout) :: this
