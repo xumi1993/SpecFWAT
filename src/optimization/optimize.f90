@@ -3,6 +3,7 @@ module optimize
   use fwat_mpi
   use input_params, fpar => fwat_par_global
   use opt_io
+  use kernel_io, only: read_mesh_databases_minimum
 
   implicit none
 
@@ -11,8 +12,8 @@ module optimize
     integer :: iter_current, iter_prev, iter_next
     character(len=MAX_STRING_LEN) :: model_next, model_prev, output_model_path
     contains
-      procedure :: init
-      procedure, private :: get_model_idx
+      procedure :: init, model_update, get_SD_direction, get_lbfgs_direction
+      procedure, private :: get_model_idx, alpha_scaling
   end type OptFlow
 
 contains
@@ -83,8 +84,15 @@ contains
       do ipar = 1, nkernel
         this%model(:,:,:,:,ipar) = this%model(:,:,:,:,ipar) * exp(step_len*this%direction(:,:,:,:,ipar))
       enddo
+      call this%alpha_scaling()
+    elseif (fpar%update%model_type == 2) then
+      do ipar = 1, nkernel
+        this%model(:,:,:,:,ipar) = this%model(:,:,:,:,ipar) + step_len*this%direction(:,:,:,:,ipar)
+      enddo
+    else
+      call exit_MPI(0, 'Unknown model type')
     endif
-    call write_model(this%output_model_path, this%model)
+    call synchronize_all()
   end subroutine model_update
 
   subroutine get_SD_direction(this)
@@ -158,6 +166,18 @@ contains
       r_vector = r_vector + (a(istore)-b)*model_diff
     enddo
     this%direction = -r_vector
+    call synchronize_all()
 
   end subroutine get_lbfgs_direction
+
+  subroutine alpha_scaling(this)
+    class(OptFlow), intent(inout) :: this
+
+    where (this%model(:,:,:,:,1) < fpar%update%VPVS_RATIO_RANGE(1))
+      this%model(:,:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(1)
+    end where
+    where (this%model(:,:,:,:,1) > fpar%update%VPVS_RATIO_RANGE(2))
+      this%model(:,:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(2)
+    end where
+  end subroutine alpha_scaling
 end module optimize
