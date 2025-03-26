@@ -11,15 +11,18 @@ module kernel_io
 
 contains
 
-  subroutine read_mesh_databases_minimum()
+  subroutine read_mesh_databases_minimum(is_read_database)
+    logical, intent(in) :: is_read_database
     character(len=MAX_STRING_LEN) :: database_name
 
     call read_parameter_file(.true.)
 
-    call initialize_simulation()
+    if (is_read_database) then
+      call initialize_simulation()
 
-    ! reads in external mesh
-    call read_mesh_databases()
+      ! reads in external mesh
+      call read_mesh_databases()
+    endif
     ! call synchronize_all()
 
     call check_mesh_distances(worldrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &

@@ -171,4 +171,5 @@ add_subdirectory(shared)
 # ==============================================================================
 add_subdirectory(preproc)
 add_subdirectory(postproc)
+add_subdirectory(optimization)
 add_subdirectory(aux)

@@ -24,7 +24,7 @@ program fwat_post_proc
     is_joint = .false.
   endif
 
-  call fpp%init()
+  call fpp%init(.true.)
 
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then

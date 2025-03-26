@@ -14,6 +14,12 @@ contains
     endif
   end subroutine get_simu_type
 
+  function read_iter_num()
+    integer :: read_iter_num
+    
+    read(model_name(2:), '(I2.2)') read_iter_num
+  end function read_iter_num
+
   integer function find_string(string_list, search_str)
     character(len=MAX_STRING_LEN) :: search_str
     character(len=MAX_STRING_LEN), dimension(:) :: string_list

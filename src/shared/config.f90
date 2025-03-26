@@ -31,6 +31,8 @@ module fwat_constants
 
   ! model types
   character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
+  character(len=MAX_STRING_LEN), dimension(4), parameter :: MODEL_AZI_ANI = ['L ', 'N ', 'Gc', 'Gs']
+
   real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3
   integer, parameter :: NUM_INV_TYPE = 2
 
@@ -86,6 +88,10 @@ module config
 
   ! post
   logical :: is_joint
+  integer :: nkernel
+  character(len=MAX_STRING_LEN) :: kernel_type
+  character(len=MAX_STRING_LEN), dimension(:), allocatable :: kernel_names, parameter_names
+  real(kind=cr) :: step_len
 
 end module config
 

@@ -22,18 +22,19 @@ module post_processing
   end type PostFlow
 contains
 
-  subroutine init(this)
+  subroutine init(this, is_read_database)
     class(PostFlow), intent(inout) :: this
+    logical, intent(in) :: is_read_database
     integer :: itype
 
-    call read_mesh_databases_minimum()
+    call read_mesh_databases_minimum(is_read_database)
 
     if (fpar%update%model_type == 1) then
-      this%nker = size(KERNEL_ISO)
-      this%ker_names = KERNEL_ISO
+      nkernel = size(KERNEL_ISO)
+      kernel_names = KERNEL_ISO
     elseif (fpar%update%model_type == 2) then
-      this%nker = size(KERNEL_AZI_ANI)
-      this%ker_names = KERNEL_AZI_ANI
+      nkernel = size(KERNEL_AZI_ANI)
+      kernel_names = KERNEL_AZI_ANI
     else
       call exit_MPI(0, 'Unknown model type')
     endif
@@ -84,7 +85,7 @@ contains
     endif
     call synchronize_all()
 
-    this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB, this%nker)
+    this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB, nkernel)
   end subroutine init_for_type
   
   subroutine sum_kernel(this)
@@ -93,9 +94,9 @@ contains
     integer :: iker, ievt
 
     call log%write('This is taking sum of kernels...', .true.)
-    do iker = 1, this%nker
+    do iker = 1, nkernel
       do ievt = 1, fpar%acqui%nevents
-        call read_event_kernel(ievt, trim(this%ker_names(iker))//'_kernel', ker)
+        call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
       enddo
     enddo
@@ -120,7 +121,7 @@ contains
       enddo
       call invert_hess(total_hess)
 
-      do iker = 1, this%nker
+      do iker = 1, nkernel
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
       enddo
     else
@@ -169,7 +170,7 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
 
     call log%write('This is smoothing kernels...', .true.)
-    do iker = 1, this%nker
+    do iker = 1, nkernel
       call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
       this%ker_data(:,:,:,:,iker) = ker
     enddo
@@ -192,7 +193,7 @@ contains
                     fpar%postproc%TAPER_H_BUFFER, &
                     fpar%postproc%TAPER_V_SUPPRESS, &
                     fpar%postproc%TAPER_V_BUFFER)
-    do iker = 1, this%nker
+    do iker = 1, nkernel
       do ispec = 1, NSPEC_AB
         do igllx = 1, NGLLX
           do iglly = 1, NGLLY
@@ -269,8 +270,8 @@ contains
     else
       is_simu_type = .false.
     endif
-    do iker = 1, this%nker
-      call write_kernel(trim(this%ker_names(iker))//trim(suffix), this%ker_data(:,:,:,:,iker), is_simu_type)
+    do iker = 1, nkernel
+      call write_kernel(trim(kernel_names(iker))//trim(suffix), this%ker_data(:,:,:,:,iker), is_simu_type)
     enddo
 
   end subroutine write
@@ -325,23 +326,23 @@ contains
       call this%calc_kernel0_std_weight(itype, norm_val(itype))
     enddo
 
-    do iker = 1, this%nker
+    do iker = 1, nkernel
       total_kernel = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
         type_name = this%simu_types(itype)
         output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(type_name)
-        call read_kernel(output_dir, trim(this%ker_names(iker))//'_kernel_smooth', kernel1)
+        call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel1)
         kernel1 = fpar%postproc%JOINT_WEIGHT(itype)*kernel1 / norm_val(itype)
         norm = maxval(abs(kernel1))
         call max_all_cr(norm, norm_glob)
-        write(msg, '(a,e13.8)') 'Max '//trim(this%ker_names(iker))//' kernel of '//trim(type_name)//&
+        write(msg, '(a,e13.8)') 'Max '//trim(kernel_names(iker))//' kernel of '//trim(type_name)//&
                                ': ', norm_glob
         call log%write(msg, .true.)
         total_kernel = total_kernel + kernel1
       enddo
       ! output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
-      call write_kernel(trim(this%ker_names(iker))//'_kernel_smooth', total_kernel, .false.)
+      call write_kernel(trim(kernel_names(iker))//'_kernel_smooth', total_kernel, .false.)
     enddo
 
   end subroutine sum_joint_kernel
@@ -354,11 +355,11 @@ contains
     integer :: n, itype, iker, i
     character(len=MAX_STRING_LEN) :: type_name, output_dir, model0
 
-    max_ker = zeros(this%nker)
+    max_ker = zeros(nkernel)
     type_name = this%simu_types(itype)
     output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(type_name)
-    do iker = 1, this%nker
-      call read_kernel(output_dir, trim(this%ker_names(iker))//'_kernel_smooth', kernel_data)
+    do iker = 1, nkernel
+      call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel_data)
       max_local = maxval( abs(kernel_data))
       call max_all_dp(max_local, max_ker(iker))
       call bcast_all_singledp(max_ker(iker))
