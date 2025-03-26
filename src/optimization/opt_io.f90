@@ -24,10 +24,9 @@ contains
            status='old', action='read', form='unformatted', iostat=ier)
       if (ier /= 0) then
         write(0, *) 'Error could not open database file: ',trim(fprname)//trim(parameter_names(imod))//'.bin'
-        call exit_mpi(myrank,'Error opening database file')
+        call exit_mpi(worldrank, 'Error opening database file')
       endif
 
-      ! allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
       read(IIN) model_data(:,:,:,:,imod)
       close(IIN)
     end do
@@ -49,7 +48,7 @@ contains
            status='old', action='read', form='unformatted', iostat=ier)
       if (ier /= 0) then
         write(0, *) 'Error could not open database file: ',trim(fprname)//trim(kernel_names(imod))//'.bin'
-        call exit_mpi(myrank,'Error opening database file')
+        call exit_mpi(worldrank, 'Error opening database file')
       endif
 
       ! allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
@@ -59,7 +58,7 @@ contains
   end subroutine read_gradient
 
   subroutine write_model(OUTPUT_MODEL_PATH, model_data)
-    character(len=MAX_STRING_LEN), intent(in) :: OUTPUT_MODEL_PATH
+    character(len=*), intent(in) :: OUTPUT_MODEL_PATH
     real(kind=cr), dimension(:,:,:,:,:), intent(in) :: model_data
     character(len=MAX_STRING_LEN) :: path, this_model, fprname
     integer :: imod
@@ -67,7 +66,7 @@ contains
     call create_name_database(fprname, worldrank, OUTPUT_MODEL_PATH)
     do imod = 1, nkernel
       open(unit=IIN, file=trim(fprname)//trim(parameter_names(imod))//'.bin',&
-           status='new', action='write', form='unformatted', iostat=ier)
+           status='replace', action='write', form='unformatted', iostat=ier)
       if (ier /= 0) then
         write(0, *) 'Error could not open database file: ',trim(fprname)//trim(parameter_names(imod))//'.bin'
         call exit_mpi(myrank,'Error opening database file')

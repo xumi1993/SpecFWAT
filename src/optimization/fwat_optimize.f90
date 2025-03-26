@@ -35,7 +35,7 @@ program fwat_optimize
   endif
 
   call write_model(LOCAL_PATH, fop%model)
-  call write_model(trim(OPT_DIR)//'/'//trim(fop%model_next), fop%model)
+  call write_model(fop%output_model_path, fop%model)
 
   
   call synchronize_all()

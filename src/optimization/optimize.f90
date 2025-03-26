@@ -37,15 +37,15 @@ contains
     step_len = fpar%update%MAX_SLEN
 
     call this%get_model_idx()
+    this%output_model_path = trim(OPT_DIR)//'/MODEL_'//trim(this%model_next)
     if (worldrank == 0) then
       if (this%iter_current == 0) then
         call system('mkdir -p '//trim(OPT_DIR)//'/MODEL_M00 && cp model_initial/* '&
                     //trim(OPT_DIR)//'/MODEL_M00/')
       endif
-      call system('mkdir -p '//trim(OPT_DIR)//'/'//trim(this%model_next))
+      call system('mkdir -p '//trim(this%output_model_path))
     endif
     call synchronize_all()
-
     call read_model(this%iter_current, this%model)
     call read_gradient(this%iter_current, this%gradient)
 
@@ -55,7 +55,7 @@ contains
     class(OptFlow), intent(inout) :: this
 
     ! get model index
-    read(model(2:),'(I2.2)') this%iter_current
+    read(model_name(2:),'(I2.2)') this%iter_current
 
     ! get model prev and next
     this%iter_next = this%iter_current+1
