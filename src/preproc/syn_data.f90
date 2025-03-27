@@ -24,6 +24,7 @@ module syn_data
     type(WindowChi), dimension(:), allocatable :: wchi
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp(zrt), nsta
     character(len=MAX_STRING_LEN) :: band_name
+    real(kind=dp), dimension(:), allocatable :: total_misfit
     integer :: dat_win
     contains
     procedure :: read=>read_syn_data, filter, assemble_2d, assemble_3d, init

@@ -108,6 +108,7 @@ module rf_data
     call this%calc_times()
 
     allocate(this%wchi(fpar%sim%rf%NGAUSS))
+    this%total_misfit = zeros_dp(fpar%sim%rf%NGAUSS)
 
     ! measure adjoint source
     call this%measure_adj()
@@ -123,14 +124,12 @@ module rf_data
     real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
     real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
     real(kind=dp), dimension(:,:,:), allocatable :: window_chi, adj_src
-    real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw, total_misfit
+    real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
     character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
     
     if (nrec_local > 0) then
       adj_src = zeros_dp(NSTEP, 2, nrec_local)
     endif
-    total_misfit = zeros_dp(fpar%sim%rf%NGAUSS)
-    chan = fpar%sim%CH_CODE//'R'
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
       call this%wchi(igaus)%init(this%ievt, this%band_name)
@@ -177,8 +176,8 @@ module rf_data
                                                T_pmax_dat, T_pmax_syn, sta, net,&
                                                tstart, tend)
       call this%wchi(igaus)%write()
-      total_misfit(igaus) = this%wchi(igaus)%sum_chi(29)
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', total_misfit
+      this%total_misfit(igaus) = this%wchi(igaus)%sum_chi(29)
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(igaus)
       call log%write(msg, .true.)
     enddo
     call synchronize_all()

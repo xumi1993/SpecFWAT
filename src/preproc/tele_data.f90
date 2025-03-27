@@ -135,6 +135,7 @@ contains
          seismo_syn, seismo_dat_glob, seismo_syn_glob
     real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
+    character(len=MAX_STRING_LEN) :: msg
 
     call this%init(ievt)
 
@@ -228,15 +229,10 @@ contains
                                           this%tstart, this%tend)
       
     if (worldrank == 0) then
-      block 
-        real(kind=dp) :: total_misfit
-        character(len=MAX_STRING_LEN) :: msg
-
-        call this%wchi(1)%write()
-        total_misfit = this%wchi(1)%sum_chi(29)
-        write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', total_misfit
-        call log%write(msg, .true.)
-      end block
+      call this%wchi(1)%write()
+      this%total_misfit(1) = this%wchi(1)%sum_chi(29)
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(1)
+      call log%write(msg, .true.)
     endif
     call synchronize_all()
   end subroutine preprocess

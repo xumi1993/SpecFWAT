@@ -98,7 +98,7 @@ contains
   subroutine get_SD_direction(this)
     class(OptFlow), intent(inout) :: this
 
-    this%direction = this%gradient
+    this%direction = -this%gradient
   end subroutine get_SD_direction
 
   subroutine get_lbfgs_direction(this)
@@ -172,12 +172,15 @@ contains
 
   subroutine alpha_scaling(this)
     class(OptFlow), intent(inout) :: this
+    real(kind=cr), dimension(:,:,:,:), allocatable :: ratio
 
-    where (this%model(:,:,:,:,1) < fpar%update%VPVS_RATIO_RANGE(1))
-      this%model(:,:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(1)
+    ratio = this%model(:,:,:,:,1) / this%model(:,:,:,:,2)
+
+    where (ratio < fpar%update%VPVS_RATIO_RANGE(1))
+      this%model(:,:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(1)*this%model(:,:,:,:,2)
     end where
-    where (this%model(:,:,:,:,1) > fpar%update%VPVS_RATIO_RANGE(2))
-      this%model(:,:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(2)
+    where (ratio > fpar%update%VPVS_RATIO_RANGE(2))
+      this%model(:,:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(2)*this%model(:,:,:,:,2)
     end where
   end subroutine alpha_scaling
 end module optimize
