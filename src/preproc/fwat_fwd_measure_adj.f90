@@ -3,7 +3,6 @@ use config
 use fwat_mpi
 use common_lib, only: get_simu_type
 use input_params, fpar => fwat_par_global
-use obs_data, fdat => fwat_evt_data_global
 use preproc_fwd
 use specfem_par, only: DT, NSTEP
 use argparse, only: parse_args_fwd_meas_adj

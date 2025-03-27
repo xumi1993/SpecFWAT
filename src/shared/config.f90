@@ -70,7 +70,7 @@ module config
   integer :: event_index = 0, run_mode
   
   character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup
-  character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name
+  character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, model_name_ls
   real(kind=cr), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy,rmass_copy,rmass_acoustic_copy
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_rho_kl 
   real(kind=cr), dimension(:,:,:,:,:), allocatable :: sum_cijkl_kl 
@@ -91,6 +91,7 @@ module config
   integer :: nkernel
   character(len=MAX_STRING_LEN) :: kernel_type
   character(len=MAX_STRING_LEN), dimension(:), allocatable :: kernel_names, parameter_names
+  character(len=MAX_STRING_LEN) :: model_prev, model_next, model_start
   real(kind=cr) :: step_len
 
 end module config

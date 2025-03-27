@@ -29,16 +29,17 @@ program fwat_optimize
   endif
 
   if (fpar%update%DO_LS) then
-    continue
-  else
-    call fop%model_update()
+    call fop%run_linesearch()
   endif
+  call fop%model_update()
 
   call write_model(LOCAL_PATH, fop%model)
   call write_model(fop%output_model_path, fop%model)
 
-  
   call synchronize_all()
+  call log%write('*******************************************', .false.)
+  call log%write('************ OPTIMIZATION DONE ************', .false.)
+  call log%write('*******************************************', .false.)
   call finalize_MPI()
 
 end program fwat_optimize

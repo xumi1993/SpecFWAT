@@ -21,6 +21,7 @@ module preproc_fwd
 
   type :: PrepareFWD
     integer :: ievt=0, run_mode
+    real(kind=dp) :: obj_func
     contains
     procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
     procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj, run_simulation,&
@@ -123,7 +124,6 @@ contains
     if (simu_type /= SIMU_TYPE_TELE) return
 
     evtid = fpar%acqui%evtid_names(this%ievt)
-    ! do iev = 1, fpar%acqui%nevents
     if (.not. check_fk_files(evtid)) then
       call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
       call couple_with_injection_prepare_boundary_fwat(evtid)
@@ -215,10 +215,12 @@ contains
     case ('tele')
       call td%preprocess(this%ievt)
       call td%od%copy_adjoint_stations()
+      this%obj_func = sum(td%total_misfit)
       call td%finalize()
     case ('rf')
       call rd%preprocess(this%ievt)
       call rd%od%copy_adjoint_stations()
+      this%obj_func = sum(rd%total_misfit)
       call rd%finalize()
     end select
     

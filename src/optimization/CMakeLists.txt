@@ -3,7 +3,7 @@ file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 add_library(opt_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(opt_objs PRIVATE shared_objs shared_fwat_objs
-                      cuda_objs)
+                      preproc_objs cuda_objs)
 
 # executables
 set(APP_SOURCES
@@ -19,7 +19,8 @@ foreach(execsourcefile ${APP_SOURCES})
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs
                         shared_objs specfem3D_objs opt_objs
-                        postproc_objs cuda_objs
+                        postproc_objs preproc_objs specfem_api_objs 
+                        tele_objs measadj_objs cuda_objs 
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

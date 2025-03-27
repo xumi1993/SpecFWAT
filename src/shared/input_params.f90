@@ -49,7 +49,7 @@ module input_params
   end type postproc_params
 
   type update_params
-    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD
+    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER
     real(kind=cr) :: MAX_SLEN, MAX_SHRINK
     logical :: DO_LS
     real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
@@ -305,6 +305,7 @@ contains
         this%update%OPT_METHOD = update%get_integer('OPT_METHOD', error=io_err)
         this%update%MAX_SLEN = update%get_real('MAX_SLEN', error=io_err)
         this%update%MAX_SHRINK = update%get_real('MAX_SHRINK', error=io_err)
+        this%update%MAX_SUB_ITER = update%get_integer('MAX_SUB_ITER', error=io_err)
         this%update%DO_LS = update%get_logical('DO_LS', error=io_err)
         list => update%get_list('VPVS_RATIO_RANGE', required=.true., error=io_err)
         call read_static_real_list(list, this%update%VPVS_RATIO_RANGE)
@@ -401,6 +402,7 @@ contains
     call bcast_all_singlei(this%update%OPT_METHOD)
     call bcast_all_singlecr(this%update%MAX_SLEN)
     call bcast_all_singlecr(this%update%MAX_SHRINK)
+    call bcast_all_singlei(this%update%MAX_SUB_ITER)
     call bcast_all_singlel(this%update%DO_LS)
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)
     call synchronize_all()
