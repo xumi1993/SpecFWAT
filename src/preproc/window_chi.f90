@@ -31,10 +31,9 @@ contains
     character(len=MAX_STRING_LEN) :: model_name_loc
     integer :: ievt
 
+    model_name_loc = trim(model_name)
     if (present(model_name_in)) then
       model_name_loc = trim(model_name_in)
-    else
-      model_name_loc = trim(model_name)
     endif
     
     if (present(action)) then
@@ -254,7 +253,7 @@ contains
     integer, intent(in) :: ievt
     integer :: icomp, irec, irec_out, imeas_out
 
-    call this%init(ievt, band_name, model_name_in, 'old')
+    call this%init(ievt, band_name, model_name_in=model_name_in, action='old')
 
     if (worldrank == 0) then
       do irec = 1, this%nrow

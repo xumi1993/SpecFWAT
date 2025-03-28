@@ -1439,6 +1439,8 @@ contains
     continue
   endif
 
+  call deallocate_mesh_database_moho_arrays()
+
   ! always needed to be allocated for routine arguments
   allocate(is_moho_top(NSPEC_BOUN),is_moho_bot(NSPEC_BOUN),stat=ier)
   if (ier /= 0) call exit_MPI_without_rank('error allocating array 1576')
@@ -1606,6 +1608,8 @@ contains
 
   ! checks if anything to do
   if (.not. IO_compute_task) return
+
+  call deallocate_mesh_database_adjoint_arrays()
 
   ! allocates adjoint arrays for elastic simulations
   if (ELASTIC_SIMULATION .and. run_mode == 3) then

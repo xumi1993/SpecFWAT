@@ -309,6 +309,7 @@ contains
   end subroutine InitSpecfem
 
   subroutine FinalizeSpecfem()
+    use config, only: local_path_backup, output_files_backup
     integer                                :: ier
 
     !! finalize specfem run
@@ -366,6 +367,8 @@ contains
     if (ACOUSTIC_SIMULATION .and. (SIMULATION_TYPE == 3 .or. SAVE_FORWARD) .and. STACEY_ABSORBING_CONDITIONS) then
       call close_file_abs(IOABS_AC)
     endif
+
+    LOCAL_PATH = local_path_backup
 
     call synchronize_all()
 

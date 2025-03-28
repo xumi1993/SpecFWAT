@@ -33,7 +33,7 @@
   use specfem_par_acoustic
   use specfem_par_poroelastic
   use specfem_par_movie
-  use config, only: run_mode, local_path_backup, simu_type
+  use config, only: run_mode, local_path_backup, simu_type, output_files_backup
   use fwat_constants, only: FORWARD_ADJOINT, SIMU_TYPE_TELE
 
   use manager_adios
@@ -80,6 +80,7 @@
   PRINT_SOURCE_TIME_FUNCTION=.false.
   MOVIE_VOLUME=.false.
   local_path_backup = LOCAL_PATH
+  output_files_backup = OUTPUT_FILES
   APPROXIMATE_HESS_KL=.false.
   if (run_mode < FORWARD_ADJOINT) then
     SIMULATION_TYPE = 1

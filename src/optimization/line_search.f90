@@ -40,7 +40,7 @@ contains
     call fpar%acqui%read()
 
     ! initialize fwd
-    call ffwd%init()
+    call ffwd%init(.false.)
 
     do ievt = 1, fpar%acqui%nevents
       ffwd%ievt = ievt
@@ -68,6 +68,8 @@ contains
 
       call synchronize_all()
     enddo
+
+    call ffwd%destroy()
 
     call fpar%acqui%finalize()
 

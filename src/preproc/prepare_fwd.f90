@@ -30,18 +30,26 @@ module preproc_fwd
 
 contains
 
-  subroutine init(this)
+  subroutine init(this, is_init_log)
     use specfem_api, only: backup_rmass
 
+    logical, optional, intent(in) :: is_init_log
+    logical :: is_init_log_loc
     class(PrepareFWD), intent(inout) :: this
 
     this%run_mode = run_mode
 
-    if (single_run) then
-      if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
-      call log%init(trim(fpar%acqui%out_fwd_path(this%ievt))//'/output_fwd_measure_adj.log')
-    else
-      call log%init('output_fwd_measure_adj_'//trim(dat_type)//'_'//trim(model_name)//'.log')
+    is_init_log_loc = .true.
+    if (present(is_init_log)) then
+      is_init_log_loc = is_init_log
+    endif
+    if (is_init_log_loc) then
+      if (single_run) then
+        if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
+        call log%init(trim(fpar%acqui%out_fwd_path(this%ievt))//'/output_fwd_measure_adj.log')
+      else
+        call log%init('output_fwd_measure_adj_'//trim(dat_type)//'_'//trim(model_name)//'.log')
+      endif
     endif
     call log%write('*******************************************', .false.)
 
@@ -250,6 +258,7 @@ contains
       call this%run_simulation(3)
       call this%postproc_adjoint()
     endif
+    OUTPUT_FILES = output_files_backup
     call log%write('-------------------------------------------', .false.)
   end subroutine simulation
 

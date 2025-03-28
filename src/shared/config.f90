@@ -69,7 +69,7 @@ module config
   logical :: single_run = .false.
   integer :: event_index = 0, run_mode
   
-  character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup
+  character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup, output_files_backup
   character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, model_name_ls
   real(kind=cr), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy,rmass_copy,rmass_acoustic_copy
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_rho_kl 

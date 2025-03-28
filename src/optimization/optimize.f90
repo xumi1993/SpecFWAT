@@ -64,13 +64,14 @@ contains
     ! get model index
     read(model_name(2:3),'(I2.2)', iostat=ier) this%iter_current
     if (ier /= 0) call exit_MPI(0, 'Error reading model name of '//trim(model_name))
-    model_name = model_name//'_ls'
+    model_name = trim(model_name)//'_ls'
 
     ! get model prev and next
     this%iter_next = this%iter_current+1
     this%iter_prev = this%iter_current-1
 
     write(model_next,'(A1,I2.2)') 'M', this%iter_next
+    write(model_start,'(A1,I2.2)') 'M', fpar%update%ITER_START
     if (this%iter_prev < fpar%update%ITER_START) then
       model_prev='none'
     else
@@ -229,6 +230,7 @@ contains
     real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_start, misfit_prev
     integer :: itype, isub
 
+    run_mode = FORWARD_MEASADJ
     do isub = 1, fpar%update%MAX_SUB_ITER
       total_misfit = 0.0_dp
       misfit_start = 0.0_dp
@@ -238,6 +240,8 @@ contains
       call this%model_update_tmp()
       call write_model(LOCAL_PATH, this%model_tmp)
       do itype = 1, NUM_INV_TYPE
+        if (.not. fpar%postproc%INV_TYPE(itype)) cycle
+
         simu_type = INV_TYPE_NAMES(itype)
         
         call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
