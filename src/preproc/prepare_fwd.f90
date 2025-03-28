@@ -17,7 +17,7 @@ module preproc_fwd
 
   implicit none
 
-  integer :: ier
+  integer, private :: ier
 
   type :: PrepareFWD
     integer :: ievt=0, run_mode

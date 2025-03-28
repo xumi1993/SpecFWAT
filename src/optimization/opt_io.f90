@@ -5,7 +5,7 @@ module opt_io
 
   implicit none
   
-  integer :: ier
+  integer, private :: ier
 
 contains
 
