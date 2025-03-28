@@ -11,6 +11,7 @@ module optimize
   implicit none
 
   character(len=MAX_STRING_LEN) :: msg
+  integer :: ier
 
   type :: OptFlow
     real(kind=cr), dimension(:,:,:,:,:), allocatable :: model, model_tmp, gradient, direction
