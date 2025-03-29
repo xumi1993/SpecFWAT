@@ -9,6 +9,7 @@ module measure_adj_mod
 
   use specfem_par, only: OUTPUT_FILES,MAX_STRING_LEN, SPECFEM_T0 => T0, CUSTOM_REAL
   use shared_input_parameters, only: NSTEP, SPECFEM_DT => DT 
+  implicit none
 
 contains
 
@@ -1044,11 +1045,11 @@ subroutine measure_adj()
     enddo
 
     ! write windowed adjoint source
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.BXR'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac.F1.5',adj_r,npts,t0,dt)
-    adj_file_prefix = trim(net)//'.'//trim(sta)//'.BXZ'
-    call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac.F1.5',adj_r,npts,t0,dt)
-    window_chi(:) = 0.
+    ! adj_file_prefix = trim(net)//'.'//trim(sta)//'.BXR'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac.F1.5',adj_r,npts,t0,dt)
+    ! adj_file_prefix = trim(net)//'.'//trim(sta)//'.BXZ'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac.F1.5',adj_r,npts,t0,dt)
+    ! window_chi(:) = 0.
 
     ! compute integrated waveform difference, normalized by duration of the record
     ! NOTE: (1) this is for the FULL record, not the windowed record
@@ -1065,6 +1066,24 @@ subroutine measure_adj()
     window_chi(20) = npts*dt
     deallocate(adj_z)
   end subroutine measure_adj_rf
+
+  subroutine measure_adj_telecc(synr, synz, datr, datz, tstart, tend, t0, tp, dt, npts, f0, tshift, maxit, minderr,&
+                                window_chi, adj_r_tw, adj_z_tw)
+    use decon_mod, only : deconit
+    use signal, only : myconvolution
+    use fwat_constants, only : PI
+    use utils, only: zeros_dp
+
+    integer, intent(in) :: npts, maxit
+    double precision, dimension(npts), intent(in) :: synr, synz, datr, datz
+    double precision, intent(in) :: tstart, tend, t0, tp, dt, f0, tshift, minderr
+    double precision, dimension(NCHI), intent(inout) :: window_chi
+    double precision, dimension(npts), intent(out) :: adj_r_tw, adj_z_tw
+                                                          
+    return
+
+
+  end subroutine measure_adj_telecc
 
   subroutine rotate_adj_src
 

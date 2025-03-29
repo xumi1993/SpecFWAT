@@ -107,9 +107,6 @@ module rf_data
 
     call this%calc_times()
 
-    allocate(this%wchi(fpar%sim%rf%NGAUSS))
-    this%total_misfit = zeros_dp(fpar%sim%rf%NGAUSS)
-
     ! measure adjoint source
     call this%measure_adj()
 

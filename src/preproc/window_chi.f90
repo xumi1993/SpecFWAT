@@ -147,7 +147,6 @@ contains
         do irec = 1, nrec
           if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
         enddo
-      
         if (nsta_irank > 0) then
           allocate(recv_win_chi(nsta_irank, NCHI, this%ncomp))  ! Allocate a buffer to receive data
           allocate(recv_tr_chi(nsta_irank, this%ncomp))
@@ -215,6 +214,7 @@ contains
         deallocate(send_indices)
       endif
     endif
+    call synchronize_all()
     call sync_from_main_rank_dp_3d(this%chi, this%nrow, NCHI, this%ncomp)
     call sync_from_main_rank_dp_2d(this%tr_chi, this%nrow, this%ncomp)
     call sync_from_main_rank_dp_2d(this%am_chi, this%nrow, this%ncomp)

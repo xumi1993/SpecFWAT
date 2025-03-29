@@ -90,10 +90,6 @@ contains
           ! header%dist = dist
           header%az = this%az
           header%baz = this%baz
-          ! header%gcarc = gcarc
-          ! header%evla = fpar%acqui%evla(this%ievt)
-          ! header%evlo = fpar%acqui%evlo(this%ievt)
-          ! header%evdp = fpar%acqui%evdp(this%ievt)
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
@@ -151,7 +147,6 @@ contains
     call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
 
     ! initialize misfits
-    allocate(this%wchi(1))
     call this%wchi(1)%init(ievt, this%band_name)
 
     call this%get_comp_name_adj()
@@ -224,10 +219,11 @@ contains
 
     call this%measure_adj()
 
+    ! print *, shape(this%window_chi), shape(this%tr_chi), shape(this%am_chi)
     call this%wchi(1)%assemble_window_chi(this%window_chi, this%tr_chi, this%am_chi,&
                                           this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net,&
                                           this%tstart, this%tend)
-      
+
     if (worldrank == 0) then
       call this%wchi(1)%write()
       this%total_misfit(1) = this%wchi(1)%sum_chi(29)

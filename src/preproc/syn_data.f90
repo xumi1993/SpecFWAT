@@ -40,6 +40,8 @@ contains
 
     this%ievt = ievt
     this%nrec = nrec
+    this%total_misfit = zeros_dp(fpar%sim%NUM_FILTER)
+    allocate(this%wchi(fpar%sim%NUM_FILTER))
 
   end subroutine init
 
