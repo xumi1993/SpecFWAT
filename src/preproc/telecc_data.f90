@@ -24,9 +24,8 @@ module telecc_data
   integer, private :: ier, ncomp
 
   type, extends(TeleData) :: TeleCCData
-
   contains
-  procedure :: preprocess
+  procedure :: preprocess, finalize
   procedure, private :: measure_adj, pre_proc
   end type TeleCCData
 
@@ -197,5 +196,25 @@ contains
     endif
     call synchronize_all()
   end subroutine measure_adj
+
+  subroutine finalize(this)
+    class(TeleCCData), intent(inout) :: this
+
+    call this%od%finalize()
+    call this%wchi(1)%finalize()
+    call free_shm_array(this%ttp_win)
+    call free_shm_array(this%dat_win)
+    deallocate(this%seismo_dat)
+    deallocate(this%seismo_syn)
+    deallocate(this%window_chi)
+    deallocate(this%tr_chi)
+    deallocate(this%am_chi)
+    deallocate(this%T_pmax_dat)
+    deallocate(this%T_pmax_syn)
+    deallocate(this%sta)
+    deallocate(this%net)
+    deallocate(this%tstart)
+    deallocate(this%tend)
+  end subroutine finalize
 
 end module telecc_data
