@@ -175,4 +175,14 @@ contains
 
   end subroutine dwascii
 
+  function get_gauss_fac(freq_max) result(gauss_fac)
+    real(kind=cr), intent(in) :: freq_max
+    real(kind=cr) :: gauss_fac
+
+    gauss_fac =  2 * pi * freq_max / sqrt(-log(0.01))
+    if (gauss_fac < 1.5) then
+      gauss_fac = 1.5
+    endif
+  end function get_gauss_fac
+
 end module common_lib

@@ -877,103 +877,88 @@ subroutine measure_adj()
   ! end subroutine measure_adj_rf_data
 
 
-  ! subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, app_half_dura, npts, net,sta,&
-  !                               chan_dat, bandname, window_chi)
-  !   !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
-  !   use interpolation_mod, only : myconvolution, PI
-  !   use utils, only : zeros
+  subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, tp, npts,&
+                                tshift, f0, maxit, minderr, freq_min, freq_max, &
+                                window_chi, adj_r_tw, adj_z_tw)
+    !============= MJ: measure adjoint sourece for ||Dr*Sz - Dz*Sr|| =====================
+    use utils, only: zeros_dp
+    use signal, only: myconvolution_dp, bandpass_dp
+    use decon_mod, only: deconit
 
-  !   implicit none
-  !   character(len=10), intent(in)                      :: net, sta,chan_dat
-  !   character(len=MAX_STRING_LEN), intent(in)          :: bandname
-  !   integer, intent(in)                                :: npts
-  !   double precision, dimension(NCHI), intent(inout)   :: window_chi
-  !   double precision, dimension(npts)                  :: adj_r_tw, adj_z_tw, adj_r, &
-  !                                                         adj_z, conv1_tw, conv2_tw
-  !   double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
-  !   double precision, intent(in)                       :: tstart, tend, app_half_dura
-  !   character(len=MAX_STRING_LEN)                      :: adj_file_prefix
-  !   real(kind=CUSTOM_REAL), dimension(:), allocatable  :: conv_full, conv_diff, conv1, conv2
-  !   double precision                                   :: fac
-  !   integer                                            :: n, nc, nn, nstart, nend,i, nmax, nmax2, nconv
+    implicit none
+    integer, intent(in)                                :: npts, maxit
+    double precision, intent(in)                       :: tshift, f0, minderr, tp, freq_min, freq_max
+    double precision, dimension(NCHI), intent(inout)   :: window_chi
+    double precision, dimension(npts)                  :: r_rev, z_rev
+    double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
+    double precision, intent(in)                       :: tstart, tend
+    character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+    double precision, dimension(:), allocatable        :: conv_den, conv_num, conv_full, conv_diff,&
+                                                          conv1, conv2, tmp, adj_r, adj_z, &
+                                                          data_tw, synt_tw
+    double precision, dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
+    double precision                                   :: fac, e
+    integer                                            :: n, nc, nb, nstart, nend,i, nstop
 
-  !   nc = maxloc(synz, dim=1)
-  !   nmax = int(app_half_dura/SPECFEM_DT)+nc
-  !   ! Todo: cross-correlation for time shift
-  !   ! conv1 = zeros(npts)
-  !   ! conv2 = zeros(npts)
-  !   ! conv_diff = zeros(npts)
-  !   ! conv_full = zeros(npts)
-  !   conv1_tw = 0.
-  !   conv2_tw = 0.
+    ! n = int((tend - tstart)/SPECFEM_DT)
+    nc = int(-tstart / SPECFEM_DT)
+    nb = floor((tp - tshift + SPECFEM_T0)/SPECFEM_DT+1)
 
-  !   call myconvolution(real(datz),real(synr),npts,npts,conv1,1)
-  !   conv1 = conv1 * SPECFEM_DT
-  
-  !   call myconvolution(real(datr),real(synz),npts,npts,conv2,1)
-  !   conv2 = conv2 * SPECFEM_DT
+    call myconvolution_dp(synr, datz, conv1, 1)
+    call myconvolution_dp(synz, datr, conv2, 1)
+    conv_diff = conv1 - conv2
+    call myconvolution_dp(datz, synz, tmp, 1)
+    conv_full = zeros_dp(npts)
+    conv_full = tmp(nc:npts+nc-1)
+    e = npts * SPECFEM_DT - tshift
 
-  !   conv_diff = conv1-conv2
-  !   nconv = size(conv_diff)
+    call reverse(synr, npts, r_rev)
+    call reverse(synz, npts, z_rev)
+    ! radial adjoint source
+    call myconvolution_dp(conv_full, z_rev, conv_den, 1)
+    call deconit(conv_diff, conv_den, real(SPECFEM_DT), real(e), real(f0), maxit, real(minderr), 1, tmp)
+    adj_r = tmp(1:npts)
+    deallocate(conv_den, conv_num)
 
-  !   call myconvolution(real(datz),conv_diff,npts,nconv,conv_full,1)
-  !   nn = nmax*2
-  !   adj_r = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
-  !   deallocate(conv_full)
+    ! vertical adjoint source
+    call myconvolution_dp(conv_diff, r_rev, conv_num, 1)
+    call myconvolution_dp(z_rev, z_rev, tmp, 1)
+    call myconvolution_dp(tmp, conv_full, conv_den, 1)
+    call deconit(conv_num, conv_den, real(SPECFEM_DT), real(e), real(f0), maxit, real(minderr), 1, tmp)
+    adj_z = tmp(1:npts)
+    nstart = floor((-tstart + tshift)/SPECFEM_DT+1)
+    nend = floor((tend + tshift)/SPECFEM_DT+1)
+    nstop = min(nend, npts)
 
-  !   call myconvolution(-real(datr),conv_diff,npts,nconv,conv_full,1)
-  !   adj_z = dble(conv_full(nn: nn+npts-1)*SPECFEM_DT)
+    adj_r_tw = zeros_dp(npts)
+    adj_z_tw = zeros_dp(npts)
+    data_tw = zeros_dp(npts)
+    synt_tw = zeros_dp(npts)
+    n = 1
+    ! Cosine taper
+    do i = nstart, nstop
+      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+      data_tw(i) = conv1(i+nc) * fac
+      synt_tw(i) = conv2(i+nc) * fac
+      adj_r_tw(nb+i) = adj_r(i) * fac
+      adj_z_tw(nb+i) = adj_z(i) * fac
+      n = n+1
+    enddo
+    call bandpass_dp(data_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
+    call bandpass_dp(synt_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
+             
+    ! write windowed adjoint source
+    window_chi(13) = 0.5 * sum( data_tw**2 )
+    window_chi(14) = 0.5 * sum( synt_tw**2 )
+    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )
+    window_chi(16) = (nend - nstart)*SPECFEM_DT
+    window_chi(17) = 0.5 * sum( conv1**2 )
+    window_chi(18) = 0.5 * sum( conv2**2 )
+    window_chi(19) = 0.5 * sum( (conv_diff)**2 )
+    window_chi(20) = npts*SPECFEM_DT
+    ! write windowed adjoint source
 
-  !   conv1 = conv1(nmax:nmax+npts-1)
-  !   conv2 = conv2(nmax:nmax+npts-1)
-  !   conv_diff = conv1-conv2
-
-  !   nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT+1)
-  !   nend = floor((tend + SPECFEM_T0)/SPECFEM_DT+1)
-
-  !   n = 1
-  !   ! Cosine taper
-  !   adj_r_tw(:) = 0.
-  !   adj_z_tw(:) = 0.
-  !   do i = nstart, nend
-  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-  !     conv1_tw(i) = dble(conv1(i)) * fac
-  !     conv2_tw(i) = dble(conv2(i)) * fac
-  !     adj_r_tw(i) = adj_r(i) * fac
-  !     adj_z_tw(i) = adj_z(i) * fac
-  !     n = n+1
-  !   enddo
-    
-  !   ! write windowed adjoint source
-  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'R'
-  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
-  !               '.'//trim(bandname),adj_r_tw,npts,-SPECFEM_T0,SPECFEM_DT)
-  !   ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
-  !               ! '.'//trim(bandname),adj_r,npts,-SPECFEM_T0,SPECFEM_DT)
-  !   adj_file_prefix = trim(net)//'.'//trim(sta)//'.'//trim(chan_dat)//'Z'
-  !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac'//&
-  !               '.'//trim(bandname),adj_z_tw,npts,-SPECFEM_T0,SPECFEM_DT)
-  !   ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj_full.sac'//&
-  !               ! '.'//trim(bandname),adj_z,npts,-SPECFEM_T0,SPECFEM_DT)
-
-  !   window_chi(:) = 0.
-
-  !   ! compute integrated waveform difference, normalized by duration of the record
-  !   ! NOTE: (1) this is for the FULL record, not the windowed record
-  !   !       (2) for comparison with waveform_chi, we include the 0.5 factor
-  !   !       (3) we might want to include dt as an integration factor (also for waveform_chi),
-  !   !           but the ratio (d-s)^2 / d^2 avoids the need for dt, nstep, or length of record
-  !   window_chi(13) = 0.5 * sum( conv1_tw**2 )
-  !   window_chi(14) = 0.5 * sum( conv2_tw**2 )
-  !   window_chi(15) = 0.5 * sum( (conv1_tw-conv2_tw)**2 )
-  !   window_chi(16) = (nend - nstart +1) *SPECFEM_DT
-  !   window_chi(17) = 0.5 * sum( conv1**2 )
-  !   window_chi(18) = 0.5 * sum( conv2**2 )
-  !   window_chi(19) = 0.5 * sum( conv_diff**2 )
-  !   window_chi(20) = npts*SPECFEM_DT
-
-  !   deallocate(conv1, conv2, conv_full, conv_diff)
-  ! end subroutine meas_adj_conv_diff
+  end subroutine meas_adj_conv_diff
 
   subroutine measure_adj_rf(data,syn,synr,synz,tstart,tend,t0,tp,dt,npts,f0,tshift,maxit,minderr,&
                             window_chi, adj_r_tw,adj_z_tw, net, sta)
@@ -1064,7 +1049,6 @@ subroutine measure_adj()
     window_chi(18) = 0.5 * sum( syn_norm**2 )
     window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
     window_chi(20) = npts*dt
-    deallocate(adj_z)
   end subroutine measure_adj_rf
 
   subroutine measure_adj_telecc(synr, synz, datr, datz, tstart, tend, t0, tp, dt, npts, f0, tshift, maxit, minderr,&

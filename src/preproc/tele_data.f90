@@ -30,8 +30,8 @@ module tele_data
     real(kind=cr) :: baz, az, avgamp
     integer :: ttp_win
     contains
-    procedure :: preprocess, calc_fktimes, semd2sac!, calc_stf
-    procedure, private :: deconv_for_stf, seis_pca, interp_data_to_syn, measure_adj
+    procedure :: preprocess, calc_fktimes, semd2sac, interp_data_to_syn
+    procedure, private :: deconv_for_stf, seis_pca, measure_adj
     procedure :: finalize
   end type TeleData
 
@@ -437,6 +437,9 @@ contains
           this%seismo_syn(:, icomp, irec_local) = seismo_syn_local * fpar%sim%dt
           if (IS_OUTPUT_PREPROC) then
             call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+            header%knetwk = trim(this%od%netwk(irec))
+            header%kstnm = trim(this%od%stnm(irec))
+            header%t0 = this%ttp(irec)
             sacfile = trim(OUTPUT_FILES)//'/wsyn.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
