@@ -14,7 +14,7 @@ for iter in `seq 0 7`; do
     MODEL=`printf "M%02d" $iter`
     mpirun -np $NPROC ../../bin/xmeshfem3D
     mpirun -np $NPROC ../../bin/xgenerate_databases
-    mpirun -np $NPROC ../../bin/xfwat_fwd_measure_adj -m $MODEL -d rf -r 3
+    mpirun -np $NPROC ../../bin/xfwat_fwd_measure_adj -m $MODEL -s tele -r 3
     mpirun -np $NPROC ../../bin/xfwat_post_proc -m $MODEL
     mpirun -np $NPROC ../../bin/xfwat_optimize -m $MODEL
 done

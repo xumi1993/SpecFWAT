@@ -7,6 +7,7 @@ module post_processing
   use utils, only: zeros
   use kernel_io
   use taper3d
+  use common_lib, only: get_tele_type
 
   implicit none
 
@@ -56,14 +57,7 @@ contains
     
     ! read src_rec for this data type
     if (itype == 2) then
-      select case(fpar%postproc%TELE_TYPE)
-        case(1)
-          dat_type = 'tele'
-        case(2)
-          dat_type = 'rf'
-        case(3)
-          dat_type = 'telecd'
-      end select
+      call get_tele_type(fpar%sim%tele_type)
     endif
     ! read src_rec for this data type
     call fpar%acqui%read()

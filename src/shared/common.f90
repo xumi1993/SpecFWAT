@@ -20,6 +20,32 @@ contains
     read(model_name(2:), '(I2.2)') read_iter_num
   end function read_iter_num
 
+  subroutine get_dat_type()
+    use input_params, fpar => fwat_par_global
+    if (simu_type == SIMU_TYPE_NOISE) then
+      dat_type = 'noise'
+    else if (simu_type == SIMU_TYPE_TELE) then
+      call get_tele_type(fpar%sim%tele_type)
+    else
+      if (worldrank == 0) call exit_MPI(0, 'Unknown simulation type')
+    endif
+  end subroutine get_dat_type
+
+  subroutine get_tele_type(tele_type)
+    integer, intent(in) :: tele_type
+    select case (tele_type)
+      case (1)
+        dat_type = 'tele'
+      case (2)
+        dat_type = 'rf'
+      case (3)
+        dat_type = 'telecc'
+      case default
+        if (worldrank == 0) call exit_MPI(0, 'Unknown teleseismic type')
+    end select
+
+  end subroutine get_tele_type
+
   integer function find_string(string_list, search_str)
     character(len=MAX_STRING_LEN) :: search_str
     character(len=MAX_STRING_LEN), dimension(:) :: string_list

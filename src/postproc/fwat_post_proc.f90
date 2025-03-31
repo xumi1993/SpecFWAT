@@ -3,7 +3,6 @@ program fwat_post_proc
   use config
   use post_processing
   use input_params, fpar => fwat_par_global
-  use common_lib, only: get_simu_type
   use argparse, only: parse_args_post_process
 
   implicit none

@@ -38,13 +38,13 @@ contains
           call exit_MPI(0, 'ERROR: Model name not set')
         endif
         model_name = argv(iarg)
-      elseif (arg == '-d' .or. arg == '--data-type') then
+      elseif (arg == '-s' .or. arg == '--simu-type') then
         iarg = i + 1
         if (iarg > argc) then
           if (worldrank == 0) print *, trim(usage)
           call exit_MPI(0, 'ERROR: data-type not set')
         endif
-        dat_type = argv(iarg)
+        simu_type = argv(iarg)
       elseif (arg == '-h' .or. arg == '--help') then
         if (worldrank == 0) print *, trim(usage)
         call finalize_MPI()
@@ -67,7 +67,7 @@ contains
       endif
     enddo
 
-    if (run_mode == 0 .or. len_trim(model_name) == 0 .or. len_trim(dat_type) == 0) then
+    if (run_mode == 0 .or. len_trim(model_name) == 0 .or. len_trim(simu_type) == 0) then
       if (worldrank == 0) print *, trim(usage)
       call exit_MPI(0, 'ERROR: Invalid arguments')
     endif

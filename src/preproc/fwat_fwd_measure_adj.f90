@@ -1,7 +1,7 @@
 program fwat_fwd_measure_adj
 use config
 use fwat_mpi
-use common_lib, only: get_simu_type
+use common_lib, only: get_dat_type
 use input_params, fpar => fwat_par_global
 use preproc_fwd
 use specfem_par, only: DT, NSTEP
@@ -18,13 +18,13 @@ call init_mpi_fwat()
 
 call parse_args_fwd_meas_adj(ffwd%ievt)
 
-call get_simu_type()
-
 ! read input parameters
 call fpar%read(FWAT_PAR_FILE)
 
 ! select simu_type
 call fpar%select_simu_type()
+
+call get_dat_type()
 
 ! read src_rec for this data type
 call fpar%acqui%read()

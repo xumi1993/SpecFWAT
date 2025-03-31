@@ -14,4 +14,4 @@ mkdir -p model_target
 cp model_target/* DATABASES_MPI/
 mpirun --oversubscribe -np $NPROC ../../bin/xmeshfem3D
 mpirun --oversubscribe -np $NPROC ../../bin/xgenerate_databases
-mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 1
+mpirun --oversubscribe -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -s tele -r 1

@@ -5,6 +5,7 @@ module line_search
   use opt_io
   use preproc_fwd
   use window_chi, only : WindowChi
+  use common_lib, only : get_tele_type
 
   implicit none
 
@@ -24,13 +25,7 @@ contains
     if (simu_type == SIMU_TYPE_NOISE) then
       dat_type = 'noise'
     elseif (simu_type == SIMU_TYPE_TELE) then
-      if (fpar%postproc%TELE_TYPE == 1) then
-        dat_type = 'tele'
-      elseif (fpar%postproc%TELE_TYPE == 2) then
-        dat_type = 'rf'
-      else
-        call exit_MPI(0, 'LINE SEARCH: Unknown teleseismic type')
-      endif
+      call get_tele_type(fpar%sim%tele_type)
     else
       call exit_MPI(0, 'LINE SEARCH: Unknown simulation type')
     endif

@@ -16,5 +16,5 @@ mkdir -p model_initial
 cp model_initial/* DATABASES_MPI/
 mpirun -np $NPROC ../../bin/xmeshfem3D
 mpirun -np $NPROC ../../bin/xgenerate_databases
-mpirun -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -d tele -r 3
+mpirun -np $NPROC ../../bin/xfwat_fwd_measure_adj -m M00 -s tele -r 3
 mpirun -np $NPROC ../../bin/xfwat_post_proc -m M00

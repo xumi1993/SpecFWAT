@@ -14,6 +14,7 @@ module preproc_fwd
   use logger, only: log
   use tele_data, only: TeleData
   use rf_data, only: RFData
+  use common_lib, only: get_dat_type
 
   implicit none
 
@@ -208,6 +209,8 @@ contains
     select case (dat_type)
     case ('tele') 
       call td%semd2sac(this%ievt)
+    case ('telecc')
+      call td%semd2sac(this%ievt)
     case ('rf')
       call rd%semd2sac(this%ievt)
     end select
@@ -221,6 +224,11 @@ contains
     
     select case(dat_type)
     case ('tele')
+      call td%preprocess(this%ievt)
+      call td%od%copy_adjoint_stations()
+      this%obj_func = sum(td%total_misfit)
+      call td%finalize()
+    case ('telecc')
       call td%preprocess(this%ievt)
       call td%od%copy_adjoint_stations()
       this%obj_func = sum(td%total_misfit)

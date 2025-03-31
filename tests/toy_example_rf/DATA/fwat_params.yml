@@ -17,6 +17,7 @@ NOISE:
   SIGMA_V: 15000 # Smoothing parameter for the vertical component
 
 TELE:
+  TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function
   mesh_file: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code
@@ -41,7 +42,6 @@ OUTPUT:
 
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
-  TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function
   JOINT_WEIGHT: [0.5, 0.5]
   TAPER_H_SUPPRESS: 5000
   TAPER_H_BUFFER: 15000

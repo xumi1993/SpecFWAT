@@ -31,7 +31,7 @@ module input_params
   end type rf_params
 
   type sim_params
-    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE
+    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE, TELE_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
@@ -42,7 +42,7 @@ module input_params
 
   type postproc_params
     logical, dimension(2) :: INV_TYPE
-    integer :: TELE_TYPE 
+    ! integer :: TELE_TYPE 
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
     logical :: USE_RHO_SCALING_NOISE, IS_PRECOND
@@ -261,6 +261,7 @@ contains
         this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
         this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
         this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+        this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -286,7 +287,6 @@ contains
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => post%get_list('INV_TYPE', required=.true., error=io_err)
         call read_static_logi_list(list, this%postproc%INV_TYPE)
-        this%postproc%TELE_TYPE = post%get_integer('TELE_TYPE', error=io_err)
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
         this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
@@ -375,6 +375,7 @@ contains
     call bcast_all_r(tele_par%TIME_WIN, 2)
     call bcast_all_r(tele_par%SHORT_P, 1)
     call bcast_all_r(tele_par%LONG_P, 1)
+    call bcast_all_singlei(tele_par%TELE_TYPE)
     if (tele_par%rf%NGAUSS > 0) then
       call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
     endif
@@ -385,7 +386,6 @@ contains
     call bcast_all_singlel(IS_OUTPUT_EVENT_KERNEL)
 
     ! POSTPROC
-    call bcast_all_singlei(this%postproc%TELE_TYPE)
     call bcast_all_singlecr(this%postproc%TAPER_H_SUPPRESS)
     call bcast_all_singlecr(this%postproc%TAPER_V_SUPPRESS)
     call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
