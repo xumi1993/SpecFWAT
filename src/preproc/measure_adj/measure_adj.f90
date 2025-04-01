@@ -892,10 +892,10 @@ subroutine measure_adj()
     double precision, dimension(npts)                  :: r_rev, z_rev
     double precision, dimension(npts), intent(in)      :: datr, datz, synr, synz
     double precision, intent(in)                       :: tstart, tend
-    character(len=MAX_STRING_LEN)                      :: adj_file_prefix
+    character(len=MAX_STRING_LEN)                      :: adj_file_prefix, sta
     double precision, dimension(:), allocatable        :: conv_den, conv_num, conv_full, conv_diff,&
                                                           conv1, conv2, tmp, adj_r, adj_z, &
-                                                          data_tw, synt_tw
+                                                          data_tw, synt_tw, obj_cc, obj_cc_tw, zrf
     double precision, dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
     double precision                                   :: fac, e
     integer                                            :: n, nc, nb, nstart, nend,i, nstop
@@ -904,10 +904,13 @@ subroutine measure_adj()
     nc = int(-tstart / SPECFEM_DT)
     nb = floor((tp - tshift + SPECFEM_T0)/SPECFEM_DT+1)
 
+    call deconit(synz, synz, real(SPECFEM_DT), 10., real(f0), 10, 0.001, 0, zrf)
     call myconvolution_dp(synr, datz, conv1, 1)
     call myconvolution_dp(synz, datr, conv2, 1)
-    conv_diff = conv1 - conv2
+    conv_diff = (conv1 - conv2)/maxval(zrf)
+    ! conv_diff = (conv1 - conv2)
     call myconvolution_dp(datz, synz, tmp, 1)
+    call deconit(conv_diff, tmp, real(SPECFEM_DT), real(tshift), real(f0), maxit, real(minderr), 1, obj_cc)
     conv_full = zeros_dp(npts)
     conv_full = tmp(nc:npts+nc-1)
     e = npts * SPECFEM_DT - tshift
@@ -915,18 +918,23 @@ subroutine measure_adj()
     call reverse(synr, npts, r_rev)
     call reverse(synz, npts, z_rev)
     ! radial adjoint source
-    call myconvolution_dp(conv_full, z_rev, conv_den, 1)
-    call deconit(conv_diff, conv_den, real(SPECFEM_DT), real(e), real(f0), maxit, real(minderr), 1, tmp)
-    adj_r = tmp(1:npts)
-    deallocate(conv_den, conv_num)
+    ! call myconvolution_dp(conv_full, z_rev, conv_den, 1)
+    call deconit(obj_cc(1:npts), z_rev, real(SPECFEM_DT), real(e), real(f0), maxit, real(minderr), 1, adj_r)
 
     ! vertical adjoint source
-    call myconvolution_dp(conv_diff, r_rev, conv_num, 1)
-    call myconvolution_dp(z_rev, z_rev, tmp, 1)
-    call myconvolution_dp(tmp, conv_full, conv_den, 1)
-    call deconit(conv_num, conv_den, real(SPECFEM_DT), real(e), real(f0), maxit, real(minderr), 1, tmp)
-    adj_z = tmp(1:npts)
-    nstart = floor((-tstart + tshift)/SPECFEM_DT+1)
+    call myconvolution_dp(-obj_cc(1:npts), r_rev, conv_num, 1)
+    call myconvolution_dp(z_rev, z_rev, conv_den, 1)
+    ! call myconvolution_dp(tmp, conv_full, conv_den, 1)
+    call deconit(conv_num, conv_den, real(SPECFEM_DT), real(e), real(f0), maxit, real(minderr), 1, adj_z)
+
+    ! adj_file_prefix = 'MX.'//trim(sta)//'.BXR'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.objcc.sac',obj_cc(1:npts),npts,-tshift,SPECFEM_DT)
+    ! adj_file_prefix = 'MX.'//trim(sta)//'.BXZ'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac',adj_z(1:npts),npts,-tshift,SPECFEM_DT)
+    ! adj_file_prefix = 'MX.'//trim(sta)//'.BXR'
+    ! call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.adj.sac',adj_r(1:npts),npts,-tshift,SPECFEM_DT)
+
+    nstart = floor((tstart + tshift)/SPECFEM_DT+1)
     nend = floor((tend + tshift)/SPECFEM_DT+1)
     nstop = min(nend, npts)
 
@@ -934,29 +942,32 @@ subroutine measure_adj()
     adj_z_tw = zeros_dp(npts)
     data_tw = zeros_dp(npts)
     synt_tw = zeros_dp(npts)
+    obj_cc_tw = zeros_dp(npts)
     n = 1
     ! Cosine taper
     do i = nstart, nstop
       fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
       data_tw(i) = conv1(i+nc) * fac
       synt_tw(i) = conv2(i+nc) * fac
+      obj_cc_tw(i) = obj_cc(i) * fac
       adj_r_tw(nb+i) = adj_r(i) * fac
       adj_z_tw(nb+i) = adj_z(i) * fac
       n = n+1
     enddo
-    call bandpass_dp(data_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
-    call bandpass_dp(synt_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
+    call bandpass_dp(obj_cc_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
+    call bandpass_dp(adj_r_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
+    call bandpass_dp(adj_z_tw,npts,SPECFEM_DT,real(freq_min),real(freq_max),IORD)
              
     ! write windowed adjoint source
+    window_chi = 0.
     window_chi(13) = 0.5 * sum( data_tw**2 )
     window_chi(14) = 0.5 * sum( synt_tw**2 )
-    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )
+    window_chi(15) = 0.5 * sum( obj_cc_tw**2 )
     window_chi(16) = (nend - nstart)*SPECFEM_DT
     window_chi(17) = 0.5 * sum( conv1**2 )
     window_chi(18) = 0.5 * sum( conv2**2 )
     window_chi(19) = 0.5 * sum( (conv_diff)**2 )
     window_chi(20) = npts*SPECFEM_DT
-    ! write windowed adjoint source
 
   end subroutine meas_adj_conv_diff
 
@@ -1049,6 +1060,7 @@ subroutine measure_adj()
     window_chi(18) = 0.5 * sum( syn_norm**2 )
     window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
     window_chi(20) = npts*dt
+    print *, window_chi(15)
   end subroutine measure_adj_rf
 
   subroutine measure_adj_telecc(synr, synz, datr, datz, tstart, tend, t0, tp, dt, npts, f0, tshift, maxit, minderr,&

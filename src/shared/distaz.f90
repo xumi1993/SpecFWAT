@@ -1,11 +1,35 @@
-subroutine distaz(stalat, stalon, evtlat, evtlon, az, baz, delta, dist)
-    implicit none
+module distaz_lib
+
+  implicit none
+
+  double precision, private, parameter :: pi = 3.14159265358979323846
+
+contains
+  subroutine distaz_cart(x1, y1, x2, y2, az, baz, dist)
+    double precision, intent(in) :: x1, y1, x2, y2
+    double precision, intent(out) :: az, baz, dist
+    double precision :: dx, dy
+
+    dx = x2 - x1
+    dy = y2 - y1
+    dist = sqrt(dx**2 + dy**2)
+
+    az = atan2(dx, dy) * 180.0 / pi
+    if (az < 0.0) then
+      az = az + 360.0
+    endif
+
+    baz = az + 180.0
+    if (baz >= 360.0) baz = baz - 360.0
+
+  end subroutine distaz_cart
+
+  subroutine distaz(stalat, stalon, evtlat, evtlon, az, baz, delta, dist)
     double precision :: stalat, stalon, evtlat, evtlon, delta, az, baz, dist
     double precision :: scolat, slon, ecolat, elon, deg2km
     double precision :: a,b,c,d,e,aa,bb,cc,dd,ee,g,gg,h,hh,k,kk
     double precision :: rhs1,rhs2,sph,rad,del,daz,dbaz,pi,piby2, predel
 
-    pi=3.141592654
     piby2=pi/2.
     rad=2.*pi/360.
     deg2km = 2*pi*6371/360
@@ -59,4 +83,5 @@ subroutine distaz(stalat, stalon, evtlat, evtlon, az, baz, delta, dist)
 
     if(abs(baz-360.).lt..00001) baz=0.0
     if(abs(az-360.).lt..00001) az=0.0
-end subroutine distaz
+  end subroutine distaz
+end module distaz_lib

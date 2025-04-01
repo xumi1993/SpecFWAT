@@ -101,7 +101,8 @@ contains
     call free_shm_array(this%stlo_win)
     call free_shm_array(this%stel_win)
     call free_shm_array(this%baz_win)
-    call free_shm_array(this%t0_win)
+    if (simu_type == SIMU_TYPE_TELE) &
+      call free_shm_array(this%t0_win)
     call free_shm_array(this%dat_win)
     call free_shm_array(this%tb_win)
     call free_shm_array(this%bur_win)
@@ -122,7 +123,7 @@ contains
       if (dat_type /= 'rf') then
         sacfile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%netwk(ista))//'.'//trim(this%stnm(ista))//&
                   '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//'.sac'
-        ncomp = fpar%sim%NRCOMP
+        ncomp = size(fpar%sim%RCOMPS)
       else
         write(gaus_str, '("F",F3.1)') fpar%sim%rf%F0(1)
         sacfile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%netwk(ista))//'.'//trim(this%stnm(ista))//&

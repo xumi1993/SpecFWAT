@@ -84,19 +84,21 @@ contains
     class(TeleCCData), intent(inout) :: this
     integer :: irec_local, irec, nstep_cut, icomp
     real(kind=dp), dimension(:), allocatable :: seismo_inp
-    real(kind=dp) :: tstart, tend
+    real(kind=dp) :: tstart, tend, t01
 
     if (nrec_local > 0) then
       this%seismo_dat = zeros_dp(NSTEP, ncomp, nrec_local)
       this%seismo_syn = zeros_dp(NSTEP, ncomp, nrec_local)
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
-        tstart = this%ttp(irec) - fpar%sim%time_win(1)
+        tstart = this%ttp(irec) + fpar%sim%time_win(1)
         tend = this%ttp(irec) + fpar%sim%time_win(2)
         nstep_cut = int((tend - tstart) / dble(DT)) + 1
         do icomp = 1, size(fpar%sim%RCOMPS)
-          call this%interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
-                                  dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
+          seismo_inp = this%od%data(:, icomp, irec)
+          t01 = this%od%tbeg(irec) - (this%od%tarr(irec) - this%ttp(irec))
+          call interpolate_syn_dp(seismo_inp, t01, this%od%dt, this%od%npts, &
+                                  -dble(t0), dble(DT), NSTEP)
           call detrend(seismo_inp)
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
@@ -158,6 +160,15 @@ contains
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, conv(nb:NSTEP+nb-1), ier)
+            ! sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
+            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+            !           'Z.sac.'//trim(this%band_name)
+            ! call sacio_writesac(sacfile, header, this%seismo_dat(:, 1, irec_local), ier)
+            ! sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
+            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+            !           'Z.sac.'//trim(this%band_name)
+            ! call sacio_writesac(sacfile, header, this%seismo_syn(:, 1, irec_local), ier)
+            
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
             call myconvolution_dp(this%seismo_syn(:, 1, irec_local),&
                                   this%seismo_dat(:, 2, irec_local),&
@@ -166,14 +177,22 @@ contains
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'R.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, conv(nb:NSTEP+nb-1), ier)
+            ! sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
+            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+            !           'R.sac.'//trim(this%band_name)
+            ! call sacio_writesac(sacfile, header, this%seismo_dat(:, 2, irec_local), ier)
+            ! sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
+            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+            !           'R.sac.'//trim(this%band_name)
+            ! call sacio_writesac(sacfile, header, this%seismo_syn(:, 2, irec_local), ier)
           end block
         endif
 
         f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1)))
         call meas_adj_conv_diff(this%seismo_dat(:, 2, irec_local), this%seismo_dat(:, 1, irec_local),&
-                                this%seismo_syn(:, 2, irec_local), this%seismo_dat(:, 1, irec_local),&
-                                -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(1)), dble(this%ttp(irec)),&
-                                NSTEP, dble(fpar%sim%RF%tshift), f0, NITER, 0.001_dp, &
+                                this%seismo_syn(:, 2, irec_local), this%seismo_syn(:, 1, irec_local),&
+                                dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), dble(this%ttp(irec)),&
+                                NSTEP, -dble(fpar%sim%TIME_WIN(1)), f0, NITER, 0.001_dp, &
                                 dble(1/fpar%sim%LONG_P(1)), dble(1/fpar%sim%SHORT_P(1)), &
                                 window_chi_local, adj_r_tw, adj_z_tw)
 
@@ -190,7 +209,7 @@ contains
         this%T_pmax_syn(irec_local, 1) = 0.
         this%sta(irec_local) = this%od%stnm(irec)
         this%net(irec_local) = this%od%netwk(irec)
-        this%tstart(irec_local) = this%ttp(irec) - fpar%sim%time_win(1)
+        this%tstart(irec_local) = this%ttp(irec) + fpar%sim%time_win(1)
         this%tend(irec_local) = this%ttp(irec) + fpar%sim%time_win(2)
       enddo
     endif

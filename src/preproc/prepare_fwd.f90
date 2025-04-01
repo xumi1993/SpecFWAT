@@ -14,6 +14,7 @@ module preproc_fwd
   use logger, only: log
   use tele_data, only: TeleData
   use rf_data, only: RFData
+  use telecc_data, only: TeleCCData
   use common_lib, only: get_dat_type
 
   implicit none
@@ -175,12 +176,12 @@ contains
       COUPLE_WITH_INJECTION_TECHNIQUE=.true.
       INJECTION_TECHNIQUE_TYPE=3
       FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
-    else if (simu_type == SIMU_TYPE_NOISE) then
-      USE_FORCE_POINT_SOURCE = .true.
-      COUPLE_WITH_INJECTION_TECHNIQUE=.false.
       if (dat_type == 'rf') then
         fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
       endif
+    else if (simu_type == SIMU_TYPE_NOISE) then
+      USE_FORCE_POINT_SOURCE = .true.
+      COUPLE_WITH_INJECTION_TECHNIQUE=.false.
     endif
     source_fname = fpar%acqui%src_solution_file(this%ievt)
     station_fname = fpar%acqui%station_file(this%ievt)
@@ -221,6 +222,7 @@ contains
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
     type(RFData) :: rd
+    type(TeleCCData) :: tc
     
     select case(dat_type)
     case ('tele')
@@ -229,10 +231,10 @@ contains
       this%obj_func = sum(td%total_misfit)
       call td%finalize()
     case ('telecc')
-      call td%preprocess(this%ievt)
-      call td%od%copy_adjoint_stations()
-      this%obj_func = sum(td%total_misfit)
-      call td%finalize()
+      call tc%preprocess(this%ievt)
+      call tc%od%copy_adjoint_stations()
+      this%obj_func = sum(tc%total_misfit)
+      call tc%finalize()
     case ('rf')
       call rd%preprocess(this%ievt)
       call rd%od%copy_adjoint_stations()

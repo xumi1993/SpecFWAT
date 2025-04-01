@@ -313,7 +313,7 @@ contains
     ! cut data to from fpar%sim%time_win(1) to fpar%sim%time_win(2)
     data_num_win = data_num(1:fpar%sim%nstep)
     data_den_win = data_den(1:fpar%sim%nstep)
-    tb = tref - fpar%sim%time_win(1)
+    tb = tref + fpar%sim%time_win(1)
     te = tref + fpar%sim%time_win(2)
     nstep_cut = int((te - tb) / fpar%sim%dt) + 1
     call interpolate_syn_dp(data_num_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
