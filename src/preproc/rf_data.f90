@@ -155,8 +155,8 @@ module rf_data
                               window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
                               this%od%netwk(irec), this%od%stnm(irec) &
                               )
-          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw
-          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw
+          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw * fpar%acqui%src_weight(this%ievt)
+          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw * fpar%acqui%src_weight(this%ievt)
           tr_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
           am_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
           T_pmax_dat(irec_local, 1) = 0.0_dp

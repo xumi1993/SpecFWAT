@@ -160,6 +160,23 @@ contains
     
   end subroutine rotate_R_to_NE_dp
 
+  subroutine rotate_T_to_NE_dp(vt, vn, ve, bazi)
+    real(kind=dp), dimension(:), intent(in) :: vt
+    real(kind=cr), intent(in) :: bazi
+    real(kind=dp), dimension(:), intent(out) :: ve, vn
+    real(kind=dp), dimension(:), allocatable :: vr
+    real(kind=cr) :: baz
+    integer :: it, nt
+
+    nt = size(vt)
+    allocate(vr(nt))
+    vr = 0.0_dp
+    baz = 360.0 - bazi
+
+    call rotate_NE_to_RT_dp(vr, vt, ve, vn, baz)  
+    
+  end subroutine rotate_T_to_NE_dp
+
   subroutine get_band_name(SHORT_P, LONG_P, bandname)
     real :: SHORT_P, LONG_P, fl, fh
     character(len=MAX_STRING_LEN), intent(out) :: bandname
@@ -210,5 +227,21 @@ contains
       gauss_fac = 1.5
     endif
   end function get_gauss_fac
+
+  function get_icomp_syn(comp_code) result(icomp)
+    character(len=1), intent(in) :: comp_code
+    integer :: icomp
+
+    if (comp_code == 'Z') then
+      icomp = 1
+    elseif (comp_code == 'R') then
+      icomp = 2
+    elseif (comp_code == 'T') then
+      icomp = 3
+    else
+      if (worldrank == 0) call exit_MPI(0, 'Unknown component')
+    endif
+
+  end function get_icomp_syn
 
 end module common_lib

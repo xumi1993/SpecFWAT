@@ -80,6 +80,70 @@ contains
 
   end subroutine interpolate_syn_dp
 
+  function interpolate_func_dp(syn, t1, dt1, npt1, t2, dt2, npt2) result(syn_interp)
+    real(kind=dp), dimension(:), intent(in) :: syn
+    integer, intent(in) :: npt1, npt2
+    real(kind=dp), intent(in) :: t1, dt1, t2, dt2
+    real(kind=dp), dimension(:), allocatable :: syn_interp
+    real(kind=dp), dimension(:), allocatable :: syn1
+    real(kind=dp) :: time, tt
+    integer i, ii
+
+    ! initializes trace holding interpolated values
+    allocate(syn1(npt2))
+    syn1 = 0.
+
+    ! loops over number of time steps in complete trace
+    do i = 1, npt2
+
+      ! sets time (in s) at this time step:
+      ! t2 : start time of trace
+      ! dt2: delta_t of a single time step
+      time = t2 + (i-1) * dt2
+
+      ! checks if time is within measurement window
+      ! t1: start time of measurement window
+      ! npt1: number of time steps in measurement window
+      ! dt1: delta_t of a single time step in measurement window
+      if (time > t1 .and. time < t1 + (npt1-1)*dt1) then
+
+        ! sets index of time steps within this window: is 1 at the beginning of window
+        ii = floor((time-t1)/dt1) + 1
+
+        ! time increment within this single time step to match the exact value of time
+        tt = time - ((ii-1)*dt1 + t1)
+
+        ! interpolates value of trace for the exact time
+        syn1(i) = (syn(ii+1)-syn(ii)) * tt/dt1 + syn(ii)
+      endif
+    enddo
+
+    ! allocate and save interpolated values to output trace
+    allocate(syn_interp(npt2))
+    syn_interp(1:npt2) = syn1(1:npt2)
+
+    ! deallocate temporary array
+    deallocate(syn1)
+
+  end function interpolate_func_dp
+
+  subroutine dif1(data, dt)
+  double precision, intent(in)                   :: dt
+  double precision, dimension(:), intent(inout)  :: data
+  double precision, dimension(:), allocatable    :: temp_signal
+  integer :: i, nt
+
+  nt = size(data)
+  temp_signal=data(1:nt)
+
+  do i=2,nt-1
+    data(i) = - 0.5 * ( temp_signal(i+1) - temp_signal(i-1) ) / dt
+  enddo
+
+  data(1)=0.
+  data(nt)=0.
+end subroutine dif1
+
   subroutine myconvolution_dp(sig1,sig2,conv,part)
 
     integer, intent(in) :: part

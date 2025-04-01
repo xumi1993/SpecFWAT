@@ -5,7 +5,7 @@ module line_search
   use opt_io
   use preproc_fwd
   use window_chi, only : WindowChi
-  use common_lib, only : get_tele_type
+  use common_lib, only : get_dat_type
 
   implicit none
 
@@ -22,15 +22,10 @@ contains
     total_misfit = 0.0_dp
     misfit_start = 0.0_dp
     misfit_prev = 0.0_dp
-    if (simu_type == SIMU_TYPE_NOISE) then
-      dat_type = 'noise'
-    elseif (simu_type == SIMU_TYPE_TELE) then
-      call get_tele_type(fpar%sim%tele_type)
-    else
-      call exit_MPI(0, 'LINE SEARCH: Unknown simulation type')
-    endif
 
     call fpar%select_simu_type()
+
+    call get_dat_type()
 
     call fpar%acqui%read()
 

@@ -429,13 +429,13 @@ contains
     is_mtm = is_mtm0
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
-    do icomp = 1, this%sim%NRCOMP
-      if (trim(this%sim%RCOMPS(icomp)) == 'R' .or. trim(this%sim%RCOMPS(icomp)) == 'T') then
-        dat_coord = 'ZRT'
-      else
-        dat_coord = 'ZNE'
-      end if
-    end do
+    ! do icomp = 1, this%sim%NRCOMP
+    !   if (trim(this%sim%RCOMPS(icomp)) == 'R' .or. trim(this%sim%RCOMPS(icomp)) == 'T') then
+    !     dat_coord = 'ZRT'
+    !   else
+    !     dat_coord = 'ZNE'
+    !   end if
+    ! end do
   end subroutine select_simu_type
 
   subroutine read_static_real_list(list, list_out)

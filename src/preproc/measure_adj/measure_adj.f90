@@ -13,9 +13,9 @@ module measure_adj_mod
 
 contains
 
-  subroutine measure_adj_fwat(data_in,syn_in,tstart,tend,net_in,sta_in,&
+  subroutine measure_adj_fwat(data_in,syn_in,tstart,tend,shortp,longp,net_in,sta_in,&
                               chan_dat_in,window_chi,tr_chi,am_chi,&
-                              T_pmax_dat,T_pmax_syn,adj_syn_all,file_prefix0,out_imeas,bandname)
+                              T_pmax_dat,T_pmax_syn,adj_syn_all,file_prefix0,out_imeas)
   !  main program that calls the subroutines to make measurements within input time windows
   !  and then compute the corresponding adjoint sources
 
@@ -44,6 +44,7 @@ contains
   double precision, dimension(:), intent(in) :: data_in, syn_in
   character(len=*), intent(in) :: net_in,sta_in,chan_dat_in
   double precision, dimension(:), intent(inout) :: window_chi
+  double precision, intent(in) :: shortp,longp
 
   double precision, dimension(NDIM_MA) :: data, syn, syn_phydisp, adj_syn_all, &
                         tr_adj_src, am_adj_src, recon_cc_all, syn_dtw_cc, syn_dtw_mt
@@ -66,14 +67,13 @@ contains
 
   integer :: out_imeas
   character(len=MAX_STRING_LEN)                     :: bandname
-  integer :: shortp,longp
 
   !********* PROGRAM STARTS HERE *********************
   !! read in MEASUREMENT.PAR (see ma_sub.f90 and write_par_file.pl)
   !! most parameters are global (see ma_variables.f90)
   ! call read_par_file(fstart0,fend0,tt,dtt,nn,chan)
-  read(bandname(2:4),'(i3.3)') shortp
-  read(bandname(7:9),'(i3.3)') longp
+  ! read(bandname(2:4),'(i3.3)') shortp
+  ! read(bandname(7:9),'(i3.3)') longp
   fstart0=1.0/longp
   fend0=1.0/shortp
   TSHORT=shortp
@@ -1062,24 +1062,6 @@ subroutine measure_adj()
     window_chi(20) = npts*dt
     print *, window_chi(15)
   end subroutine measure_adj_rf
-
-  subroutine measure_adj_telecc(synr, synz, datr, datz, tstart, tend, t0, tp, dt, npts, f0, tshift, maxit, minderr,&
-                                window_chi, adj_r_tw, adj_z_tw)
-    use decon_mod, only : deconit
-    use signal, only : myconvolution
-    use fwat_constants, only : PI
-    use utils, only: zeros_dp
-
-    integer, intent(in) :: npts, maxit
-    double precision, dimension(npts), intent(in) :: synr, synz, datr, datz
-    double precision, intent(in) :: tstart, tend, t0, tp, dt, f0, tshift, minderr
-    double precision, dimension(NCHI), intent(inout) :: window_chi
-    double precision, dimension(npts), intent(out) :: adj_r_tw, adj_z_tw
-                                                          
-    return
-
-
-  end subroutine measure_adj_telecc
 
   subroutine rotate_adj_src
 

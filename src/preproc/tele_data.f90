@@ -454,11 +454,12 @@ contains
           tstart = this%ttp(irec) + fpar%sim%time_win(1)
           tend = this%ttp(irec) + fpar%sim%time_win(2)
           call measure_adj_fwat(this%seismo_dat(:, icomp, irec_local), this%seismo_syn(:, icomp, irec_local),&
-                                tstart, tend, this%od%netwk(irec), this%od%stnm(irec),&
+                                tstart, tend, dble(fpar%sim%SHORT_P(1)), dble(fpar%sim%LONG_P(1)),&
+                                this%od%netwk(irec), this%od%stnm(irec),&
                                 trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
                                 window_chi_local, tr_chi_local, am_chi_local,&
                                 T_pmax_dat_local, T_pmax_syn_local, adj_syn_local, &
-                                file_prefix, out_imeas, this%band_name)
+                                file_prefix, out_imeas)
 
           ! write adjoint source
           select case (icomp)

@@ -13,12 +13,12 @@ module obs_data
   type ObsData
     character(len=MAX_STRING_LEN), dimension(:), pointer :: netwk, stnm
     character(len=MAX_STRING_LEN) :: evt_id
-    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, stbur, baz, tarr, tbeg
+    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, stbur, baz, tarr, tbeg, dist
     real(kind=dp) :: dt
     integer :: nsta, npts, ievt
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp, nsta
     integer :: net_win, sta_win, stla_win, stlo_win, stel_win, dat_win, &
-                baz_win, t0_win, tb_win, bur_win
+                baz_win, t0_win, tb_win, bur_win, dis_win
     contains
     procedure :: read_stations, read_obs_data, copy_adjoint_stations
     procedure, private :: alloc_sta_info
@@ -87,6 +87,7 @@ contains
     call prepare_shm_array_cr_1d(this%stel, this%nsta, this%stel_win)
     call prepare_shm_array_cr_1d(this%stbur, this%nsta, this%bur_win)
     call prepare_shm_array_cr_1d(this%baz, this%nsta, this%baz_win)
+    call prepare_shm_array_cr_1d(this%dist, this%nsta, this%dis_win)
     call prepare_shm_array_cr_1d(this%tbeg, this%nsta, this%tb_win)
     if (simu_type == SIMU_TYPE_TELE) &
       call prepare_shm_array_cr_1d(this%tarr, this%nsta, this%t0_win)
@@ -101,6 +102,7 @@ contains
     call free_shm_array(this%stlo_win)
     call free_shm_array(this%stel_win)
     call free_shm_array(this%baz_win)
+    call free_shm_array(this%dis_win)
     if (simu_type == SIMU_TYPE_TELE) &
       call free_shm_array(this%t0_win)
     call free_shm_array(this%dat_win)
@@ -167,6 +169,11 @@ contains
               call exit_MPI(0, 'Back azimuth not found in SAC header')
             else
               this%baz(ista) = header%baz
+            endif
+            if (header%dist == SAC_rnull) then
+              call exit_MPI(0, 'Distance not found in SAC header')
+            else
+              this%dist(ista) = header%dist
             endif
             if (index(dat_type, 'tele') /= 0 ) then
               if (header%t0 /= SAC_rnull) then
