@@ -34,6 +34,8 @@ contains
 
     call this%init(ievt)
 
+    if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
+
     call this%od%read_stations(ievt, .true.)
 
     call this%calc_distaz()
