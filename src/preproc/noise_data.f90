@@ -20,7 +20,7 @@ module noise_data
   integer, private :: ier
   type, extends(SynData) :: NoiseData
   contains
-    procedure :: semd2sac, preprocess
+    procedure :: semd2sac, preprocess, finalize
     procedure, private :: calc_distaz, measure_adj, write_in_preocess
   end type NoiseData
 
@@ -79,6 +79,8 @@ contains
     call this%od%read_obs_data()
 
     call this%read(this%od%baz)
+
+    call this%measure_adj()
 
   end subroutine preprocess
 
@@ -224,6 +226,17 @@ contains
     end if
     call synchronize_all()
   end subroutine measure_adj
+
+  subroutine finalize(this)
+    class(NoiseData), intent(inout) :: this
+    integer :: iflt
+
+    call this%od%finalize()
+    do iflt = 1, fpar%sim%NUM_FILTER
+      call this%wchi(iflt)%finalize()
+    end do
+    call free_shm_array(this%dat_win)
+  end subroutine finalize
 
   subroutine write_in_preocess(this, irec, icomp, tb, te, label, trace)
     class(NoiseData), intent(inout) :: this

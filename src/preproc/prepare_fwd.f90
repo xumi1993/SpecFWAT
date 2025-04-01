@@ -15,6 +15,7 @@ module preproc_fwd
   use tele_data, only: TeleData
   use rf_data, only: RFData
   use telecc_data, only: TeleCCData
+  use noise_data, only: NoiseData
   use common_lib, only: get_dat_type
 
   implicit none
@@ -206,6 +207,7 @@ contains
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
     type(RFData) :: rd
+    type(NoiseData) :: nd
 
     select case (dat_type)
     case ('tele') 
@@ -214,6 +216,8 @@ contains
       call td%semd2sac(this%ievt)
     case ('rf')
       call rd%semd2sac(this%ievt)
+    case ('noise')
+      call nd%semd2sac(this%ievt)
     end select
 
   end subroutine semd2sac
@@ -223,6 +227,7 @@ contains
     type(TeleData) :: td
     type(RFData) :: rd
     type(TeleCCData) :: tc
+    type(NoiseData) :: nd
     
     select case(dat_type)
     case ('tele')
@@ -240,6 +245,11 @@ contains
       call rd%od%copy_adjoint_stations()
       this%obj_func = sum(rd%total_misfit)
       call rd%finalize()
+    case ('noise')
+      call nd%preprocess(this%ievt)
+      call nd%od%copy_adjoint_stations()
+      this%obj_func = sum(nd%total_misfit)
+      call nd%finalize()
     end select
     
   end subroutine measure_adj
