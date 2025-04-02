@@ -244,4 +244,25 @@ contains
 
   end function get_icomp_syn
 
+  subroutine rotate_ZRT_to_ZNE(vz2,vr,vt,vz,vn,ve,nt,bazi)
+  
+    integer,                  intent(in) :: nt
+    real(kind=dp),   intent(in) :: bazi
+
+    real(kind=dp), dimension(nt),  intent(in) :: vz2, vr, vt
+    real(kind=dp), dimension(nt), intent(out) :: vz,  vn, ve
+
+    real(kind=dp) :: baz
+    integer :: it
+
+    baz = deg2rad * bazi
+
+    do it = 1, nt
+        ve(it) = -vr(it) * sin(baz) - vt(it) * cos(baz)
+        vn(it) = -vr(it) * cos(baz) + vt(it) * sin(baz)
+        vz(it) = vz2(it)
+    enddo
+  
+  end subroutine rotate_ZRT_to_ZNE
+
 end module common_lib

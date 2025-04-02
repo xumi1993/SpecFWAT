@@ -7,7 +7,7 @@ module post_processing
   use utils, only: zeros
   use kernel_io
   use taper3d
-  use common_lib, only: get_tele_type
+  use common_lib, only: get_dat_type
 
   implicit none
 
@@ -56,9 +56,8 @@ contains
     call fpar%select_simu_type()
     
     ! read src_rec for this data type
-    if (itype == 2) then
-      call get_tele_type(fpar%sim%tele_type)
-    endif
+    call get_dat_type()
+
     ! read src_rec for this data type
     call fpar%acqui%read()
 

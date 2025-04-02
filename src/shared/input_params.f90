@@ -1,6 +1,7 @@
 module input_params
   use config
   use fwat_mpi
+  use ma_variables
 
   implicit none
 
@@ -180,7 +181,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, tomo, rf, output, post, update
+    class(type_dictionary), pointer :: noise, tele, tomo, rf, output, post, update, ma
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -273,6 +274,25 @@ contains
           call read_real_list(list, this%sim%rf%F0)
           this%sim%rf%NGAUSS = size(this%sim%rf%F0)
         endif
+
+        ! measure adjoint source
+        ma => root%get_dictionary('MEASURE_ADJ', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        TSHIFT_MIN = ma%get_real('TSHIFT_MIN', error=io_err, default=4.5)
+        TSHIFT_MAX = ma%get_real('TSHIFT_MAX', error=io_err, default=4.5)
+        DLNA_MIN = ma%get_real('DLNA_MIN', error=io_err)
+        DLNA_MAX = ma%get_real('DLNA_MAX', error=io_err)
+        CC_MIN = ma%get_real('CC_MIN', error=io_err)
+        ERROR_TYPE = ma%get_integer('ERROR_TYPE', error=io_err)
+        DT_SIGMA_MIN = ma%get_real('DT_SIGMA_MIN', error=io_err)
+        DLNA_SIGMA_MIN = ma%get_real('DLNA_SIGMA_MIN', error=io_err)
+        WTR = ma%get_real('WTR', error=io_err)
+        NPI = ma%get_real('NPI', error=io_err)
+        DT_FAC = ma%get_real('DT_FAC', error=io_err)
+        ERR_FAC = ma%get_real('ERR_FAC', error=io_err)
+        DT_MAX_SCALE = ma%get_real('DT_MAX_SCALE', error=io_err)
+        NCYCLE_IN_WINDOW = ma%get_real('NCYCLE_IN_WINDOW', error=io_err)
+        USE_PHYSICAL_DISPERSION = ma%get_logical('USE_PHYSICAL_DISPERSION', error=io_err, default=.false.)
 
         ! output
         output => root%get_dictionary('OUTPUT', required=.true., error=io_err)
@@ -378,6 +398,23 @@ contains
     if (tele_par%rf%NGAUSS > 0) then
       call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
     endif
+
+    ! measure adjoint source
+    call bcast_all_singledp(TSHIFT_MIN)
+    call bcast_all_singledp(TSHIFT_MAX)
+    call bcast_all_singledp(DLNA_MIN)
+    call bcast_all_singledp(DLNA_MAX)
+    call bcast_all_singledp(CC_MIN)
+    call bcast_all_singlei(ERROR_TYPE)
+    call bcast_all_singledp(DT_SIGMA_MIN)
+    call bcast_all_singledp(DLNA_SIGMA_MIN)
+    call bcast_all_singledp(WTR)
+    call bcast_all_singledp(NPI)
+    call bcast_all_singledp(DT_FAC)
+    call bcast_all_singledp(ERR_FAC)
+    call bcast_all_singledp(DT_MAX_SCALE)
+    call bcast_all_singledp(NCYCLE_IN_WINDOW)
+    call bcast_all_singlel(USE_PHYSICAL_DISPERSION)
 
     ! output
     call bcast_all_singlel(IS_OUTPUT_PREPROC)

@@ -10,7 +10,7 @@ module noise_data
   use fwat_mpi
   use utils, only: zeros_dp, zeros
   use distaz_lib
-  use common_lib, only: get_band_name, get_icomp_syn, rotate_r_to_ne_dp, rotate_t_to_ne_dp
+  use common_lib, only: get_band_name, get_icomp_syn, rotate_ZRT_to_ZNE
   use signal, only: interpolate_func_dp, dif1, detrend, demean, bandpass_dp
   use sacio
   use logger, only: log
@@ -92,13 +92,14 @@ contains
     use ma_variables, only: OUT_DIR
     class(NoiseData), intent(inout) :: this
     integer :: irec_local, irec, iflt, icomp, icomp_syn, nb, ne, out_imeas
-    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
+    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn, adj_loc
     real(kind=dp), dimension(:,:,:), allocatable :: window_chi
+    real(kind=dp), dimension(NCHI) :: window_chi_loc
     real(kind=dp), dimension(:,:,:,:), allocatable :: adj_src
     real(kind=dp), dimension(:), allocatable :: tstart, tend, seismo_tmp, seismo_dat,seismo_syn
     real(kind=dp), dimension(:), allocatable :: adj_2, adj_3, adj_1
     real(kind=dp), dimension(NDIM_MA) :: adj_syn_local
-    real(kind=dp) :: dist_min, max_amp
+    real(kind=dp) :: dist_min, max_amp, tr_chi_loc, am_chi_loc, T_pmax_dat_loc, T_pmax_syn_loc
     character(len=MAX_STRING_LEN) :: file_prefix, msg
     character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
 
@@ -129,7 +130,7 @@ contains
             call detrend(seismo_dat)
             call demean(seismo_dat)
             call bandpass_dp(seismo_dat, fpar%sim%nstep, dble(fpar%sim%dt),&
-                             1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+                             1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
             
             ! get synthetic component
             icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
@@ -137,7 +138,7 @@ contains
             call detrend(seismo_syn)
             call demean(seismo_syn)
             call bandpass_dp(seismo_syn, fpar%sim%nstep, dble(fpar%sim%dt),&
-                             1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+                             1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
             ! time window
             tstart(irec_local) = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
             tend(irec_local) = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
@@ -161,18 +162,20 @@ contains
               call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'syn', seismo_syn)
               call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'dat', seismo_dat)
             end if
-            call measure_adj_fwat(seismo_dat, seismo_syn,tstart(irec_local), tend(irec_local),&
+            call measure_adj_fwat(seismo_dat, seismo_syn, tstart(irec_local), tend(irec_local),&
                                   dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)),&
                                   this%od%netwk(irec), this%od%stnm(irec),&
                                   trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
-                                  window_chi(irec_local, :, icomp), tr_chi(irec_local, icomp),&
-                                  am_chi(irec_local, icomp), T_pmax_dat(irec_local, icomp), &
-                                  T_pmax_syn(irec_local, icomp), adj_syn_local, &
+                                  window_chi_loc, tr_chi_loc,&
+                                  am_chi_loc, T_pmax_dat_loc, &
+                                  T_pmax_syn_loc, adj_syn_local, &
                                   file_prefix, out_imeas)
-
+            window_chi(irec_local, :, icomp) = window_chi_loc
             adj_src(:, icomp, irec_local, iflt) = adj_syn_local(1:NSTEP)
-            tr_chi(irec_local, 1) = tr_chi(irec_local, 1) * fpar%acqui%src_weight(this%ievt)
-            am_chi(irec_local, 1) = am_chi(irec_local, 1) * fpar%acqui%src_weight(this%ievt)
+            tr_chi(irec_local, icomp) = tr_chi_loc * fpar%acqui%src_weight(this%ievt)
+            am_chi(irec_local, icomp) = am_chi_loc * fpar%acqui%src_weight(this%ievt)
+            T_pmax_dat(irec_local, icomp) = T_pmax_dat_loc
+            T_pmax_syn(irec_local, icomp) = T_pmax_syn_loc
             ! write adjoint source
             if (iflt == 1) then
               sta(irec_local) = this%od%stnm(irec)
@@ -198,33 +201,25 @@ contains
         irec = number_receiver_global(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
-          max_amp = maxval(abs(adj_src(:, icomp, irec_local, :)))
-          adj_1 = zeros_dp(NSTEP)
+          adj_loc = zeros_dp(NSTEP, 3)
           if (fpar%sim%ADJ_SRC_NORM) then
+            max_amp = maxval(abs(adj_src(:, icomp, irec_local, :)))
             do iflt = 1, fpar%sim%NUM_FILTER
-              adj_1 = adj_1 + adj_src(:, icomp, irec_local, iflt)/ maxval(abs(adj_src(:, icomp, irec_local, :))) * max_amp
+              adj_loc(:, icomp) = adj_loc(:, icomp) + adj_src(:, icomp, irec_local, iflt)&
+                                  / maxval(abs(adj_src(:, icomp, irec_local, iflt))) * max_amp
             end do
           else
-            adj_1 = sum(adj_src(:, icomp, irec_local, :), dim=2)
+            adj_loc(:, icomp) = sum(adj_src(:, icomp, irec_local, :), dim=2)
           end if
-          adj_1 = adj_1 * fpar%acqui%src_weight(this%ievt)
-          select case (icomp_syn)
-            case (1)
-              call this%write_adj(adj_1, trim(this%comp_name(1)), irec)
-            case (2)
-              adj_2 = zeros_dp(NSTEP)
-              adj_3 = zeros_dp(NSTEP)
-              call rotate_R_to_NE_dp(adj_1, adj_3, adj_2, this%od%baz(irec))
-              call this%write_adj(adj_2, trim(this%comp_name(2)), irec)
-              call this%write_adj(adj_3, trim(this%comp_name(3)), irec)
-            case (3)
-              adj_2 = zeros_dp(NSTEP)
-              adj_3 = zeros_dp(NSTEP)
-              call rotate_T_to_NE_dp(adj_1, adj_3, adj_2, this%od%baz(irec))
-              call this%write_adj(adj_2, trim(this%comp_name(2)), irec)
-              call this%write_adj(adj_3, trim(this%comp_name(3)), irec)
-          end select
         end do
+        adj_1 = zeros_dp(NSTEP)
+        adj_2 = zeros_dp(NSTEP)
+        adj_3 = zeros_dp(NSTEP)
+        call rotate_ZRT_to_ZNE(adj_loc(:, 1), adj_loc(:, 2), adj_loc(:, 3), &
+                               adj_1, adj_2, adj_3, NSTEP, dble(this%od%baz(irec)))
+        call this%write_adj(adj_1, trim(this%comp_name(1)), irec)
+        call this%write_adj(adj_2, trim(this%comp_name(2)), irec)
+        call this%write_adj(adj_3, trim(this%comp_name(3)), irec)
       end do
     end if
     call synchronize_all()
@@ -252,7 +247,7 @@ contains
 
     datafile = trim(OUTPUT_FILES)//'/'//trim(this%od%netwk(irec))//'.'//&
                trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-               trim(fpar%sim%RCOMPS(icomp))//'.'//trim(label)//'.sac'
+               trim(fpar%sim%RCOMPS(icomp))//'.'//trim(label)//'.sac.'//trim(this%band_name)
 
     call sacio_newhead(header, real(DT), NSTEP, -real(T0))
     header%baz = this%od%baz(irec)

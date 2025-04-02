@@ -17,6 +17,7 @@ program fwat_optimize
   call parse_args_optimize()
 
   call fpar%read(FWAT_PAR_FILE)
+  call read_parameter_file(.true.)
 
   call fop%init(.true.)
 

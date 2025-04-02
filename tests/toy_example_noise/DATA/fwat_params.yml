@@ -7,11 +7,11 @@ NOISE:
   DT: 0.045 # Time step for the noise data
   SHORT_P: [3, 8, 12] # Short period of filters
   LONG_P: [10, 15, 20] # Long period of filters
-  GROUPVEL_MIN: [1.7, 2.1, 2.3] # Approximate minimum group velocity
-  GROUPVEL_MAX: [2.8, 3.2, 3.5] # Approximate maximum group velocity
+  GROUPVEL_MIN: [2.0, 2.1, 2.3] # Approximate minimum group velocity
+  GROUPVEL_MAX: [3.0, 3.5, 4.0] # Approximate maximum group velocity
   ADJ_SRC_NORM: False # Set the following to .true. to normalize adjoint sources across different bands
   USE_NEAR_OFFSET: False # Set the following to false if use only data > 1 average wavelength
-  SUPPRESS_EGF: False # Set to .false. when the data are cross-correlation functions
+  SUPPRESS_EGF: True # Set to .false. when the data are cross-correlation functions
   PRECOND_TYPE: 1 # 1: inner product of acceleration
   SIGMA_H: 5000 # Smoothing parameter for the horizontal component
   SIGMA_V: 5000 # Smoothing parameter for the vertical component
@@ -34,6 +34,26 @@ TELE:
     MAXIT: 200 # Maximum number of iterations
     MINDERR: 0.001 # Minimum residual error when the RF converges
     TSHIFT: 5.0 # Time shift before P
+
+####################### FWAT PAR for measure_adj ######################
+# The names below correspond to the variable names in measure_adj
+# see manual for more details https://docs.xumijian.me/seismo/specfem3d/measure_adj.html#input-file-2-measurement-par
+MEASURE_ADJ:
+  TSHIFT_MIN: -5.000
+  TSHIFT_MAX: 5.000
+  DLNA_MIN: -1.5000
+  DLNA_MAX: 1.5000
+  CC_MIN: 0.800
+  ERROR_TYPE: 1
+  DT_SIGMA_MIN: 1.000
+  DLNA_SIGMA_MIN: 0.500
+  WTR: 0.020
+  NPI: 2.50
+  DT_FAC: 2.000
+  ERR_FAC: 2.500
+  DT_MAX_SCALE: 3.500 
+  NCYCLE_IN_WINDOW: 1.500
+  USE_PHYSICAL_DISPERSION: .false.
 
 OUTPUT:
   IS_OUTPUT_PREPROC: True # Output preprocessed data

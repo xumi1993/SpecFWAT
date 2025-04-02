@@ -44,11 +44,11 @@ contains
   double precision, dimension(:), intent(in) :: data_in, syn_in
   character(len=*), intent(in) :: net_in,sta_in,chan_dat_in
   double precision, dimension(:), intent(inout) :: window_chi
-  double precision, intent(in) :: shortp,longp
+  double precision, intent(in) :: shortp,longp, tstart, tend
 
   double precision, dimension(NDIM_MA) :: data, syn, syn_phydisp, adj_syn_all, &
                         tr_adj_src, am_adj_src, recon_cc_all, syn_dtw_cc, syn_dtw_mt
-  double precision :: t0, dt, tstart, tend, tt, dtt, df
+  double precision :: t0, dt, tt, dtt, df
   double precision :: fend0, fstart0, fend, fstart
 
   character(len=10) :: net,sta,chan_dat,chan,cmp,chan_syn
@@ -381,9 +381,9 @@ contains
       !print *, 'writing adjoint source to file for the full seismogram'
       if( DO_RAY_DENSITY_SOURCE ) then
         call dwascii(trim(adj_file_prefix)//'.density.adj',adj_syn_all,NSTEP,-SPECFEM_T0,SPECFEM_DT)
-      else
-        call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)// &
-                    '.adj.sac'//'.'//trim(bandname),adj_syn_all,NSTEP,-SPECFEM_T0,SPECFEM_DT)
+      ! else
+      !   call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)// &
+      !               '.adj.sac'//'.'//trim(bandname),adj_syn_all,NSTEP,-SPECFEM_T0,SPECFEM_DT)
         ! LQY add the sum of chi values (total misfit), weights included if DO_WEIGHTING on
       endif
 
@@ -1060,7 +1060,6 @@ subroutine measure_adj()
     window_chi(18) = 0.5 * sum( syn_norm**2 )
     window_chi(19) = 0.5 * sum( (syn_norm-data_norm)**2 )
     window_chi(20) = npts*dt
-    print *, window_chi(15)
   end subroutine measure_adj_rf
 
   subroutine rotate_adj_src

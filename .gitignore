@@ -59,3 +59,5 @@ fwat_data/
 *_ADJOINT
 *_ADJOINT_FILTERED
 *_FILTERED
+
+check.ipynb
