@@ -205,6 +205,7 @@ contains
           if (fpar%sim%ADJ_SRC_NORM) then
             max_amp = maxval(abs(adj_src(:, icomp, irec_local, :)))
             do iflt = 1, fpar%sim%NUM_FILTER
+              if (maxval(abs(adj_src(:, icomp, irec_local, iflt))) == 0.) cycle
               adj_loc(:, icomp) = adj_loc(:, icomp) + adj_src(:, icomp, irec_local, iflt)&
                                   / maxval(abs(adj_src(:, icomp, irec_local, iflt))) * max_amp
             end do

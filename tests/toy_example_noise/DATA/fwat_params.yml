@@ -9,12 +9,12 @@ NOISE:
   LONG_P: [10, 15, 20] # Long period of filters
   GROUPVEL_MIN: [2.0, 2.1, 2.3] # Approximate minimum group velocity
   GROUPVEL_MAX: [3.0, 3.5, 4.0] # Approximate maximum group velocity
-  ADJ_SRC_NORM: False # Set the following to .true. to normalize adjoint sources across different bands
+  ADJ_SRC_NORM: True # Set the following to .true. to normalize adjoint sources across different bands
   USE_NEAR_OFFSET: False # Set the following to false if use only data > 1 average wavelength
   SUPPRESS_EGF: True # Set to .false. when the data are cross-correlation functions
   PRECOND_TYPE: 1 # 1: inner product of acceleration
-  SIGMA_H: 5000 # Smoothing parameter for the horizontal component
-  SIGMA_V: 5000 # Smoothing parameter for the vertical component
+  SIGMA_H: 10000 # Smoothing parameter for the horizontal component
+  SIGMA_V: 10000 # Smoothing parameter for the vertical component
 
 TELE:
   TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function
@@ -63,10 +63,10 @@ OUTPUT:
 POSTPROC:
   INV_TYPE: [True, False] # Inversion type of noise and teleseismic data
   JOINT_WEIGHT: [0.5, 0.5]
-  TAPER_H_SUPPRESS: 5000
-  TAPER_H_BUFFER: 15000
-  TAPER_V_SUPPRESS: 5000
-  TAPER_V_BUFFER: 15000
+  TAPER_H_SUPPRESS: 0
+  TAPER_H_BUFFER: 0
+  TAPER_V_SUPPRESS: 0
+  TAPER_V_BUFFER: 0
   USE_RHO_SCALING_NOISE: true
   IS_PRECOND: True
 
