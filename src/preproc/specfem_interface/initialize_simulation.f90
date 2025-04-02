@@ -72,8 +72,8 @@
   endif
 
   ! read the parameter file
-  BROADCAST_AFTER_READ = .true.
-  call read_parameter_file(BROADCAST_AFTER_READ)
+  ! BROADCAST_AFTER_READ = .true.
+  ! call read_parameter_file(BROADCAST_AFTER_READ)
 
   ! MX: change SIMULATION_TYPE to 3 for adjoint simulations
   SAVE_MESH_FILES=.false.

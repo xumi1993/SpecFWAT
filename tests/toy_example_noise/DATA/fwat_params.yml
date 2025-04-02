@@ -3,7 +3,7 @@ NOISE:
   SCOMPS: ['Z'] # Components of the source
   RCOMPS: ['Z'] # Components of the receiver
   CH_CODE: BX # Channel code
-  NSTEP: 4500 # Number of time steps
+  NSTEP: 3200 # Number of time steps
   DT: 0.045 # Time step for the noise data
   SHORT_P: [3, 8, 12] # Short period of filters
   LONG_P: [10, 15, 20] # Long period of filters

@@ -25,20 +25,21 @@ contains
   end subroutine distaz_cart
 
   subroutine distaz(stalat, stalon, evtlat, evtlon, az, baz, delta, dist)
-    double precision :: stalat, stalon, evtlat, evtlon, delta, az, baz, dist
+    double precision, intent(in) :: stalat, stalon, evtlat, evtlon
+    double precision, intent(out) :: delta, az, baz, dist
     double precision :: scolat, slon, ecolat, elon, deg2km
     double precision :: a,b,c,d,e,aa,bb,cc,dd,ee,g,gg,h,hh,k,kk
-    double precision :: rhs1,rhs2,sph,rad,del,daz,dbaz,pi,piby2, predel
+    double precision :: rhs1,rhs2,sph,rad,del,daz,dbaz,piby2, predel
 
     piby2=pi/2.
     rad=2.*pi/360.
     deg2km = 2*pi*6371/360
 
     sph=1.0/298.257
-    scolat=piby2 - atan((1.-sph)*(1.-sph)*tan(dble(stalat)*rad))
-    ecolat=piby2 - atan((1.-sph)*(1.-sph)*tan(dble(evtlat)*rad))
-    slon=dble(stalon)*rad
-    elon=dble(evtlon)*rad
+    scolat=piby2 - atan((1.-sph)*(1.-sph)*tan(stalat*rad))
+    ecolat=piby2 - atan((1.-sph)*(1.-sph)*tan(evtlat*rad))
+    slon=stalon*rad
+    elon=evtlon*rad
 
     a=sin(scolat)*cos(slon)
     b=sin(scolat)*sin(slon)

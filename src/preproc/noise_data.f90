@@ -28,7 +28,7 @@ contains
   subroutine semd2sac(this, ievt)
     class(NoiseData), intent(inout) :: this
     integer, intent(in) :: ievt
-    integer :: irec_local, irec, icomp
+    integer :: irec_local, irec, icomp, icomp_syn
     character(len=MAX_STRING_LEN) :: datafile
     type(sachead) :: header
 
@@ -46,9 +46,10 @@ contains
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
+          icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
           datafile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%od%netwk(irec))//'.'&
-          //trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)&
-          //trim(fpar%sim%RCOMPS(icomp))//'.sac'
+                      //trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)&
+                      //trim(fpar%sim%RCOMPS(icomp))//'.sac'
           call sacio_newhead(header, real(fpar%sim%dt), fpar%sim%nstep, -real(T0))
           header%baz = this%od%baz(irec)
           header%dist = this%od%dist(irec)
@@ -61,7 +62,7 @@ contains
           header%knetwk = this%od%netwk(irec)
           header%kstnm = this%od%stnm(irec)
           header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
-          call sacio_writesac(datafile, header, this%data(:, icomp, irec), ier)
+          call sacio_writesac(datafile, header, this%data(:, icomp_syn, irec), ier)
           if (ier /= 0) call exit_MPI(0, 'Error writing SAC file '//trim(datafile))
         end do 
       end do
@@ -81,7 +82,7 @@ contains
     call this%od%read_obs_data()
 
     call this%read(this%od%baz)
-
+    
     call this%measure_adj()
 
   end subroutine preprocess
@@ -283,8 +284,9 @@ contains
                            dble(this%od%stlo(irec)), dble(this%od%stla(irec)), azi, bazi, dist)
           dist = dist / 1000.0_dp
         else
-          call distaz(dble(fpar%acqui%evla(this%ievt)), dble(fpar%acqui%evlo(this%ievt)), &
-                      dble(this%od%stla(irec)), dble(this%od%stlo(irec)), azi, bazi, delta, dist)
+          call distaz(dble(this%od%stla(irec)), dble(this%od%stlo(irec)), &
+                      dble(fpar%acqui%evla(this%ievt)), dble(fpar%acqui%evlo(this%ievt)),&
+                      azi, bazi, delta, dist)
         endif
         this%od%baz(irec) = real(bazi)
         this%od%dist(irec) = real(dist)

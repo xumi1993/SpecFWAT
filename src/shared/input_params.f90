@@ -61,7 +61,7 @@ module input_params
     type(postproc_params) :: postproc
     type(update_params) :: update
     contains
-    procedure :: read => read_parameter_file, select_simu_type
+    procedure :: read => read_fwat_parameter_file, select_simu_type
   end type fwat_params
 
   type(sim_params), target :: tele_par, noise_par
@@ -99,8 +99,7 @@ contains
       open(unit=FID, file=this%evtset_file, status='old', iostat=ier)
       if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
       do ievt = 1, this%nevents
-        read(FID, *, iostat=ier) line
-        read(line,*,iostat=ier) evtnm,this%evla(ievt),this%evlo(ievt), &
+        read(FID,*,iostat=ier) evtnm,this%evla(ievt),this%evlo(ievt), &
                                 this%evdp(ievt),junk_cr,&
                                 this%src_weight(ievt)
         if (ier /= 0) this%src_weight(ievt) = 1.0_cr
@@ -174,7 +173,7 @@ contains
 
   end subroutine acqui_finalize
 
-  subroutine read_parameter_file(this, fname)
+  subroutine read_fwat_parameter_file(this, fname)
     use yaml, only: parse, error_length
     use yaml_types, only: type_node, type_dictionary, type_error, real_kind, &
                         type_list, type_list_item, type_scalar
@@ -407,7 +406,7 @@ contains
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)
     call synchronize_all()
 
-  end subroutine read_parameter_file
+  end subroutine read_fwat_parameter_file
 
   subroutine select_simu_type(this)
     use specfem_par, only: NSTEP, DT

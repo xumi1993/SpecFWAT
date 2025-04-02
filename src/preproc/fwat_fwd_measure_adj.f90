@@ -2,7 +2,7 @@ program fwat_fwd_measure_adj
 use config
 use fwat_mpi
 use common_lib, only: get_dat_type
-use input_params, fpar => fwat_par_global
+use input_params, only: fpar => fwat_par_global
 use preproc_fwd
 use specfem_par, only: DT, NSTEP
 use argparse, only: parse_args_fwd_meas_adj
@@ -12,6 +12,7 @@ integer :: nargs, nsim
 integer, parameter :: max_num_args = 4
 type(PrepareFWD) :: ffwd
 character(len=MAX_STRING_LEN) :: usage, evt_index_str, run_mode_str
+logical :: BROADCAST_AFTER_READ = .true.
 
 call init_mpi()
 call init_mpi_fwat()
@@ -20,6 +21,7 @@ call parse_args_fwd_meas_adj(ffwd%ievt)
 
 ! read input parameters
 call fpar%read(FWAT_PAR_FILE)
+call read_parameter_file(BROADCAST_AFTER_READ)
 
 ! select simu_type
 call fpar%select_simu_type()

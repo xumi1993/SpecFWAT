@@ -15,7 +15,7 @@ contains
     logical, intent(in) :: is_read_database
     character(len=MAX_STRING_LEN) :: database_name
 
-    call read_parameter_file(.true.)
+    ! call read_parameter_file(.true.)
 
     if (is_read_database) then
       call initialize_simulation()

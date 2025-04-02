@@ -16,6 +16,7 @@ program fwat_post_proc
   call parse_args_post_process()
 
   call fpar%read(FWAT_PAR_FILE)
+  call read_parameter_file(.true.)
 
   if (count(fpar%postproc%INV_TYPE) > 1) then
     is_joint = .true.
