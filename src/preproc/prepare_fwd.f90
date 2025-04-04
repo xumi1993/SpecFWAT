@@ -190,7 +190,7 @@ contains
     ! print info
     block 
       character(len=MAX_STRING_LEN) :: msg
-      msg = 'Event ID: '//trim(evtid)
+      write(msg, '(a,I4,a)') 'Index:',this%ievt,'Event ID: '//trim(evtid)
       call log%write(msg)
       msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
       call log%write(msg)

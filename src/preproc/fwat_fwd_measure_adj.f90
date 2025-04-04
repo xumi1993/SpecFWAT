@@ -8,7 +8,7 @@ use specfem_par, only: DT, NSTEP
 use argparse, only: parse_args_fwd_meas_adj
 
 implicit none
-integer :: nargs, nsim
+integer :: nargs, nsim, ievt, evt_idx, i
 integer, parameter :: max_num_args = 4
 type(PrepareFWD) :: ffwd
 character(len=MAX_STRING_LEN) :: usage, evt_index_str, run_mode_str
@@ -17,7 +17,7 @@ logical :: BROADCAST_AFTER_READ = .true.
 call init_mpi()
 call init_mpi_fwat()
 
-call parse_args_fwd_meas_adj(ffwd%ievt)
+call parse_args_fwd_meas_adj(evt_idx)
 
 ! read input parameters
 call fpar%read(FWAT_PAR_FILE)
@@ -35,13 +35,15 @@ call fpar%acqui%read()
 call ffwd%init()
 
 if (single_run) then
-  nsim = ffwd%ievt
+  nsim = evt_idx
+  ievt = evt_idx
 else
   nsim = fpar%acqui%nevents
-  ffwd%ievt = 1
+  ievt = 1
 endif
 
-do while (ffwd%ievt <= nsim)
+do i = ievt, nsim
+  ffwd%ievt = i
   ! prepare simulation
   call ffwd%prepare_for_event()
 
@@ -51,7 +53,7 @@ do while (ffwd%ievt <= nsim)
   ! run forward simulation
   call ffwd%simulation()
 
-  ffwd%ievt = ffwd%ievt + 1
+  ! ffwd%ievt = ffwd%ievt + 1
 enddo
 
 call log%write('*******************************************', .false.)
