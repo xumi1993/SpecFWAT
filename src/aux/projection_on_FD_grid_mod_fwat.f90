@@ -44,7 +44,7 @@ contains
 !  Projection FD grid model on SEM mesh
 !--------------------------------------------------------------------------------------------------------------------
 subroutine Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank)
-
+  use utils, only: interp3_nearest_simple
   integer,                                                 intent(in)    :: myrank
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(inout) :: model_on_SEM_mesh
   real(kind=CUSTOM_REAL), dimension(:,:,:),   allocatable, intent(inout) :: model_on_FD_grid
@@ -53,6 +53,7 @@ subroutine Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank
   real(kind=CUSTOM_REAL)                                 :: vinterp, v1, v2, v3, v4, v5, v6, v7, v8
   real(kind=CUSTOM_REAL)                                 :: x_sem, y_sem, z_sem
   real(kind=CUSTOM_REAL)                                 :: x_loc, y_loc, z_loc
+  real(kind=CUSTOM_REAL), dimension(:), allocatable      :: x_fd, y_fd, z_fd
 
 
 !   if (myrank == 0) then
@@ -60,6 +61,18 @@ subroutine Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank
 !      write(INVERSE_LOG_FILE,*) '    - > projection FD grid / SEM mesh  '
 !      write(INVERSE_LOG_FILE,*)
 !   endif
+
+! build the FD grid
+  allocate(x_fd(nx_fd_proj), y_fd(ny_fd_proj), z_fd(nz_fd_proj))
+  do k_fd = 1, nz_fd_proj
+    z_fd(k_fd) = oz_fd_proj + (k_fd-1)*hz_fd_proj
+  enddo
+  do j_fd = 1, ny_fd_proj
+    y_fd(j_fd) = oy_fd_proj + (j_fd-1)*hy_fd_proj
+  enddo
+  do i_fd = 1, nx_fd_proj
+    x_fd(i_fd) = ox_fd_proj + (i_fd-1)*hx_fd_proj
+  enddo
 
 
   do ispec =1, NSPEC_AB
@@ -102,7 +115,8 @@ subroutine Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank
                  call TrilinearInterp(Vinterp, x_loc, y_loc, z_loc, v1, v2, v3, v4, v5, v6, v7, v8, &
                       hx_fd_proj, hy_fd_proj, hz_fd_proj)
               else
-                call nearest_interp(x_sem, y_sem, z_sem, model_on_FD_grid, Vinterp)
+                ! call nearest_interp(x_sem, y_sem, z_sem, model_on_FD_grid, Vinterp)
+                Vinterp = interp3_nearest_simple(x_fd, y_fd, z_fd, model_on_FD_grid, x_sem, y_sem, z_sem)
                 !  Vinterp=0.
 
               endif
