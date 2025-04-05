@@ -147,7 +147,7 @@ contains
             tstart(irec_local) = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
             tend(irec_local) = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
             tstart(irec_local) = max(tstart(irec_local), -t0)
-            tend(irec_local) = min(tend(irec_local), NSTEP*dble(DT)-t0)
+            tend(irec_local) = min(tend(irec_local), (NSTEP-2)*dble(DT)-t0)
 
             ! reject near offsets
             if (.not. fpar%sim%USE_NEAR_OFFSET) then
