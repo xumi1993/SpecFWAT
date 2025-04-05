@@ -310,7 +310,17 @@ contains
 
   subroutine FinalizeSpecfem()
     use config, only: local_path_backup, output_files_backup
+    use wavefield_discontinuity_solver, only: &
+               finalize_wavefield_discontinuity
     integer                                :: ier
+
+    if (GPU_MODE)  call prepare_cleanup_device(Mesh_pointer,ACOUSTIC_SIMULATION,ELASTIC_SIMULATION,NOISE_TOMOGRAPHY)
+    
+    ! C-PML absorbing boundary conditions deallocates C_PML arrays
+    if (PML_CONDITIONS) call pml_cleanup()
+
+    ! cleanup for wavefield discontinuity
+    if (IS_WAVEFIELD_DISCONTINUITY) call finalize_wavefield_discontinuity()
 
     !! finalize specfem run
     if (SIMULATION_TYPE == 1 .and. SAVE_FORWARD) then

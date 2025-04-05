@@ -3,7 +3,7 @@ module window_chi
   use input_params, only: fpar => fwat_par_global
   use fwat_constants
   use ma_constants
-  use specfem_par, only: nrec, nrec_local, number_receiver_global, islice_selected_rec
+  use specfem_par, only: nrec, number_receiver_global, islice_selected_rec
   use fwat_mpi
 
   implicit none
@@ -120,17 +120,19 @@ contains
     real(kind=dp), dimension(:,:), intent(in) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
     real(kind=dp), dimension(:), intent(in) :: tstart_local, tend_local
     character(len=MAX_STR_CHI), dimension(:), intent(in) :: sta_local, net_local
-    integer :: irec, irec_local, nsta_irank, iproc, i
+    integer :: irec, irec_local, nsta_irank, iproc, i, nrec_loc
     real(kind=dp), dimension(:,:,:), allocatable :: recv_win_chi
     real(kind=dp), dimension(:,:), allocatable :: recv_tr_chi, recv_am_chi, recv_T_pmax_dat, recv_T_pmax_syn
     character(len=MAX_STR_CHI), dimension(:), allocatable :: recv_sta, recv_net
     real(kind=dp), dimension(:), allocatable :: recv_tstart, recv_tend
     integer, dimension(:), allocatable :: recv_indices, send_indices
+    
+    nrec_loc = get_num_recs_per_proc(nrec, worldrank)
 
     if (worldrank == 0) then
-      if (nrec_local > 0) then
-        do irec_local = 1, nrec_local
-          irec = number_receiver_global(irec_local)
+      if (nrec_loc > 0) then
+        do irec_local = 1, nrec_loc
+          irec = select_global_id_for_rec(irec_local)
           this%chi(irec, :, :) = window_chi_local(irec_local, :, :)
           this%tr_chi(irec, :) = tr_chi_local(irec_local, :)
           this%am_chi(irec, :) = am_chi_local(irec_local, :)
@@ -143,10 +145,10 @@ contains
         enddo
       endif
       do iproc = 1, worldsize-1
-        nsta_irank=0
-        do irec = 1, nrec
-          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
-        enddo
+        nsta_irank = get_num_recs_per_proc(nrec, iproc)
+        ! do irec = 1, nrec
+        !   if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
+        ! enddo
         if (nsta_irank > 0) then
           allocate(recv_win_chi(nsta_irank, NCHI, this%ncomp))  ! Allocate a buffer to receive data
           allocate(recv_tr_chi(nsta_irank, this%ncomp))
@@ -196,21 +198,21 @@ contains
         endif
       enddo
     else
-      if (nrec_local > 0) then
-        allocate(send_indices(nrec_local))
-        do irec_local = 1, nrec_local
-          send_indices(irec_local) = number_receiver_global(irec_local)
+      if (nrec_loc > 0) then
+        allocate(send_indices(nrec_loc))
+        do irec_local = 1, nrec_loc
+          send_indices(irec_local) = select_global_id_for_rec(irec_local)
         enddo
-        call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(window_chi_local, NCHI*nrec_local*this%ncomp, 0, targ)
-        call send_dp(tr_chi_local, nrec_local*this%ncomp, 0, targ)
-        call send_dp(am_chi_local, nrec_local*this%ncomp, 0, targ)
-        call send_dp(T_pmax_dat_local, nrec_local*this%ncomp, 0, targ)
-        call send_dp(T_pmax_syn_local, nrec_local*this%ncomp, 0, targ)
-        call send_ch_array(sta_local, nrec_local, MAX_STR_CHI, 0, targ)
-        call send_ch_array(net_local, nrec_local, MAX_STR_CHI, 0, targ)
-        call send_dp(tstart_local, nrec_local, 0, targ)
-        call send_dp(tend_local, nrec_local, 0, targ)
+        call send_i(send_indices, nrec_loc, 0, targ)
+        call send_dp(window_chi_local, NCHI*nrec_loc*this%ncomp, 0, targ)
+        call send_dp(tr_chi_local, nrec_loc*this%ncomp, 0, targ)
+        call send_dp(am_chi_local, nrec_loc*this%ncomp, 0, targ)
+        call send_dp(T_pmax_dat_local, nrec_loc*this%ncomp, 0, targ)
+        call send_dp(T_pmax_syn_local, nrec_loc*this%ncomp, 0, targ)
+        call send_ch_array(sta_local, nrec_loc, MAX_STR_CHI, 0, targ)
+        call send_ch_array(net_local, nrec_loc, MAX_STR_CHI, 0, targ)
+        call send_dp(tstart_local, nrec_loc, 0, targ)
+        call send_dp(tend_local, nrec_loc, 0, targ)
         deallocate(send_indices)
       endif
     endif

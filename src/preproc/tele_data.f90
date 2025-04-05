@@ -13,9 +13,7 @@ module tele_data
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
-  use specfem_par, only: T0, nrec, nrec_local,OUTPUT_FILES, &
-                        number_receiver_global, ispec_selected_rec, islice_selected_rec
-
+  use specfem_par, only: T0,OUTPUT_FILES
   implicit none
 
   integer, private :: ier
@@ -60,15 +58,15 @@ contains
     call this%od%read_stations(ievt, .true.)
     call this%calc_fktimes()
 
-    bazi = zeros(nrec)+this%baz
+    bazi = zeros(this%nrec)+this%baz
     call this%read(bazi)
 
     if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call synchronize_all()
 
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         if (is_conv_stf_local) then
           ! read stf
           call read_stf(stf_array)
@@ -156,11 +154,11 @@ contains
     call synchronize_all()
     
     ! call log%write('Preprocessing', .true.)
-    if (nrec_local > 0) then
-      this%seismo_dat = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
-      this%seismo_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec_local)
-      seismo_stf = zeros_dp(fpar%sim%nstep, nrec_local)
-      do irec_local = 1, nrec_local
+    if (this%nrec_loc > 0) then
+      this%seismo_dat = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, this%nrec_loc)
+      this%seismo_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, this%nrec_loc)
+      seismo_stf = zeros_dp(fpar%sim%nstep, this%nrec_loc)
+      do irec_local = 1, this%nrec_loc
         irec = number_receiver_global(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           call this%interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
@@ -246,15 +244,15 @@ contains
     integer :: irec, icomp, valid_count, i
 
     this%stf_array = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP)
-    allocate(xeof(nrec, nrec))
-    allocate(pc(fpar%sim%nstep, nrec))
-    allocate(eig(nrec))
+    allocate(xeof(this%nrec, this%nrec))
+    allocate(pc(fpar%sim%nstep, this%nrec))
+    allocate(eig(this%nrec))
     ff = transpose(real(seismo_stf_glob(:, :)))
-    call sl_pca(ff, nrec, xeof, pc, eig)
+    call sl_pca(ff, this%nrec, xeof, pc, eig)
 
     ! build reconstructed seismograms
-    recp_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, nrec)
-    do irec = 1, nrec
+    recp_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, this%nrec)
+    do irec = 1, this%nrec
       do icomp = 1, fpar%sim%NRCOMP
         call myconvolution_dp(seismo_syn(:, icomp, irec), dble(pc(:, 1)), tmpl, 0)
         recp_syn(:, icomp, irec) = tmpl * fpar%sim%dt
@@ -263,7 +261,7 @@ contains
 
     ! calculate amplitude correction
     do icomp = 1, fpar%sim%NRCOMP
-      avgarr = zeros(nrec)
+      avgarr = zeros(this%nrec)
       avgarr = -1000.0
       valid_sum = 0.0
       valid_count = 0
@@ -283,14 +281,14 @@ contains
       valid_avg = valid_sum / valid_count
       valid_sum = 0.0
       valid_count = 0
-      do i = 1, nrec
+      do i = 1, this%nrec
         if (abs(avgarr(i) - valid_avg) <= 0.2 .and. avgarr(i) /= -1000.0) then
           valid_sum = valid_sum + avgarr(i)
           valid_count = valid_count + 1
         endif
       enddo
 
-      if (valid_count == 0 .or. valid_count <= 0.1 * real(nrec)) then
+      if (valid_count == 0 .or. valid_count <= 0.1 * real(this%nrec)) then
         call exit_MPI(0, 'Error: Too few valid amplitude values')
       endif
       avgamp = valid_sum / valid_count
@@ -419,18 +417,18 @@ contains
     
     ! allocate chi arrays
     OUT_DIR = trim(OUTPUT_FILES)
-    allocate(this%window_chi(nrec_local, NCHI, fpar%sim%NRCOMP))
-    allocate(this%tr_chi(nrec_local, fpar%sim%NRCOMP))
-    allocate(this%am_chi(nrec_local, fpar%sim%NRCOMP))
-    allocate(this%T_pmax_dat(nrec_local, fpar%sim%NRCOMP))
-    allocate(this%T_pmax_syn(nrec_local, fpar%sim%NRCOMP))
-    allocate(this%sta(nrec_local))
-    allocate(this%net(nrec_local))
-    allocate(this%tstart(nrec_local))
-    allocate(this%tend(nrec_local))
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    allocate(this%window_chi(this%nrec_loc, NCHI, fpar%sim%NRCOMP))
+    allocate(this%tr_chi(this%nrec_loc, fpar%sim%NRCOMP))
+    allocate(this%am_chi(this%nrec_loc, fpar%sim%NRCOMP))
+    allocate(this%T_pmax_dat(this%nrec_loc, fpar%sim%NRCOMP))
+    allocate(this%T_pmax_syn(this%nrec_loc, fpar%sim%NRCOMP))
+    allocate(this%sta(this%nrec_loc))
+    allocate(this%net(this%nrec_loc))
+    allocate(this%tstart(this%nrec_loc))
+    allocate(this%tend(this%nrec_loc))
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           ! convolution with STF
           call myconvolution_dp(this%seismo_syn(:, icomp, irec_local), this%stf_array(:, icomp), seismo_syn_local, 0)

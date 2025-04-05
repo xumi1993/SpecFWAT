@@ -15,8 +15,7 @@ module telecc_data
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
-  use specfem_par, only: T0, DT, NSTEP, nrec, nrec_local,OUTPUT_FILES, &
-                        number_receiver_global, ispec_selected_rec, islice_selected_rec
+  use specfem_par, only: T0, DT, NSTEP, nrec,OUTPUT_FILES
   use tele_data, only: TeleData
 
   implicit none
@@ -86,11 +85,11 @@ contains
     real(kind=dp), dimension(:), allocatable :: seismo_inp
     real(kind=dp) :: tstart, tend, t01
 
-    if (nrec_local > 0) then
-      this%seismo_dat = zeros_dp(NSTEP, ncomp, nrec_local)
-      this%seismo_syn = zeros_dp(NSTEP, ncomp, nrec_local)
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      this%seismo_dat = zeros_dp(NSTEP, ncomp, this%nrec_loc)
+      this%seismo_syn = zeros_dp(NSTEP, ncomp, this%nrec_loc)
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         tstart = this%ttp(irec) + fpar%sim%time_win(1)
         tend = this%ttp(irec) + fpar%sim%time_win(2)
         nstep_cut = int((tend - tstart) / dble(DT)) + 1
@@ -131,17 +130,17 @@ contains
     real(kind=dp) :: f0
     type(sachead) :: header
 
-    if (nrec_local > 0) then
-      allocate(this%window_chi(nrec_local, NCHI, fpar%sim%NRCOMP))
-      allocate(this%tr_chi(nrec_local, fpar%sim%NRCOMP))
-      allocate(this%am_chi(nrec_local, fpar%sim%NRCOMP))
-      allocate(this%T_pmax_dat(nrec_local, fpar%sim%NRCOMP))
-      allocate(this%T_pmax_syn(nrec_local, fpar%sim%NRCOMP))
-      allocate(this%sta(nrec_local))
-      allocate(this%net(nrec_local))
-      allocate(this%tstart(nrec_local))
-      allocate(this%tend(nrec_local))
-      do irec_local = 1, nrec_local
+    if (this%nrec_loc > 0) then
+      allocate(this%window_chi(this%nrec_loc, NCHI, fpar%sim%NRCOMP))
+      allocate(this%tr_chi(this%nrec_loc, fpar%sim%NRCOMP))
+      allocate(this%am_chi(this%nrec_loc, fpar%sim%NRCOMP))
+      allocate(this%T_pmax_dat(this%nrec_loc, fpar%sim%NRCOMP))
+      allocate(this%T_pmax_syn(this%nrec_loc, fpar%sim%NRCOMP))
+      allocate(this%sta(this%nrec_loc))
+      allocate(this%net(this%nrec_loc))
+      allocate(this%tstart(this%nrec_loc))
+      allocate(this%tend(this%nrec_loc))
+      do irec_local = 1, this%nrec_loc
         irec = number_receiver_global(irec_local)
         if (IS_OUTPUT_PREPROC) then
           block

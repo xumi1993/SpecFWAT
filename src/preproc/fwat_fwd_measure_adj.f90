@@ -17,7 +17,7 @@ logical :: BROADCAST_AFTER_READ = .true.
 call init_mpi()
 call init_mpi_fwat()
 
-call parse_args_fwd_meas_adj(evt_idx)
+call parse_args_fwd_meas_adj(ffwd%ievt)
 
 ! read input parameters
 call fpar%read(FWAT_PAR_FILE)
@@ -35,15 +35,13 @@ call fpar%acqui%read()
 call ffwd%init()
 
 if (single_run) then
-  nsim = evt_idx
-  ievt = evt_idx
+  nsim = ffwd%ievt
 else
   nsim = fpar%acqui%nevents
-  ievt = 1
+  ffwd%ievt = 1
 endif
 
-do i = ievt, nsim
-  ffwd%ievt = i
+do while (ffwd%ievt <= nsim)
   ! prepare simulation
   call ffwd%prepare_for_event()
 
@@ -53,7 +51,7 @@ do i = ievt, nsim
   ! run forward simulation
   call ffwd%simulation()
 
-  ! ffwd%ievt = ffwd%ievt + 1
+  ffwd%ievt = ffwd%ievt + 1
 enddo
 
 call log%write('*******************************************', .false.)

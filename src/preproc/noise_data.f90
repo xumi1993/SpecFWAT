@@ -5,8 +5,7 @@ module noise_data
   use syn_data, only: SynData
   use input_params, fpar => fwat_par_global
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
-  use specfem_par, only: T0, DT, NSTEP, nrec, nrec_local,OUTPUT_FILES, &
-                        number_receiver_global, ispec_selected_rec, islice_selected_rec
+  use specfem_par, only: T0, DT, NSTEP,OUTPUT_FILES
   use fwat_mpi
   use utils, only: zeros_dp, zeros
   use distaz_lib
@@ -42,9 +41,10 @@ contains
 
     call this%read(this%od%baz)
 
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        ! irec = number_receiver_global(irec_local)
+        irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
           datafile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%od%netwk(irec))//'.'&
@@ -82,7 +82,7 @@ contains
     call this%od%read_obs_data()
 
     call this%read(this%od%baz)
-    
+
     call this%measure_adj()
 
   end subroutine preprocess
@@ -103,25 +103,29 @@ contains
     character(len=MAX_STRING_LEN) :: file_prefix, msg
     character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
 
+    ! save OUTPUT_FILES to measure_adj
     OUT_DIR = trim(OUTPUT_FILES)
-    if (nrec_local > 0) adj_src = zeros_dp(NSTEP, fpar%sim%NRCOMP, nrec_local, fpar%sim%NUM_FILTER)
+
+    ! allocate for adjoint src
+    if (this%nrec_loc > 0) adj_src = zeros_dp(NSTEP, fpar%sim%NRCOMP, this%nrec_loc, fpar%sim%NUM_FILTER)
     do iflt = 1, fpar%sim%NUM_FILTER
       call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), this%band_name)
       call this%wchi(iflt)%init(this%ievt, this%band_name)
-      if (nrec_local > 0) then
-        window_chi = zeros_dp(nrec_local, NCHI, fpar%sim%NRCOMP)
-        tr_chi = zeros_dp(nrec_local, fpar%sim%NRCOMP)
-        am_chi = zeros_dp(nrec_local, fpar%sim%NRCOMP)
-        T_pmax_dat = zeros_dp(nrec_local, fpar%sim%NRCOMP)
-        T_pmax_syn = zeros_dp(nrec_local, fpar%sim%NRCOMP)
-        tstart = zeros_dp(nrec_local)
-        tend = zeros_dp(nrec_local)
+      if (this%nrec_loc > 0) then
+        window_chi = zeros_dp(this%nrec_loc, NCHI, fpar%sim%NRCOMP)
+        tr_chi = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
+        am_chi = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
+        T_pmax_dat = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
+        T_pmax_syn = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
+        tstart = zeros_dp(this%nrec_loc)
+        tend = zeros_dp(this%nrec_loc)
         if (iflt == 1) then
-          allocate(sta(nrec_local))
-          allocate(net(nrec_local))
+          allocate(sta(this%nrec_loc))
+          allocate(net(this%nrec_loc))
         endif
-        do irec_local = 1, nrec_local
-          irec = number_receiver_global(irec_local)
+        do irec_local = 1, this%nrec_loc
+          ! irec = number_receiver_global(irec_local)
+          irec = select_global_id_for_rec(irec_local)
           do icomp = 1, fpar%sim%NRCOMP
             ! get data component
             seismo_dat = interpolate_func_dp(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)), &
@@ -196,9 +200,9 @@ contains
     call synchronize_all()
 
     call this%get_comp_name_adj()
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
           adj_loc = zeros_dp(NSTEP, 3)

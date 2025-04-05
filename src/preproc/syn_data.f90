@@ -25,6 +25,7 @@ module syn_data
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp(zrt), nsta
     character(len=MAX_STRING_LEN) :: band_name
     real(kind=dp), dimension(:), allocatable :: total_misfit
+    integer :: nrec_loc
     integer :: dat_win
     contains
     procedure :: read=>read_syn_data, filter, assemble_2d, assemble_3d, init
@@ -40,6 +41,7 @@ contains
 
     this%ievt = ievt
     this%nrec = nrec
+    this%nrec_loc = get_num_recs_per_proc(nrec, worldrank)
     this%total_misfit = zeros_dp(fpar%sim%NUM_FILTER)
     allocate(this%wchi(fpar%sim%NUM_FILTER))
 
@@ -55,8 +57,6 @@ contains
 
     ! read source and reciever files
     call prepare_shm_array_dp_3d(this%data, NSTEP, NCOMP, nrec, this%dat_win)
-    ! allocate(data_local(NSTEP, NCOMP, nrec_local))
-    ! data_local = 0.0_dp
 
     if (nrec_local > 0) then
       data_local = zeros_dp(NSTEP, NCOMP, nrec_local)
@@ -131,18 +131,18 @@ contains
     integer, dimension(:), allocatable :: recv_indices, send_indices
 
     if (worldrank == 0) then
-      array_global = zeros_dp(NSTEP, nrec)
-      if (nrec_local > 0) then
-        do irec_local = 1, nrec_local
+      array_global = zeros_dp(NSTEP, this%nrec)
+      if (this%nrec_loc > 0) then
+        do irec_local = 1, this%nrec_loc
           irec = number_receiver_global(irec_local)
           array_global(:, irec) = array_local(:, irec_local)
         enddo
       endif
       do iproc = 1, worldsize-1
-        nsta_irank=0
-        do irec = 1, nrec
-          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
-        enddo
+        nsta_irank = get_num_recs_per_proc(this%nrec, iproc)
+        ! do irec = 1, nrec
+        !   if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
+        ! enddo
       
         if (nsta_irank > 0) then
           allocate(recv_buffer(NSTEP, nsta_irank))  ! Allocate a buffer to receive data
@@ -161,13 +161,13 @@ contains
         endif
       enddo
     else
-      if (nrec_local > 0) then
-        allocate(send_indices(nrec_local))
-        do irec_local = 1, nrec_local
-          send_indices(irec_local) = number_receiver_global(irec_local)
+      if (this%nrec_loc > 0) then
+        allocate(send_indices(this%nrec_loc))
+        do irec_local = 1, this%nrec_loc
+          send_indices(irec_local) = select_global_id_for_rec(irec_local)
         enddo
-        call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(array_local(:, :), NSTEP*nrec_local, 0, targ)
+        call send_i(send_indices, this%nrec_loc, 0, targ)
+        call send_dp(array_local(:, :), NSTEP*this%nrec_loc, 0, targ)
         deallocate(send_indices)
       endif
     endif
@@ -194,17 +194,17 @@ contains
 
     if (worldrank == 0) then
       array_global = zeros_dp(NSTEP, nc, nrec)
-      if (nrec_local > 0) then
-        do irec_local = 1, nrec_local
+      if (this%nrec_loc > 0) then
+        do irec_local = 1, this%nrec_loc
           irec = number_receiver_global(irec_local)
           array_global(:, :, irec) = array_local(:, :, irec_local)
         enddo
       endif
       do iproc = 1, worldsize-1
-        nsta_irank=0
-        do irec = 1, nrec
-          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
-        enddo
+        nsta_irank = get_num_recs_per_proc(this%nrec, iproc)
+        ! do irec = 1, nrec
+        !   if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
+        ! enddo
         if (nsta_irank > 0) then
           allocate(recv_buffer(NSTEP, nc, nsta_irank))  ! Allocate a buffer to receive data
           allocate(recv_indices(nsta_irank)) 
@@ -222,13 +222,13 @@ contains
         endif
       enddo
     else
-      if (nrec_local > 0) then
-        allocate(send_indices(nrec_local))
-        do irec_local = 1, nrec_local
-          send_indices(irec_local) = number_receiver_global(irec_local)
+      if (this%nrec_loc > 0) then
+        allocate(send_indices(this%nrec_loc))
+        do irec_local = 1, this%nrec_loc
+          send_indices(irec_local) = select_global_id_for_rec(irec_local)
         enddo
-        call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(array_local(:, :, :), NSTEP*nc*nrec_local, 0, targ)
+        call send_i(send_indices, this%nrec_loc, 0, targ)
+        call send_dp(array_local(:, :, :), NSTEP*nc*this%nrec_loc, 0, targ)
         deallocate(send_indices)
       endif
     endif

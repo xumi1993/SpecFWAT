@@ -94,6 +94,35 @@ module config
   character(len=MAX_STRING_LEN) :: model_prev, model_next, model_start
   real(kind=cr) :: step_len
 
+contains
+
+  function select_iproc_for_rec(iproc)
+    integer, intent(in) :: iproc
+    integer :: select_iproc_for_rec
+    
+    select_iproc_for_rec = mod(iproc-1, worldsize)
+  end function select_iproc_for_rec
+
+  function get_num_recs_per_proc(total_recs, iproc) result(nrecs)
+    integer, intent(in) :: total_recs, iproc
+    integer :: nrecs, base, remainder
+
+    base = total_recs / worldsize
+    remainder = mod(total_recs, worldsize)
+    if (iproc < remainder) then
+      nrecs = base + 1
+    else
+      nrecs = base
+    endif
+  end function get_num_recs_per_proc
+
+  function select_global_id_for_rec(irec_local)
+    integer :: irec_local
+    integer :: select_global_id_for_rec
+
+    select_global_id_for_rec = worldrank + 1 + (irec_local - 1) * worldsize
+  end function select_global_id_for_rec
+
 end module config
 
 module ma_constants

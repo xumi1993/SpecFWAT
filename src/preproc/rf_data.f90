@@ -14,8 +14,7 @@ module rf_data
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
-  use specfem_par, only: T0, nrec, nrec_local,OUTPUT_FILES, &
-                        number_receiver_global, ispec_selected_rec, islice_selected_rec
+  use specfem_par, only: T0, OUTPUT_FILES
 
   implicit none
 
@@ -43,17 +42,18 @@ module rf_data
 
     call this%init(ievt)
     call this%od%read_stations(ievt, .true.)
-    call this%calc_times()
 
-    bazi = zeros(nrec)+this%baz
+    bazi = zeros(this%nrec)+this%baz
     call this%read(bazi)
+
+    call this%calc_times()
 
     if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call synchronize_all()
 
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         ! calculate rf
         uin = this%data(:, 2, irec)
         win = this%data(:, 1, irec)
@@ -124,24 +124,24 @@ module rf_data
     real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
     character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
     
-    if (nrec_local > 0) then
-      adj_src = zeros_dp(NSTEP, 2, nrec_local)
+    if (this%nrec_loc > 0) then
+      adj_src = zeros_dp(NSTEP, 2, this%nrec_loc)
     endif
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
       call this%wchi(igaus)%init(this%ievt, this%band_name)
-      if (nrec_local > 0) then
-        window_chi = zeros_dp(nrec_local, NCHI, 1)
-        tr_chi = zeros_dp(nrec_local, 1)
-        am_chi = zeros_dp(nrec_local, 1)
-        T_pmax_dat = zeros_dp(nrec_local, 1)
-        T_pmax_syn = zeros_dp(nrec_local, 1)
-        tstart = zeros_dp(nrec_local)
-        tend = zeros_dp(nrec_local)
-        allocate(sta(nrec_local))
-        allocate(net(nrec_local))
-        do irec_local = 1, nrec_local
-          irec = number_receiver_global(irec_local)
+      if (this%nrec_loc > 0) then
+        window_chi = zeros_dp(this%nrec_loc, NCHI, 1)
+        tr_chi = zeros_dp(this%nrec_loc, 1)
+        am_chi = zeros_dp(this%nrec_loc, 1)
+        T_pmax_dat = zeros_dp(this%nrec_loc, 1)
+        T_pmax_syn = zeros_dp(this%nrec_loc, 1)
+        tstart = zeros_dp(this%nrec_loc)
+        tend = zeros_dp(this%nrec_loc)
+        allocate(sta(this%nrec_loc))
+        allocate(net(this%nrec_loc))
+        do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
           synz = this%data(:, 1, irec)
           synr = this%data(:, 2, irec)
           ! adj_z_tw = zeros_dp(NSTEP)
@@ -184,9 +184,9 @@ module rf_data
       call sacio_newhead(header, real(DT), NSTEP, -real(T0))
       header%kstnm = this%od%stnm(irec)
       header%knetwk = this%od%netwk(irec)
-      if (nrec_local > 0) then
-        do irec_local = 1, nrec_local
-          irec = number_receiver_global(irec_local)
+      if (this%nrec_loc > 0) then
+        do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
           do icomp = 1, 2
             if (icomp == 1) then
               header%kcmpnm = 'Z'
@@ -204,9 +204,9 @@ module rf_data
     call synchronize_all()
 
     call this%get_comp_name_adj()
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         call this%write_adj(adj_src(:, 1, irec_local), this%comp_name(1), irec)
         adj_2 = zeros_dp(NSTEP)
         adj_3 = zeros_dp(NSTEP)
@@ -250,10 +250,10 @@ module rf_data
 
     call prepare_shm_array_dp_3d(this%rf_syn, NSTEP, fpar%sim%rf%NGAUSS, this%nrec, this%rf_win)
 
-    if (nrec_local > 0) then
-      rf_data_local = zeros_dp(NSTEP, fpar%sim%rf%NGAUSS, nrec_local)
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
+    if (this%nrec_loc > 0) then
+      rf_data_local = zeros_dp(NSTEP, fpar%sim%rf%NGAUSS, this%nrec_loc)
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
         uin = this%data(:, 2, irec)
         win = this%data(:, 1, irec)
         call bandpass_dp(uin ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&
@@ -300,17 +300,14 @@ module rf_data
 
     ! collect to main rank
     if (worldrank == 0) then
-      if (nrec_local > 0) then
-        do irec_local = 1, nrec_local
-          irec = number_receiver_global(irec_local)
+      if (this%nrec_loc > 0) then
+        do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
           this%rf_syn(:, :, irec) = rf_data_local(:, :, irec_local)
         enddo
       endif
       do iproc = 1, worldsize-1
-        nsta_irank = 0
-        do irec = 1, nrec
-          if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
-        enddo
+        nsta_irank = get_num_recs_per_proc(this%nrec, iproc)
         if (nsta_irank > 0) then
           allocate(recv_buffer(NSTEP, fpar%sim%rf%NGAUSS, nsta_irank))
           allocate(recv_indices(nsta_irank))
@@ -325,13 +322,13 @@ module rf_data
         endif
       enddo
     else
-      if (nrec_local > 0) then
-        allocate(send_indices(nrec_local))
-        do irec_local = 1, nrec_local
-          send_indices(irec_local) = number_receiver_global(irec_local)
+      if (this%nrec_loc > 0) then
+        allocate(send_indices(this%nrec_loc))
+        do irec_local = 1, this%nrec_loc
+          send_indices(irec_local) = select_global_id_for_rec(irec_local)
         enddo
-        call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(rf_data_local, NSTEP*fpar%sim%rf%NGAUSS*nrec_local, 0, targ)
+        call send_i(send_indices, this%nrec_loc, 0, targ)
+        call send_dp(rf_data_local, NSTEP*fpar%sim%rf%NGAUSS*this%nrec_loc, 0, targ)
         deallocate(send_indices)
       endif
     endif
@@ -351,10 +348,10 @@ module rf_data
     this%baz = -phi_FK - 90.d0
     this%az = 90.d0 - phi_FK
     
-    if (nrec_local > 0) then
-      do irec_local = 1, nrec_local
-        irec = number_receiver_global(irec_local)
-        ttp_local(irec) = maxloc(seismograms_d(3, irec_local, 1:NSTEP), dim=1) * DT - T0
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
+        ttp_local(irec) = maxloc(this%data(:, 1, irec_local), dim=1) * DT - T0
       end do
     endif
     call sum_all_1Darray_cr(ttp_local, this%ttp, this%nrec)
