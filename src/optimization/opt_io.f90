@@ -44,7 +44,7 @@ contains
     path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(this_model)
     call create_name_database(fprname, worldrank, path)
     do imod = 1, nkernel
-      open(unit=IIN, file=trim(fprname)//trim(kernel_names(imod))//'_kernel.bin',&
+      open(unit=IIN, file=trim(fprname)//trim(kernel_names(imod))//'_kernel_smooth.bin',&
            status='old', action='read', form='unformatted', iostat=ier)
       if (ier /= 0) then
         write(0, *) 'Error could not open database file: ',trim(fprname)//trim(kernel_names(imod))//'.bin'

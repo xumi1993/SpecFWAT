@@ -253,10 +253,9 @@ contains
     character(len=MAX_STRING_LEN) :: suffix 
     logical :: is_simu_type
 
-    if (present(is_smooth)) then
+    suffix = '_kernel'
+    if (present(is_smooth) .and. is_smooth) then
       suffix = '_kernel_smooth'
-    else
-      suffix = '_kernel'
     endif
 
     if (is_joint) then

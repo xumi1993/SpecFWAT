@@ -35,6 +35,8 @@ program fwat_post_proc
       ! sum kernels for this type
       call fpp%sum_kernel()
 
+      if (is_output_sum_kernel) call fpp%write()
+
       if (.not. is_joint .and. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
 
       ! smooth kernels
@@ -44,7 +46,7 @@ program fwat_post_proc
       call fpp%taper_kernel()
 
       ! write kernels
-      call fpp%write()
+      call fpp%write(.true.)
 
       ! remove event kernels
       call fpp%remove_ekernel()
