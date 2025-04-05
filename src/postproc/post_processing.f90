@@ -161,9 +161,10 @@ contains
     class(PostFlow), intent(inout) :: this
     integer :: iker
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
+    character(len=MAX_STRING_LEN) :: msg
 
-    call log%write('This is smoothing kernels...', .true.)
     do iker = 1, nkernel
+      call log%write('This is smoothing '//trim(kernel_names(iker))//' kernels...', .true.)
       call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
       this%ker_data(:,:,:,:,iker) = ker
     enddo
