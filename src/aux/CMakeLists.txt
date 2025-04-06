@@ -4,6 +4,7 @@ target_link_libraries(project_lib PRIVATE specfem3D_objs shared_objs shared_fwat
 
 set(APP_SOURCES
     "decompose_h5_gll.f90"
+    "model_grid_cart_custom.f90"
 )
 
 foreach(execsourcefile ${APP_SOURCES})
