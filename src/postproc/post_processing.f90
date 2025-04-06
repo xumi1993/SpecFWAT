@@ -69,6 +69,8 @@ contains
     call log%write(msg, .false.)
     write(msg, '(a, I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE
     call log%write(msg, .false.)
+    write(msg, '(a, L5)') 'USE_RHO_SCALING: ', fpar%sim%USE_RHO_SCALING
+    call log%write(msg, .false.)
     call log%write('-------------------------------------------', .false.)
 
     if (worldrank == 0) then
@@ -88,6 +90,7 @@ contains
 
     call log%write('This is taking sum of kernels...', .true.)
     do iker = 1, nkernel
+      if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
@@ -115,6 +118,7 @@ contains
       call invert_hess(total_hess)
 
       do iker = 1, nkernel
+        if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
       enddo
     else
@@ -164,9 +168,14 @@ contains
     character(len=MAX_STRING_LEN) :: msg
 
     do iker = 1, nkernel
-      call log%write('This is smoothing '//trim(kernel_names(iker))//' kernels...', .true.)
-      call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
-      this%ker_data(:,:,:,:,iker) = ker
+      if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
+        call log%write('This is scaling for rhop kernels...', .true.)
+        this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,2) * RHO_SCALING_FAC
+      else
+        call log%write('This is smoothing '//trim(kernel_names(iker))//' kernels...', .true.)
+        call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
+        this%ker_data(:,:,:,:,iker) = ker
+      endif
     enddo
     call synchronize_all()
   

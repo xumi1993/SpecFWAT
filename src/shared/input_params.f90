@@ -37,7 +37,7 @@ module input_params
     character(len= MAX_STRING_LEN) :: CH_CODE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
-    logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF
+    logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING
     type(rf_params) :: rf
   end type sim_params
 
@@ -46,7 +46,7 @@ module input_params
     ! integer :: TELE_TYPE 
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
-    logical :: USE_RHO_SCALING_NOISE, IS_PRECOND
+    logical :: IS_PRECOND
   end type postproc_params
 
   type update_params
@@ -233,11 +233,13 @@ contains
         this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
         this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
         this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
+        this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
 
         ! read parameters for teleseismic FWI
         this%sim => tele_par
         this%sim%IMEAS = 2
         this%sim%ITAPER = 2
+        this%sim%USE_RHO_SCALING = .false.
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => tele%get_list('RCOMPS', required=.true., error=io_err)
@@ -313,7 +315,6 @@ contains
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
         this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err)
-        this%postproc%USE_RHO_SCALING_NOISE = post%get_logical('USE_RHO_SCALING_NOISE', error=io_err)
         this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
 
         ! Model UPDATE
@@ -347,6 +348,7 @@ contains
     call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
     call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
     call bcast_all_singlel(noise_par%SUPPRESS_EGF)
+    call bcast_all_singlel(noise_par%USE_RHO_SCALING)
     call bcast_all_singlecr(noise_par%SIGMA_H)
     call bcast_all_singlecr(noise_par%SIGMA_V)
     if (worldrank > 0) then
@@ -380,6 +382,7 @@ contains
     call bcast_all_singlei(tele_par%rf%NGAUSS)
     call bcast_all_singlecr(tele_par%SIGMA_H)
     call bcast_all_singlecr(tele_par%SIGMA_V)
+    call bcast_all_singlel(tele_par%USE_RHO_SCALING)
     if (worldrank > 0) then
       allocate(tele_par%RCOMPS(tele_par%NRCOMP))
       allocate(tele_par%TIME_WIN(2))
@@ -428,7 +431,6 @@ contains
     call bcast_all_singlecr(this%postproc%TAPER_V_SUPPRESS)
     call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
     call bcast_all_singlecr(this%postproc%TAPER_V_BUFFER)
-    call bcast_all_singlel(this%postproc%USE_RHO_SCALING_NOISE)
     call bcast_all_singlel(this%postproc%IS_PRECOND)
     call bcast_all_l_array(this%postproc%INV_TYPE, 2)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)

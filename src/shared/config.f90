@@ -33,7 +33,7 @@ module fwat_constants
   character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
   character(len=MAX_STRING_LEN), dimension(4), parameter :: MODEL_AZI_ANI = ['L ', 'N ', 'Gc', 'Gs']
 
-  real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3
+  real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3, RHO_SCALING_FAC = 0.33
   integer, parameter :: NUM_INV_TYPE = 2
 
   ! Preconditioner parameters
