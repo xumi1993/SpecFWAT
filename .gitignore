@@ -59,5 +59,6 @@ fwat_data/
 *_ADJOINT
 *_ADJOINT_FILTERED
 *_FILTERED
+tomography_model.h5
 
 check.ipynb

@@ -170,9 +170,7 @@ contains
             else
               this%baz(ista) = header%baz
             endif
-            if (header%dist == SAC_rnull) then
-              call exit_MPI(0, 'Distance not found in SAC header')
-            else
+            if (header%dist /= SAC_rnull) then
               this%dist(ista) = header%dist
             endif
             if (index(dat_type, 'tele') /= 0 ) then

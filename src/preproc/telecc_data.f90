@@ -141,7 +141,7 @@ contains
       allocate(this%tstart(this%nrec_loc))
       allocate(this%tend(this%nrec_loc))
       do irec_local = 1, this%nrec_loc
-        irec = number_receiver_global(irec_local)
+        irec = select_global_id_for_rec(irec_local)
         if (IS_OUTPUT_PREPROC) then
           block
             character(len=MAX_STRING_LEN) :: sacfile
