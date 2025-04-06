@@ -25,7 +25,7 @@ contains
     if (simu_type == SIMU_TYPE_NOISE) then
       dat_type = 'noise'
     else if (simu_type == SIMU_TYPE_TELE) then
-      call get_tele_type(fpar%sim%tele_type)
+      call get_tele_type(fpar%sim%TELE_TYPE)
     else
       if (worldrank == 0) call exit_MPI(0, 'Unknown simulation type')
     endif
