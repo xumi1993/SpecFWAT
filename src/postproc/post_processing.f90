@@ -113,9 +113,10 @@ contains
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)
-        total_hess = total_hess + ker
+        total_hess = total_hess + abs(ker)
       enddo
       call invert_hess(total_hess)
+      if (IS_OUTPUT_HESS_INV) call write_kernel(trim(hess_name)//'_inv_kernel', total_hess, .false.)
 
       do iker = 1, nkernel
         if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
@@ -216,20 +217,22 @@ contains
 
   subroutine invert_hess( hess_matrix )
 
-    ! inverts the Hessian matrix
-    ! the approximate Hessian is only defined for diagonal elements: like
-    ! H_nn = \frac{ \partial^2 \chi }{ \partial \rho_n \partial \rho_n }
-    ! on all GLL points, which are indexed (i,j,k,ispec)
-        
-    real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_AB), intent(inout) :: hess_matrix
-    real(kind=CUSTOM_REAL) :: maxh,maxh_all
-  
+  ! inverts the Hessian matrix
+  ! the approximate Hessian is only defined for diagonal elements: like
+  ! H_nn = \frac{ \partial^2 \chi }{ \partial \rho_n \partial \rho_n }
+  ! on all GLL points, which are indexed (i,j,k,ispec)
+
+    real(kind=cr), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_AB) :: hess_matrix
+
+    ! local parameters
+    real(kind=cr) :: maxh,maxh_all
+
     ! maximum value of Hessian
     maxh = maxval( abs(hess_matrix) )
-  
+
     ! determines maximum from all slices on main
     call max_all_all_cr(maxh, maxh_all)
-  
+
     ! normalizes Hessian
     if (maxh_all < 1.e-18) then
       ! Hessian is zero, re-initializes
@@ -240,31 +243,36 @@ contains
       hess_matrix = hess_matrix / maxh_all
     endif
 
+
     ! inverts Hessian values
     where( abs(hess_matrix(:,:,:,:)) > THRESHOLD_HESS )
       hess_matrix = 1.0_cr / hess_matrix
     elsewhere
       hess_matrix = 1.0_cr / THRESHOLD_HESS
     endwhere
-  
+
     maxh = maxval( abs(hess_matrix) )
     call max_all_all_cr(maxh, maxh_all)
+    ! normalizes Hessian
     hess_matrix = hess_matrix / maxh_all
+
     ! rescales Hessian
     !hess_matrix = hess_matrix * maxh_all
-  
+
   end subroutine invert_hess
+
   
   subroutine write(this, is_smooth)
     class(PostFlow), intent(inout) :: this
-    logical, optional, intent(in) :: is_smooth
+    logical, intent(in) :: is_smooth
     integer :: iker, ievt
     character(len=MAX_STRING_LEN) :: suffix 
     logical :: is_simu_type
 
-    suffix = '_kernel'
-    if (present(is_smooth) .and. is_smooth) then
+    if (is_smooth) then
       suffix = '_kernel_smooth'
+    else
+      suffix = '_kernel'
     endif
 
     if (is_joint) then

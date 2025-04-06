@@ -7,8 +7,8 @@ module measure_adj_mod
   use ma_weighting
   use config, only: worldrank
 
-  use specfem_par, only: OUTPUT_FILES,MAX_STRING_LEN, SPECFEM_T0 => T0, CUSTOM_REAL
-  use shared_input_parameters, only: NSTEP, SPECFEM_DT => DT 
+  use specfem_par, only: OUTPUT_FILES,MAX_STRING_LEN, SPECFEM_T0 => T0,&
+                         CUSTOM_REAL, NSTEP, SPECFEM_DT => DT 
   implicit none
 
 contains

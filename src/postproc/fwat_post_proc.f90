@@ -35,7 +35,7 @@ program fwat_post_proc
       ! sum kernels for this type
       call fpp%sum_kernel()
 
-      if (is_output_sum_kernel) call fpp%write()
+      if (is_output_sum_kernel) call fpp%write(.false.)
 
       if (.not. is_joint .and. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
 
