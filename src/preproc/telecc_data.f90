@@ -5,7 +5,7 @@ module telecc_data
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, &
                         get_gauss_fac
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
-                    myconvolution_dp, time_deconv
+                    myconvolution_dp, interpolate_func_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
@@ -94,25 +94,18 @@ contains
         tend = this%ttp(irec) + fpar%sim%time_win(2)
         nstep_cut = int((tend - tstart) / dble(DT)) + 1
         do icomp = 1, ncomp
-          seismo_inp = this%od%data(:, icomp, irec)
+          ! seismo_inp = this%od%data(:, icomp, irec)
 
           t01 = this%od%tbeg(irec) - (this%od%tarr(irec) - this%ttp(irec))
-          ! t01 = this%ttp(irec) - (this%od%tarr(irec) -  this%od%tbeg(irec))
-          call interpolate_syn_dp(seismo_inp, t01, this%od%dt, this%od%npts, &
-                                  -dble(t0), dble(DT), NSTEP)
-          seismo_inp = seismo_inp(1:NSTEP)
+          seismo_inp = interpolate_func_dp(this%od%data(:, icomp, irec), t01,&
+                                           dble(this%od%dt), this%od%npts, &
+                                           -dble(T0), dble(DT), NSTEP)
           call detrend(seismo_inp)
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
                                   tstart, dble(dt), nstep_cut)
-          ! if (irec==66 .and. icomp > 1) then
-          !   print *,  this%od%tbeg(irec), this%od%tarr(irec), this%ttp(irec), 'irec', irec, worldrank
-          !   print *, 'tstart', tstart, 'tend', tend, 'icomp', icomp, size(seismo_inp)
-          !   print *, shape(this%seismo_dat), irec_local
-          !   stop
-          ! endif
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:NSTEP)
 
           seismo_inp = this%data(:, icomp, irec)

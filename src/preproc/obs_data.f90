@@ -134,9 +134,6 @@ contains
       endif
       call sacio_readhead(sacfile, header, ier)
       if (ier /= 0) call exit_MPI(0, 'Error reading SAC header '//trim(sacfile))
-      if (header%npts < fpar%sim%NSTEP) then
-        call exit_MPI(0, 'Number of points in observed data is less than NSTEP')
-      endif
       this%npts = header%npts
       this%dt = dble(header%delta)
     endif
