@@ -139,7 +139,7 @@ contains
       call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
       call couple_with_injection_prepare_boundary_fwat(evtid)
     else
-      call read_fk_model(evtid)
+      ! call read_fk_model(evtid)
       call log%write('FK wavefield already calculated for event '//trim(evtid), .true.)
     endif
 

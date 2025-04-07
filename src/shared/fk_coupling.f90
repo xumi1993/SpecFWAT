@@ -210,9 +210,6 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
     write(IMAIN,*) '  total number of points on boundary = ',npt
     call flush_IMAIN()
   endif
-  print *, worldrank, NF_FOR_STORING, freq_sampling_fk, tmax_fk, NSTEP
-  call synchronize_all()
-  if (myrank == 0) print *, '--------------------------------------------------------'
 
   ! safety check with number of simulation time steps
   if (NSTEP/NP_RESAMP > NF_FOR_STORING + NP_RESAMP) then
@@ -340,7 +337,6 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     if (allocated(Veloc_FK)) deallocate(Veloc_FK)
     if (allocated(Tract_FK)) deallocate(Tract_FK)
 
-    print *, worldrank, NF_FOR_STORING, freq_sampling_fk, tmax_fk, NSTEP
     allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
     if (ier /= 0) call exit_MPI(worldrank, 'error allocating array 2210')
 
