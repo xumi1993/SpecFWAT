@@ -134,17 +134,20 @@ contains
 
     if (simu_type /= SIMU_TYPE_TELE) return
 
+    if (.not. fpar%sim%SAVE_FK) then
+      call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
+      call synchronize_all()
+      return
+    endif
+
     evtid = fpar%acqui%evtid_names(this%ievt)
     if (.not. check_fk_files(evtid)) then
       call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
       call couple_with_injection_prepare_boundary_fwat(evtid)
     else
-      ! call read_fk_model(evtid)
-      call log%write('FK wavefield already calculated for event '//trim(evtid), .true.)
+      call log%write('Read FK wavefield for event '//trim(evtid), .true.)
     endif
-
     call synchronize_all()
-    ! enddo
 
   end subroutine calc_or_read_fk_wavefield
 

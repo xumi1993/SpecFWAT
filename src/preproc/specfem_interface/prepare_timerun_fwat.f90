@@ -99,9 +99,13 @@
 
   ! prepares coupling with injection boundary
   ! call couple_with_injection_prepare_boundary()
-  if (COUPLE_WITH_INJECTION_TECHNIQUE .and. SIMULATION_TYPE==1) &
-    ! call couple_with_injection_prepare_boundary()
-    call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))
+  if (COUPLE_WITH_INJECTION_TECHNIQUE .and. SIMULATION_TYPE==1) then
+    if (.not. fpar%sim%SAVE_FK) then
+      call couple_with_injection_prepare_boundary()
+    else
+      call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))
+    endif
+  endif
 
   ! prepares GPU arrays
   if (GPU_MODE) call prepare_GPU()

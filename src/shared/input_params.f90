@@ -37,7 +37,7 @@ module input_params
     character(len= MAX_STRING_LEN) :: CH_CODE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
-    logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING
+    logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING, SAVE_FK
     type(rf_params) :: rf
   end type sim_params
 
@@ -264,6 +264,7 @@ contains
         this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
         this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
         this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
+        this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -384,6 +385,7 @@ contains
     call bcast_all_singlecr(tele_par%SIGMA_H)
     call bcast_all_singlecr(tele_par%SIGMA_V)
     call bcast_all_singlel(tele_par%USE_RHO_SCALING)
+    call bcast_all_singlel(tele_par%SAVE_FK)
     if (worldrank > 0) then
       allocate(tele_par%RCOMPS(tele_par%NRCOMP))
       allocate(tele_par%TIME_WIN(2))
