@@ -60,7 +60,7 @@ if (NOT NO_UPDATE_SUBMODULE)
 endif()
 
 # setup hdf5
-option(USE_HDF5 "Enable HDF5 support" OFF)
+option(USE_HDF5 "Enable HDF5 support" ON)
 if (USE_HDF5)
   find_package(HDF5 REQUIRED COMPONENTS Fortran HL)
   if (HDF5_FOUND)

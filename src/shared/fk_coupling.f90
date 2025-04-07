@@ -5,7 +5,6 @@ module fk_coupling
   use fwat_constants, only: cr, FKMODEL_PREFIX, SRC_REC_DIR, DEG2RAD
 
   implicit none
-  
 contains
 
 subroutine read_fk_model(evtid)
@@ -53,6 +52,7 @@ subroutine read_fk_model(evtid)
 
   call bcast_all_singlecr(tt0)
   call bcast_all_singlecr(tmax_fk)
+  call synchronize_all()
 
 end subroutine read_fk_model
 
@@ -210,6 +210,9 @@ subroutine couple_with_injection_prepare_boundary_fwat(evtid)
     write(IMAIN,*) '  total number of points on boundary = ',npt
     call flush_IMAIN()
   endif
+  print *, worldrank, NF_FOR_STORING, freq_sampling_fk, tmax_fk, NSTEP
+  call synchronize_all()
+  if (myrank == 0) print *, '--------------------------------------------------------'
 
   ! safety check with number of simulation time steps
   if (NSTEP/NP_RESAMP > NF_FOR_STORING + NP_RESAMP) then
@@ -328,9 +331,8 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     real(kind=cr) :: DF_FK
 
     call count_num_boundary_points(num_abs_boundary_faces,abs_boundary_ispec,npt)
-
+    call read_fk_model(evtid)
     deltat = real(DT, cr)
-    ! print *, deltat, freq_sampling_fk, tmax_fk
     call find_size_of_working_arrays(deltat, freq_sampling_fk, tmax_fk, NF_FOR_STORING, &
                                      NF_FOR_FFT, NPOW_FOR_INTERP, NP_RESAMP, DF_FK)
     
@@ -338,6 +340,7 @@ end subroutine couple_with_injection_prepare_boundary_fwat
     if (allocated(Veloc_FK)) deallocate(Veloc_FK)
     if (allocated(Tract_FK)) deallocate(Tract_FK)
 
+    print *, worldrank, NF_FOR_STORING, freq_sampling_fk, tmax_fk, NSTEP
     allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
     if (ier /= 0) call exit_MPI(worldrank, 'error allocating array 2210')
 
