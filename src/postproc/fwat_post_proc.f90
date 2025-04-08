@@ -40,10 +40,14 @@ program fwat_post_proc
       if (.not. is_joint .and. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
 
       ! smooth kernels
-      call fpp%smooth_kernel()
+      ! call fpp%smooth_kernel()
 
       ! taper kernels
-      call fpp%taper_kernel()
+      ! call fpp%taper_kernel()
+
+      call fpp%multigrid_smooth()
+
+      call fpp%taper_kernel_grid()
 
       ! write kernels
       call fpp%write(.true.)
@@ -53,12 +57,15 @@ program fwat_post_proc
 
       call fpar%acqui%finalize()
 
+      call fpp%finalize()
+
       call synchronize_all()
     end if
   end do
 
   if (is_joint) then
-    call fpp%sum_joint_kernel()
+    ! call fpp%sum_joint_kernel()
+    call sum_joint_kernel_grid()
   endif
 
   call log%write('*******************************************', .false.)

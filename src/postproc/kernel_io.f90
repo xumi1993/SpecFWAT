@@ -4,6 +4,8 @@ module kernel_io
   use fwat_mpi
   use config
   use specfem_par
+  use external_model
+  use projection_on_FD_grid_fwat
 
   implicit none
   integer :: ier

@@ -121,6 +121,28 @@ contains
 
   end subroutine prepare_shm_array_cr_1d
 
+  subroutine prepare_shm_array_cr_4d(buffer, nx, ny, nz, nk, win)
+    USE, INTRINSIC :: ISO_C_BINDING
+    real(kind=cr), dimension(:,:,:,:), pointer :: buffer
+    integer :: ierr, istat,n_elem,n, nx, ny, nz, nk
+    integer(kind=MPI_ADDRESS_KIND) :: size
+    integer :: win, real_size
+    type(C_PTR) :: c_window_ptr
+    
+    ! call world_rank(myrank)
+    n = nx*ny*nz*nk
+    if(noderank /= 0) n = 0
+    CALL MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
+    size = n * real_size
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    if (noderank /= 0) then
+      call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
+    endif
+    CALL C_F_POINTER(c_window_ptr, buffer, SHAPE = [nx, ny, nz, nk])
+    call MPI_Win_fence(0, win, ierr)
+
+  end subroutine prepare_shm_array_cr_4d
+
   subroutine prepare_shm_array_dp_1d(buffer, n_elem, win)
     USE, INTRINSIC :: ISO_C_BINDING
     real(kind=dp), dimension(:), pointer :: buffer
@@ -231,6 +253,25 @@ contains
     call synchronize_all()
     
   end subroutine sync_from_main_rank_cr_1d
+
+  subroutine sync_from_main_rank_cr_4d(buffer, nx, ny, nz, nk)
+    integer, intent(in) :: nx, ny, nz, nk
+    real(kind=cr), dimension(:,:,:,:), intent(inout) :: buffer
+    integer :: tag = 1000, i, n
+
+    n = nx*ny*nz*nk
+    if (worldrank == 0) then
+      do i = 2, worldsize
+        if (rank_map(i, 2) == 0) then
+          call send_r(buffer, n, rank_map(i, 1), tag)
+        endif
+      enddo
+    elseif (noderank == 0) then
+      call recv_r(buffer, n, 0, tag)
+    endif
+    call synchronize_all()
+    
+  end subroutine sync_from_main_rank_cr_4d
 
   subroutine sync_from_main_rank_dp_1d(buffer, nx)
     integer, intent(in) :: nx

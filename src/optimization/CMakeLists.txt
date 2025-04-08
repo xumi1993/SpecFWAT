@@ -20,7 +20,7 @@ foreach(execsourcefile ${APP_SOURCES})
   target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs
                         shared_objs specfem3D_objs opt_objs
                         postproc_objs preproc_objs specfem_api_objs 
-                        tele_objs measadj_objs cuda_objs 
+                        tele_objs measadj_objs cuda_objs grid_objs
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

@@ -1572,6 +1572,11 @@ end function
 
     integer :: jl, ju, jm
 
+    if (x < valx(1) .or. x > valx(n)) then
+      ind = -1
+      return
+    endif
+
     jl = 0
     ju = n+1
 

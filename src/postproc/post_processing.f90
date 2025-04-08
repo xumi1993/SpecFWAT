@@ -7,44 +7,41 @@ module post_processing
   use utils, only: zeros
   use kernel_io
   use taper3d
-  use common_lib, only: get_dat_type
+  use common_lib, only: get_dat_type, get_kernel_names
+  use multigrid
+  use model_grid_data
 
   implicit none
 
   type PostFlow
     character(len=MAX_STRING_LEN), dimension(:), allocatable :: ker_names
     real(kind=cr), dimension(:,:,:,:,:), allocatable :: ker_data
-    integer :: nker
-    character(len=MAX_STRING_LEN), dimension(2) :: simu_types = [SIMU_TYPE_NOISE, SIMU_TYPE_TELE]
+    real(kind=cr), dimension(:,:,:,:), pointer :: ker_data_smooth
+    integer :: nker, ks_win
+    character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init, sum_precond, write, init_for_type, smooth_kernel,&
-                 sum_joint_kernel, taper_kernel, remove_ekernel
+    procedure :: sum_kernel, init=>init_post_flow, sum_precond, write, init_for_type, smooth_kernel,&
+                 sum_joint_kernel, taper_kernel, remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
     procedure, private :: calc_kernel0_std_weight
   end type PostFlow
 contains
 
-  subroutine init(this, is_read_database)
+  subroutine init_post_flow(this, is_read_database)
     class(PostFlow), intent(inout) :: this
     logical, intent(in) :: is_read_database
     integer :: itype
 
     call read_mesh_databases_minimum(is_read_database)
 
-    if (fpar%update%model_type == 1) then
-      nkernel = size(KERNEL_ISO)
-      kernel_names = KERNEL_ISO
-    elseif (fpar%update%model_type == 2) then
-      nkernel = size(KERNEL_AZI_ANI)
-      kernel_names = KERNEL_AZI_ANI
-    else
-      call exit_MPI(0, 'Unknown model type')
-    endif
+    call get_kernel_names()
+
+    call create_grid()
 
     call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name))
 
     call log%init('output_post_processing_'//trim(model_name)//'.log')
 
-  end subroutine init
+  end subroutine init_post_flow
 
   subroutine init_for_type(this, itype)
     class(PostFlow), intent(inout) :: this
@@ -52,7 +49,7 @@ contains
     character(len=MAX_STRING_LEN) :: msg
 
     ! set simu type
-    simu_type = this%simu_types(itype)
+    simu_type = INV_TYPE_NAMES(itype)
     call fpar%select_simu_type()
     
     ! read src_rec for this data type
@@ -75,12 +72,16 @@ contains
 
     if (worldrank == 0) then
       if (is_joint) then
-        call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(simu_type))
+        this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(simu_type)
+        call system('mkdir -p '//trim(this%kernel_path))
+      else
+        this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
       endif
     endif
     call synchronize_all()
 
     this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB, nkernel)
+    call prepare_shm_array_cr_4d(this%ker_data_smooth, MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel, this%ks_win)
   end subroutine init_for_type
   
   subroutine sum_kernel(this)
@@ -161,6 +162,43 @@ contains
     precond = precond / z_max 
   end function set_z_precond
 
+  subroutine multigrid_smooth(this)
+    class(PostFlow), intent(inout) :: this
+    type(InvGrid) :: inv
+    integer :: iker
+    real(kind=cr), dimension(:,:), allocatable :: gk
+    real(kind=cr), dimension(:,:,:), allocatable :: gm
+
+    call inv%init()
+
+    do iker = 1, nkernel
+        call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
+      call inv%sem2inv(this%ker_data(:,:,:,:,iker), gk)
+      call inv%inv2grid(gk, gm)
+      this%ker_data_smooth(:,:,:,iker) = gm
+    end do
+    call synchronize_all()
+  end subroutine
+
+  subroutine write_grid(this)
+    class(PostFlow), intent(inout) :: this
+    character(len=MAX_STRING_LEN) :: msg
+    integer :: iker, ievt
+    character(len=MAX_STRING_LEN) :: fname, suffix
+    logical :: is_simu_type
+    
+    if (worldrank == 0) then
+      if (is_joint) then
+        suffix = trim(model_name)//'_'//trim(simu_type)
+      else
+        suffix = trim(model_name)
+      endif
+      fname = trim(OPT_DIR)//'/gradient_'//trim(suffix)//'.h5'
+      call write_grid_kernel_smooth(this%ker_data_smooth, fname)
+    end if
+  
+  end subroutine write_grid
+
   subroutine smooth_kernel(this)
     use smooth_mod, only: smooth_sem_pde
     class(PostFlow), intent(inout) :: this
@@ -173,7 +211,7 @@ contains
         call log%write('This is scaling for rhop kernels...', .true.)
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,2) * RHO_SCALING_FAC
       else
-        call log%write('This is smoothing '//trim(kernel_names(iker))//' kernels...', .true.)
+        call log%write('This is smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
         call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
         this%ker_data(:,:,:,:,iker) = ker
       endif
@@ -214,6 +252,40 @@ contains
     call synchronize_all()
 
   end subroutine taper_kernel
+
+  subroutine taper_kernel_grid(this)
+    class(PostFlow), intent(inout) :: this
+    type(taper_cls) :: tap
+    integer :: iker, i, j, k
+    real(kind=cr) :: dh, val
+    call log%write('This is tapering kernels...', .true.)
+
+    dh = (distance_max_glob+distance_min_glob)/2.0_cr
+    call tap%create(MEXT_V%x(1), MEXT_V%x(MEXT_V%nx),&
+                    MEXT_V%y(1), MEXT_V%y(MEXT_V%ny),&
+                    MEXT_V%z(1), MEXT_V%z(MEXT_V%nz), &
+                    dh, dh, dh, &
+                    fpar%postproc%TAPER_H_SUPPRESS, &
+                    fpar%postproc%TAPER_H_BUFFER, &
+                    fpar%postproc%TAPER_V_SUPPRESS, &
+                    fpar%postproc%TAPER_V_BUFFER)
+    
+    if (worldrank == 0) then
+      do iker = 1, nkernel
+        do i = 1, MEXT_V%nx
+          do j = 1, MEXT_V%ny
+            do k = 1, MEXT_V%nz
+              val = tap%interp(MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
+              this%ker_data_smooth(i,j,k,iker) = this%ker_data_smooth(i,j,k,iker) * val
+            enddo
+          enddo
+        enddo
+      enddo
+    endif
+    call sync_from_main_rank_cr_4d(this%ker_data_smooth, MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+    call synchronize_all()
+
+  end subroutine taper_kernel_grid
 
   subroutine invert_hess( hess_matrix )
 
@@ -261,7 +333,6 @@ contains
 
   end subroutine invert_hess
 
-  
   subroutine write(this, is_smooth)
     class(PostFlow), intent(inout) :: this
     logical, intent(in) :: is_smooth
@@ -340,7 +411,7 @@ contains
       total_kernel = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
-        type_name = this%simu_types(itype)
+        type_name = INV_TYPE_NAMES(itype)
         output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(type_name)
         call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel1)
         kernel1 = fpar%postproc%JOINT_WEIGHT(itype)*kernel1 / norm_val(itype)
@@ -357,6 +428,29 @@ contains
 
   end subroutine sum_joint_kernel
 
+  subroutine sum_joint_kernel_grid()
+    integer :: itype, iker
+    character(len=MAX_STRING_LEN) :: type_name, fname
+    real(kind=cr), dimension(:,:,:,:), allocatable :: kernel, total_kernel
+    real(kind=cr) :: norm_val
+
+    call log%write('This is taking sum of kernels for joint inversion...', .true.)
+
+    if (worldrank == 0) then
+      total_kernel = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      do itype = 1, NUM_INV_TYPE
+        if (.not. fpar%postproc%INV_TYPE(itype)) cycle
+        call calc_kernel0_weight_grid(itype, norm_val)
+        fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(type_name)//'.h5'
+        call read_grid_kernel_smooth(fname, kernel)
+        total_kernel = total_kernel + fpar%postproc%JOINT_WEIGHT(itype)*kernel/norm_val
+      enddo
+      fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'.h5'
+      call write_grid_kernel_smooth(total_kernel, fname)
+    endif
+
+  end subroutine sum_joint_kernel_grid
+
   subroutine calc_kernel0_std_weight(this, itype, max_global)
     class(PostFlow), intent(inout) :: this
     real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: kernel_data
@@ -366,7 +460,7 @@ contains
     character(len=MAX_STRING_LEN) :: type_name, output_dir, model0
 
     max_ker = zeros(nkernel)
-    type_name = this%simu_types(itype)
+    type_name = INV_TYPE_NAMES(itype)
     output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(type_name)
     do iker = 1, nkernel
       call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel_data)
@@ -377,5 +471,24 @@ contains
     max_global = maxval(max_ker(:))
     call synchronize_all()
   end subroutine calc_kernel0_std_weight
+
+  subroutine calc_kernel0_weight_grid(itype, max_global)
+    integer, intent(in) :: itype
+    real(kind=cr), dimension(:,:,:,:), allocatable :: kernel_data
+    real(kind=cr), intent(out) :: max_global
+    character(len=MAX_STRING_LEN) :: fname
+
+    fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(INV_TYPE_NAMES(itype))//'.h5'
+    call read_grid_kernel_smooth(fname, kernel_data)
+    max_global = maxval( abs(kernel_data))
+
+  end subroutine calc_kernel0_weight_grid
+
+  subroutine finalize(this)
+    class(PostFlow), intent(inout) :: this
+    call log%write('This is finalizing post-processing...', .true.)
+    call log%write('*******************************************', .false.)
+    call free_shm_array(this%ks_win)
+  end subroutine finalize
 
 end module post_processing

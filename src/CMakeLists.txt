@@ -176,6 +176,8 @@ endforeach()
 # ==============================================================================
 # add yaml-fortran library
 add_subdirectory(fortran-yaml)
+# add grid library
+add_subdirectory(grid)
 
 # ==============================================================================
 # ------------------------ Add FWAT executables --------------------------------

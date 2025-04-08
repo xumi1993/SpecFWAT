@@ -46,6 +46,21 @@ contains
 
   end subroutine get_tele_type
 
+  subroutine get_kernel_names()
+    use input_params, fpar => fwat_par_global
+      if (fpar%update%model_type == 1) then
+      nkernel = size(KERNEL_ISO)
+      kernel_names = KERNEL_ISO
+      parameter_names = MODEL_ISO
+    elseif (fpar%update%model_type == 2) then
+      nkernel = size(KERNEL_AZI_ANI)
+      kernel_names = KERNEL_AZI_ANI
+      parameter_names = MODEL_AZI_ANI
+    else
+      call exit_MPI(0, 'Unknown model type')
+    endif
+  end subroutine get_kernel_names
+
   integer function find_string(string_list, search_str)
     character(len=MAX_STRING_LEN) :: search_str
     character(len=MAX_STRING_LEN), dimension(:) :: string_list

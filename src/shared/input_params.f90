@@ -41,11 +41,18 @@ module input_params
     type(rf_params) :: rf
   end type sim_params
 
+  type model_grid
+    integer :: regular_grid_size(3)
+    real(kind=cr) :: regular_grid_min_coord(3), regular_grid_interval(3)
+  end type model_grid
+
   type postproc_params
     logical, dimension(2) :: INV_TYPE
     ! integer :: TELE_TYPE 
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
+    integer, dimension(3) :: ninv
+    integer :: n_inversion_grid
     logical :: IS_PRECOND
   end type postproc_params
 
@@ -61,6 +68,7 @@ module input_params
     type(sim_params), pointer :: sim
     type(postproc_params) :: postproc
     type(update_params) :: update
+    type(model_grid) :: grid
     contains
     procedure :: read => read_fwat_parameter_file, select_simu_type
   end type fwat_params
@@ -181,7 +189,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, tomo, rf, output, post, update, ma
+    class(type_dictionary), pointer :: noise, tele, tomo, rf, output, post, update, ma, grid
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -306,6 +314,16 @@ contains
         is_output_sum_kernel = output%get_logical('IS_OUTPUT_SUM_KERNEL', error=io_err, default=.false.)
         is_output_hess_inv = output%get_logical('IS_OUTPUT_HESS_INV', error=io_err, default=.false.)
 
+        ! model grid
+        grid => root%get_dictionary('MODEL_GRID', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        list => grid%get_list('REGULAR_GRID_SIZE', required=.true., error=io_err)
+        call read_static_int_list(list, this%grid%regular_grid_size)
+        list => grid%get_list('REGULAR_GRID_MIN_COORD', required=.true., error=io_err)
+        call read_static_real_list(list, this%grid%regular_grid_min_coord)
+        list => grid%get_list('REGULAR_GRID_INTERVAL', required=.true., error=io_err)
+        call read_static_real_list(list, this%grid%regular_grid_interval)
+
         ! POSTPROC
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
@@ -313,6 +331,9 @@ contains
         call read_static_logi_list(list, this%postproc%INV_TYPE)
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
+        list => post%get_list('NINV', required=.true., error=io_err)
+        call read_static_int_list(list, this%postproc%ninv)
+        this%postproc%n_inversion_grid = post%get_integer('N_INVERSION_GRID', error=io_err, default=5)
         this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
@@ -430,6 +451,10 @@ contains
     call bcast_all_singlel(IS_OUTPUT_SUM_KERNEL)
     call bcast_all_singlel(IS_OUTPUT_HESS_INV)
 
+    call bcast_all_i(this%grid%regular_grid_size, 3)
+    call bcast_all_r(this%grid%regular_grid_min_coord, 3)
+    call bcast_all_r(this%grid%regular_grid_interval, 3)
+
     ! POSTPROC
     call bcast_all_singlecr(this%postproc%TAPER_H_SUPPRESS)
     call bcast_all_singlecr(this%postproc%TAPER_V_SUPPRESS)
@@ -438,6 +463,7 @@ contains
     call bcast_all_singlel(this%postproc%IS_PRECOND)
     call bcast_all_l_array(this%postproc%INV_TYPE, 2)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
+    call bcast_all_i(this%postproc%ninv, 3)
 
     ! Model UPDATE
     call bcast_all_singlei(this%update%MODEL_TYPE)
@@ -481,6 +507,25 @@ contains
     !   end if
     ! end do
   end subroutine select_simu_type
+
+  subroutine read_static_int_list(list, list_out)
+    use yaml_types, only: type_scalar, type_list, type_list_item
+    class (type_list), pointer :: list
+    class (type_list_item), pointer :: item
+    integer, dimension(:), intent(out) :: list_out
+    integer :: i
+    
+    item => list%first
+    i = 1
+    do while(associated(item))
+      select type (element => item%node)
+      class is (type_scalar)
+        list_out(i) = element%to_integer(0)
+        item => item%next
+        i = i + 1
+      end select
+    enddo
+  end subroutine read_static_int_list
 
   subroutine read_static_real_list(list, list_out)
     use yaml_types, only: type_scalar, type_list, type_list_item
