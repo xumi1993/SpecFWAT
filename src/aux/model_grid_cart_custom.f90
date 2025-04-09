@@ -82,7 +82,7 @@
 
   ! needs local_path for mesh files
   BROADCAST_AFTER_READ = .true.
-  call read_parameter_file(myrank,BROADCAST_AFTER_READ)
+  call read_parameter_file(BROADCAST_AFTER_READ)
 
   ! parse command line arguments
   if (command_argument_count() ==0) then

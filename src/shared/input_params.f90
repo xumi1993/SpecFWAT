@@ -48,7 +48,7 @@ module input_params
 
   type postproc_params
     logical, dimension(2) :: INV_TYPE
-    ! integer :: TELE_TYPE 
+    integer :: SMOOTH_TYPE
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
     integer, dimension(3) :: ninv
@@ -339,6 +339,7 @@ contains
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
         this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err)
         this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
+        this%postproc%SMOOTH_TYPE = post%get_integer('SMOOTH_TYPE', error=io_err, default=1)
 
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
@@ -451,6 +452,7 @@ contains
     call bcast_all_singlel(IS_OUTPUT_SUM_KERNEL)
     call bcast_all_singlel(IS_OUTPUT_HESS_INV)
 
+    ! model grid
     call bcast_all_i(this%grid%regular_grid_size, 3)
     call bcast_all_r(this%grid%regular_grid_min_coord, 3)
     call bcast_all_r(this%grid%regular_grid_interval, 3)
@@ -464,6 +466,8 @@ contains
     call bcast_all_l_array(this%postproc%INV_TYPE, 2)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
     call bcast_all_i(this%postproc%ninv, 3)
+    call bcast_all_singlei(this%postproc%n_inversion_grid)
+    call bcast_all_singlei(this%postproc%SMOOTH_TYPE)
 
     ! Model UPDATE
     call bcast_all_singlei(this%update%MODEL_TYPE)

@@ -62,9 +62,17 @@ OUTPUT:
   IS_OUTPUT_SUM_KERNEL: True # Output sum of kernels
   IS_OUTPUT_HESS_INV: False # Output inverse Hessian when precond_type = 1
 
+MODEL_GRID:
+  REGULAR_GRID_MIN_COORD: [833950, -44274.0, -80000]
+  REGULAR_GRID_INTERVAL: [4000, 4000, 2000]
+  REGULAR_GRID_SIZE: [51, 23, 41]
+
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
   JOINT_WEIGHT: [0.5, 0.5]
+  SMOOTH_TYPE: 1 # 1: Multi-grid; 2: PDE smoothing
+  NINV: [19, 9, 9]
+  N_INVERSION_GRID: 5
   TAPER_H_SUPPRESS: 5000
   TAPER_H_BUFFER: 15000
   TAPER_V_SUPPRESS: 5000

@@ -39,18 +39,24 @@ program fwat_post_proc
 
       if (.not. is_joint .and. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
 
-      ! smooth kernels
-      ! call fpp%smooth_kernel()
+      if (fpar%postproc%SMOOTH_TYPE == 1) then
+        call fpp%multigrid_smooth()
 
-      ! taper kernels
-      ! call fpp%taper_kernel()
+        call fpp%taper_kernel_grid()
 
-      call fpp%multigrid_smooth()
+        call fpp%write_grid()
+      elseif (fpar%postproc%SMOOTH_TYPE == 2) then
+        ! smooth kernels
+        call fpp%smooth_kernel()
 
-      call fpp%taper_kernel_grid()
+        ! taper kernels
+        call fpp%taper_kernel()
 
-      ! write kernels
-      call fpp%write(.true.)
+        ! write kernels
+        call fpp%write(.true.)
+      else
+        call log%write('No smoothing applied', .false.)
+      endif
 
       ! remove event kernels
       call fpp%remove_ekernel()

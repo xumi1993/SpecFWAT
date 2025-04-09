@@ -93,17 +93,17 @@ contains
     real(kind=cr), dimension(:,:,:,:), intent(in) :: grid_kernel
     character(len=*), intent(in) :: filename
     integer :: iker
-
     type(hdf5_file) :: h5file
+    
     if (worldrank == 0) then
       call h5file%open(filename, status='new', action='write')
       call h5file%add('/x', MEXT_V%x)
       call h5file%add('/y', MEXT_V%y)
       call h5file%add('/z', MEXT_V%z)
       do iker = 1, nkernel
-        call h5file%add('/'//trim(kernel_names(iker))//'_smooth', grid_kernel(:,:,:,iker))
+        call h5file%add('/'//trim(kernel_names(iker))//'_kernel_smooth',transpose_3(grid_kernel(:,:,:,iker)))
       end do
-      call h5file%close()
+      call h5file%close(finalize=.true.)
     endif
   end subroutine write_grid_kernel_smooth
 

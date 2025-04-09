@@ -61,4 +61,7 @@ fwat_data/
 *_FILTERED
 tomography_model.h5
 
+tests/*/*kernel*.h5
+tests/*/*test.ipynb
+
 check.ipynb

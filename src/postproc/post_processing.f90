@@ -20,7 +20,7 @@ module post_processing
     integer :: nker, ks_win
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init=>init_post_flow, sum_precond, write, init_for_type, smooth_kernel,&
+    procedure :: sum_kernel, init=>init_post_flow, sum_precond, write, init_for_type, smooth_kernel, write_grid,&
                  sum_joint_kernel, taper_kernel, remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
     procedure, private :: calc_kernel0_std_weight
   end type PostFlow
@@ -172,7 +172,7 @@ contains
     call inv%init()
 
     do iker = 1, nkernel
-        call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
+      call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
       call inv%sem2inv(this%ker_data(:,:,:,:,iker), gk)
       call inv%inv2grid(gk, gm)
       this%ker_data_smooth(:,:,:,iker) = gm
@@ -187,15 +187,15 @@ contains
     character(len=MAX_STRING_LEN) :: fname, suffix
     logical :: is_simu_type
     
-    if (worldrank == 0) then
-      if (is_joint) then
-        suffix = trim(model_name)//'_'//trim(simu_type)
-      else
-        suffix = trim(model_name)
-      endif
-      fname = trim(OPT_DIR)//'/gradient_'//trim(suffix)//'.h5'
-      call write_grid_kernel_smooth(this%ker_data_smooth, fname)
-    end if
+    if (is_joint) then
+      suffix = trim(model_name)//'_'//trim(simu_type)
+    else
+      suffix = trim(model_name)
+    endif
+    fname = trim(OPT_DIR)//'/gradient_'//trim(suffix)//'.h5'
+
+    call write_grid_kernel_smooth(this%ker_data_smooth, fname)
+
   
   end subroutine write_grid
 

@@ -5,4 +5,6 @@ list(APPEND SOURCES_Fortran
     "${PROJECT_SOURCE_DIR}/src/shared/utils.f90"
 )
 target_link_libraries(grid_objs PRIVATE shared_objs
-                      cuda_objs specfem3D_objs)
+                      cuda_objs specfem3D_objs 
+                      generate_databases_objs
+)

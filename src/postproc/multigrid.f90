@@ -5,6 +5,7 @@ module multigrid
   use fwat_constants
   use utils
   use input_params, only: fpar => fwat_par_global
+  use hdf5_interface
 
   implicit none
 
@@ -25,6 +26,7 @@ contains
 
     real(kind=cr), dimension(:), allocatable :: x_inv_1d, y_inv_1d, z_inv_1d
     integer :: i, j
+    type(hdf5_file) :: h5file
 
     nset = fpar%postproc%n_inversion_grid
     this%ninvx = fpar%postproc%ninv(1) + 2
@@ -85,6 +87,14 @@ contains
       end do
     end do 
 
+    if (worldrank == 0) then
+      call h5file%open(trim(OUTPUT_FILES)//'/inversion_grid.h5', status='new', action='write')
+      call h5file%add('/xinv', this%xinv)
+      call h5file%add('/yinv', this%yinv)
+      call h5file%add('/zinv', this%zinv)
+      call h5file%close(finalize=.true.)
+    endif
+    call synchronize_all()
   end subroutine init_inversion_grid
 
   subroutine sem2inv(this, data, data_inv)
@@ -148,9 +158,9 @@ contains
         end do
       end do
     end do
+    call synchronize_all()
     call sum_all_1Darray_cr(tmp, data_inv, ngrid)
     call bcast_all_cr(data_inv, ngrid)
-
   end subroutine sem2inv
 
   subroutine inv2grid(this, data_inv, data_grid)
