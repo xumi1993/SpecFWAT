@@ -35,6 +35,21 @@ contains
     MEXT_V%ny = ny_fd_proj
     MEXT_V%nz = nz_fd_proj
 
+    if (worldrank == 0) then
+      if (MEXT_V%x(1) > x_min_glob) &
+        call exit_MPI(0, 'Error: Min x value of grid larger than x_min_glob')
+      if (MEXT_V%x(MEXT_V%nx) < x_max_glob) &
+        call exit_MPI(0, 'Error: Max x value of grid smaller than x_max_glob')
+      if (MEXT_V%y(1) > y_min_glob) &
+        call exit_MPI(0, 'Error: Min y value of grid larger than y_min_glob')
+      if (MEXT_V%y(MEXT_V%ny) < y_max_glob) &
+        call exit_MPI(0, 'Error: Max y value of grid smaller than y_max_glob')
+      if (MEXT_V%z(1) > z_min_glob) &
+        call exit_MPI(0, 'Error: Min z value of grid larger than z_min_glob')
+      if (MEXT_V%z(MEXT_V%nz) < z_max_glob) &
+        call exit_MPI(0, 'Error: Max z value of grid smaller than z_max_glob')
+    endif
+
     call synchronize_all()
   end subroutine create_grid
 
@@ -49,7 +64,7 @@ contains
       model_data(:,:,:,:,3) = rhostore
     else
       ! TODO: implement anisotropic model
-      call exit_MPI('Error: Anisotropic model not implemented yet')
+      call exit_MPI(0, 'Error: Anisotropic model not implemented yet')
     endif
 
   end subroutine database2model
@@ -71,7 +86,7 @@ contains
     end do
   end subroutine model_gll2grid
 
-  subroutine write_grid_model(grid_model, filename)
+  subroutine write_grid_model(filename, grid_model)
     real(kind=cr), dimension(:,:,:,:), intent(in) :: grid_model
     character(len=*), intent(in) :: filename
     integer :: iker
@@ -83,10 +98,10 @@ contains
       call h5file%add('/y', MEXT_V%y)
       call h5file%add('/z', MEXT_V%z)
       do iker = 1, nkernel
-        call h5file%add('/'//trim(parameter_names(iker)), grid_model(:,:,:,iker))
+        call h5file%add('/'//trim(parameter_names(iker)), transpose_3(grid_model(:,:,:,iker)))
       end do
     endif
-    
+
   end subroutine write_grid_model
 
   subroutine write_grid_kernel_smooth(grid_kernel, filename)
@@ -149,7 +164,6 @@ contains
     integer :: i, j, k, ier
     type(profd)  :: projection_fd
 
-    allocate(grid_data(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz), stat=ier)
     dat = data
 
     call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)

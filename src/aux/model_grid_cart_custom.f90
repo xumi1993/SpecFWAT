@@ -155,7 +155,7 @@
  
   if (myrank==0) print *, 'Initialize regular grid...'
   call compute_interpolation_coeff_FD_SEM(projection_fd, myrank)
-  allocate(model_on_FD_grid(projection_fd%nx, projection_fd%ny, projection_fd%nz),stat=ier)
+  ! allocate(model_on_FD_grid(projection_fd%nx, projection_fd%ny, projection_fd%nz),stat=ier)
   allocate(xfd(projection_fd%nx))
   allocate(yfd(projection_fd%ny))
   allocate(zfd(projection_fd%nz))

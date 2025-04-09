@@ -1,15 +1,18 @@
 program fwat_optimize
-  use optimize
+  use optimize, only: OptFlow
+  use optimize_grid, only: OptGridFlow
   use fwat_mpi
   use config
   use input_params, fpar => fwat_par_global
   use argparse, only: parse_args_optimize
   use specfem_par, only: LOCAL_PATH
   use opt_io, only: write_model
+  use model_grid_data
+  use logger
 
   implicit none
 
-  type(OptFlow) :: fop
+  type(OptGridFlow) :: fop
 
   call init_mpi()
   call init_mpi_fwat()
@@ -29,13 +32,13 @@ program fwat_optimize
     call exit_MPI(0, 'Unknown optimization method')
   endif
 
-  if (fpar%update%DO_LS) then
-    call fop%run_linesearch()
-  endif
+  ! if (fpar%update%DO_LS) then
+  !   call fop%run_linesearch()
+  ! endif
   call fop%model_update()
 
-  call write_model(LOCAL_PATH, fop%model)
-  call write_model(fop%output_model_path, fop%model)
+  call write_grid_model(fop%model_fname, fop%model)
+  call write_grid_model(fop%output_model_path, fop%model)
 
   call synchronize_all()
   call log%write('*******************************************', .false.)

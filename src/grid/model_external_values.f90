@@ -132,7 +132,7 @@
 
   implicit none
 
-  character(len=MAX_STRING_LEN) :: key_name, fname
+  character(len=MAX_STRING_LEN) :: fname
 
 !---
 !
@@ -153,6 +153,8 @@
     MEXT_V%nx = size(MEXT_V%x)
     MEXT_V%ny = size(MEXT_V%y)
     MEXT_V%nz = size(MEXT_V%z)
+  else
+    call exit_MPI(0, 'Error: Anisotropic model not implemented yet')
   endif
 
   end subroutine read_external_model

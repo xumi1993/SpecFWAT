@@ -2,7 +2,9 @@ module opt_io
   use config
   use fwat_mpi
   use specfem_par
-
+  use hdf5_interface
+  use external_model
+  use utils
   implicit none
   
   integer, private :: ier
@@ -33,6 +35,27 @@ contains
 
   end subroutine read_model
 
+  subroutine read_model_grid(iter, model_data)
+    integer, intent(in) :: iter
+    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    integer :: imod
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: model_data
+    real(kind=cr), dimension(:,:,:), allocatable :: gm
+    type(hdf5_file) :: h5file
+
+    if (worldrank == 0) then
+      allocate(model_data(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz,nkernel))
+      write(this_model, '(A1,I2.2)') 'M', iter
+      fprname = trim(OPT_DIR)//'/model_'//trim(this_model)//'.h5'
+      call h5file%open(fprname, status='old', action='read')
+      do imod = 1, nkernel
+        call h5file%get('/'//trim(parameter_names(imod)), gm)
+        model_data(:,:,:,imod) = transpose_3(gm)
+      end do
+    endif
+    call synchronize_all()
+  end subroutine read_model_grid
+
   subroutine read_gradient(iter, gradient_data)
     integer, intent(in) :: iter
     character(len=MAX_STRING_LEN) :: path, this_model, fprname
@@ -56,6 +79,27 @@ contains
       close(IIN)
     end do
   end subroutine read_gradient
+
+  subroutine read_gradient_grid(iter, gradient_data)
+    integer, intent(in) :: iter
+    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    integer :: imod
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: gradient_data
+    real(kind=cr), dimension(:,:,:), allocatable :: gm
+    type(hdf5_file) :: h5file
+
+    if (worldrank == 0) then
+      allocate(gradient_data(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz,nkernel))
+      write(this_model, '(A1,I2.2)') 'M', iter
+      fprname = trim(OPT_DIR)//'/gradient_'//trim(this_model)//'.h5'
+      call h5file%open(fprname, status='old', action='read')
+      do imod = 1, nkernel
+        call h5file%get('/'//trim(kernel_names(imod))//'_kernel_smooth', gm)
+        gradient_data(:,:,:,imod) = transpose_3(gm)
+      end do
+    endif
+    call synchronize_all()
+  end subroutine read_gradient_grid
 
   subroutine write_model(OUTPUT_MODEL_PATH, model_data)
     character(len=*), intent(in) :: OUTPUT_MODEL_PATH

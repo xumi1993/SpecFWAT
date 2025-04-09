@@ -70,8 +70,13 @@ program fwat_post_proc
   end do
 
   if (is_joint) then
-    ! call fpp%sum_joint_kernel()
-    call sum_joint_kernel_grid()
+    if (fpar%postproc%SMOOTH_TYPE == 1) then
+      call sum_joint_kernel_grid()
+    elseif (fpar%postproc%SMOOTH_TYPE == 2) then
+      call fpp%sum_joint_kernel()
+    else
+      call log%write('No smoothing applied', .false.)
+    endif
   endif
 
   call log%write('*******************************************', .false.)

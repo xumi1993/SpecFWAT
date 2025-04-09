@@ -7,6 +7,7 @@ module optimize
   use logger, only: log
   use line_search
   use utils, only: zeros
+  use common_lib, only: get_kernel_names
 
   implicit none
 
@@ -31,17 +32,7 @@ contains
 
     call log%init('output_fwat_optimize_'//trim(model_name)//'.log')
 
-    if (fpar%update%model_type == 1) then
-      nkernel = size(KERNEL_ISO)
-      kernel_names = KERNEL_ISO
-      parameter_names = MODEL_ISO
-    elseif (fpar%update%model_type == 2) then
-      nkernel = size(KERNEL_AZI_ANI)
-      kernel_names = KERNEL_AZI_ANI
-      parameter_names = MODEL_AZI_ANI
-    else
-      call exit_MPI(0, 'Unknown model type')
-    endif
+    call get_kernel_names()
     step_len = fpar%update%MAX_SLEN
 
     call this%get_model_idx()

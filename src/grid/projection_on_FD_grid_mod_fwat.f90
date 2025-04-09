@@ -515,7 +515,7 @@ end subroutine read_fd_grid_parameters_for_projection
      type(profd),                                               intent(in)     :: projection_fd
      integer,                                                   intent(in)     :: myrank
      real(kind=CUSTOM_REAL),   dimension(:,:,:,:), allocatable, intent(in)     :: model_on_SEM_mesh
-     real(kind=CUSTOM_REAL),   dimension(:,:,:),   allocatable, intent(inout)  :: model_on_FD_grid
+     real(kind=CUSTOM_REAL),   dimension(:,:,:),   allocatable, intent(out)    :: model_on_FD_grid
 
      integer                                                                   :: igrid, ispec, iglob, ier
      double precision,         dimension(NGLLX)                                :: hxis
@@ -562,7 +562,11 @@ end subroutine read_fd_grid_parameters_for_projection
      enddo
      call synchronize_all()
      
-     model_on_FD_grid(:,:,:)=0.
+     if (myrank == 0) then
+       allocate(model_on_FD_grid(projection_fd%nx, projection_fd%ny, projection_fd%nz),stat=ier)
+        if (ier /= 0) call exit_MPI_without_rank('error allocating array 155')
+       model_on_FD_grid(:,:,:)=0.
+     endif
      call sum_all_1Darray_cr(model_on_FD_grid_tmp,  model_on_FD_grid, &
                                projection_fd%nx*projection_fd%ny*projection_fd%nz)
      valence(:,:,:) = 0.

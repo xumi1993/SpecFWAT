@@ -934,13 +934,7 @@ end function
     real(kind = RPRE), dimension(size(x,3), size(x,2), size(x,1)) :: y
     integer(kind = IPRE) :: i, j, k
 
-    do i = 1, size(x,1)
-      do j = 1, size(x,2)
-        do k = 1, size(x,3)
-          y(k,j,i) = x(i,j,k)
-        end do
-      end do
-    end do
+    y = reshape(x, shape=[size(x,3), size(x,2), size(x,1)], order=[3,2,1])
     return
   end function transpose_3_s
 
@@ -949,13 +943,7 @@ end function
     real(kind = DPRE), dimension(size(x,3), size(x,2), size(x,1)) :: y
     integer(kind = IPRE) :: i, j, k
 
-    do i = 1, size(x,1)
-      do j = 1, size(x,2)
-        do k = 1, size(x,3)
-          y(k,j,i) = x(i,j,k)
-        end do
-      end do
-    end do
+    y = reshape(x, shape=[size(x,3), size(x,2), size(x,1)], order=[3,2,1])
     return
   end function transpose_3_f
 
