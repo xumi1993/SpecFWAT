@@ -86,8 +86,9 @@ contains
         this%zinv(j, i) = z_inv_1d(j-1) + zadd * (i-1)
       end do
     end do 
+    call synchronize_all()
 
-    if (worldrank == 0) then
+    if (worldrank == 0 .and. is_output_inv_grid) then
       call h5file%open(trim(OUTPUT_FILES)//'/inversion_grid.h5', status='new', action='write')
       call h5file%add('/xinv', this%xinv)
       call h5file%add('/yinv', this%yinv)
