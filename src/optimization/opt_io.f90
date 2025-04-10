@@ -54,7 +54,6 @@ contains
       end do
       call h5file%close(finalize=.true.)
     endif
-    call synchronize_all()
   end subroutine read_model_grid
 
   subroutine read_gradient(iter, gradient_data)
@@ -100,7 +99,6 @@ contains
       end do
       call h5file%close(finalize=.true.)
     endif
-    call synchronize_all()
   end subroutine read_gradient_grid
 
   subroutine write_model(OUTPUT_MODEL_PATH, model_data)
