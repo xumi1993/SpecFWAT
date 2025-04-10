@@ -172,10 +172,14 @@ contains
     call inv%init()
 
     do iker = 1, nkernel
-      call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
-      call inv%sem2inv(this%ker_data(:,:,:,:,iker), gk)
-      call inv%inv2grid(gk, gm)
-      this%ker_data_smooth(:,:,:,iker) = gm
+      if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
+        this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
+      else
+        call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
+        call inv%sem2inv(this%ker_data(:,:,:,:,iker), gk)
+        call inv%inv2grid(gk, gm)
+        this%ker_data_smooth(:,:,:,iker) = gm
+      endif
     end do
     call synchronize_all()
   end subroutine

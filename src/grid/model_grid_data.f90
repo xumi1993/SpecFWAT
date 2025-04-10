@@ -16,6 +16,7 @@ contains
 
   subroutine create_grid()
     integer :: i
+    character(len=MAX_STRING_LEN) :: msg
 
     hx_fd_proj = fpar%grid%regular_grid_interval(1)
     hy_fd_proj = fpar%grid%regular_grid_interval(2)
@@ -36,18 +37,36 @@ contains
     MEXT_V%nz = nz_fd_proj
 
     if (worldrank == 0) then
-      if (MEXT_V%x(1) > x_min_glob) &
-        call exit_MPI(0, 'Error: Min x value of grid larger than x_min_glob')
-      if (MEXT_V%x(MEXT_V%nx) < x_max_glob) &
-        call exit_MPI(0, 'Error: Max x value of grid smaller than x_max_glob')
-      if (MEXT_V%y(1) > y_min_glob) &
-        call exit_MPI(0, 'Error: Min y value of grid larger than y_min_glob')
-      if (MEXT_V%y(MEXT_V%ny) < y_max_glob) &
-        call exit_MPI(0, 'Error: Max y value of grid smaller than y_max_glob')
-      if (MEXT_V%z(1) > z_min_glob) &
-        call exit_MPI(0, 'Error: Min z value of grid larger than z_min_glob')
-      if (MEXT_V%z(MEXT_V%nz) < z_max_glob) &
-        call exit_MPI(0, 'Error: Max z value of grid smaller than z_max_glob')
+      if (MEXT_V%x(1) > x_min_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min x: ',MEXT_V%x(1), &
+              ' value of grid larger than x_min_glob:', x_min_glob
+        call exit_MPI(0, msg)
+      endif
+      if (MEXT_V%x(MEXT_V%nx) < x_max_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max x: ',MEXT_V%x(MEXT_V%nx),&
+             ' value of grid smaller than x_max_glob:', x_max_glob
+        call exit_MPI(0, msg)
+      endif
+      if (MEXT_V%y(1) > y_min_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min y: ',MEXT_V%y(1), &
+              ' value of grid larger than y_min_glob:', y_min_glob
+        call exit_MPI(0, msg)
+      endif
+      if (MEXT_V%y(MEXT_V%ny) < y_max_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max y: ',MEXT_V%y(MEXT_V%ny), &
+              ' value of grid smaller than y_max_glob:', y_max_glob
+        call exit_MPI(0, msg)
+      endif
+      if (MEXT_V%z(1) > z_min_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min z: ',MEXT_V%z(1), &
+              ' value of grid larger than z_min_glob:', z_min_glob
+        call exit_MPI(0, msg)
+      endif
+      if (MEXT_V%z(MEXT_V%nz) < z_max_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max z: ',MEXT_V%z(MEXT_V%nz), &
+              ' value of grid smaller than z_max_glob:', z_max_glob
+        call exit_MPI(0, msg)
+      endif
     endif
 
     call synchronize_all()
