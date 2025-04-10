@@ -52,6 +52,7 @@ contains
         call h5file%get('/'//trim(parameter_names(imod)), gm)
         model_data(:,:,:,imod) = transpose_3(gm)
       end do
+      call h5file%close(finalize=.true.)
     endif
     call synchronize_all()
   end subroutine read_model_grid
@@ -97,6 +98,7 @@ contains
         call h5file%get('/'//trim(kernel_names(imod))//'_kernel_smooth', gm)
         gradient_data(:,:,:,imod) = transpose_3(gm)
       end do
+      call h5file%close(finalize=.true.)
     endif
     call synchronize_all()
   end subroutine read_gradient_grid

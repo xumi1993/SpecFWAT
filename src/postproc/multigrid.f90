@@ -5,6 +5,7 @@ module multigrid
   use fwat_constants
   use utils
   use input_params, only: fpar => fwat_par_global
+  use external_model
   use hdf5_interface
 
   implicit none
@@ -37,35 +38,35 @@ contains
     this%yinv = zeros(this%ninvy, nset)
     this%zinv = zeros(this%ninvz, nset)
 
-    dinvx = (x_max_glob - x_min_glob)/ real(fpar%postproc%ninv(1), kind=cr)
+    dinvx = (MEXT_V%x(MEXT_V%nx) - MEXT_V%x(1))/ real(fpar%postproc%ninv(1), kind=cr)
     xadd = dinvx / real(nset, kind=cr)
-    x_beg = x_min_glob - xadd
-    x_end = x_max_glob + xadd
+    x_beg = MEXT_V%x(1) - xadd
+    x_end = MEXT_V%x(MEXT_V%nx) + xadd
 
-    dinvy = (y_max_glob - y_min_glob)/ real(fpar%postproc%ninv(2), kind=cr)
+    dinvy = (MEXT_V%y(MEXT_V%ny) - MEXT_V%y(1))/ real(fpar%postproc%ninv(2), kind=cr)
     yadd = dinvy / real(nset, kind=cr)
-    y_beg = y_min_glob - yadd
-    y_end = y_max_glob + yadd
+    y_beg = MEXT_V%y(1) - yadd
+    y_end = MEXT_V%y(MEXT_V%ny) + yadd
 
-    dinvz = (z_max_glob - z_min_glob)/ real(fpar%postproc%ninv(3), kind=cr)
+    dinvz = (MEXT_V%z(MEXT_V%nz) - MEXT_V%z(1))/ real(fpar%postproc%ninv(3), kind=cr)
     zadd = dinvz / real(nset, kind=cr)
-    z_beg = z_min_glob - zadd
-    z_end = z_max_glob + zadd
+    z_beg = MEXT_V%z(1) - zadd
+    z_end = MEXT_V%z(MEXT_V%nz) + zadd
 
     x_inv_1d = zeros(this%ninvx)
     y_inv_1d = zeros(this%ninvy)
     z_inv_1d = zeros(this%ninvz)
 
     do i = 1, fpar%postproc%ninv(1)
-      x_inv_1d(i) = x_min_glob + (i-1) * dinvx
+      x_inv_1d(i) = MEXT_V%x(1) + (i-1) * dinvx
     end do
 
     do i = 1, fpar%postproc%ninv(2)
-      y_inv_1d(i) = y_min_glob + (i-1) * dinvy
+      y_inv_1d(i) = MEXT_V%y(1) + (i-1) * dinvy
     end do
 
     do i = 1, fpar%postproc%ninv(3)
-      z_inv_1d(i) = z_min_glob + (i-1) * dinvz
+      z_inv_1d(i) = MEXT_V%z(1) + (i-1) * dinvz
     end do
 
     do i = 1, nset

@@ -100,6 +100,7 @@ contains
       do iker = 1, nkernel
         call h5file%add('/'//trim(parameter_names(iker)), transpose_3(grid_model(:,:,:,iker)))
       end do
+      call h5file%close(finalize=.true.)
     endif
 
   end subroutine write_grid_model
@@ -135,7 +136,7 @@ contains
         call h5file%get('/'//trim(kernel_names(iker)), gm)
         grid_model(:,:,:,iker) = transpose_3(gm)
       end do
-      call h5file%close()
+      call h5file%close(finalize=.true.)
     endif
   end subroutine read_grid_kernel_smooth
 
@@ -152,7 +153,7 @@ contains
         call h5file%get('/'//trim(parameter_names(iker)), gm)
         grid_model(:,:,:,iker) = transpose_3(gm)
       end do
-      call h5file%close()
+      call h5file%close(finalize=.true.)
     endif
   end subroutine read_grid_model
   

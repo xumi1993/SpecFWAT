@@ -25,7 +25,7 @@ module optimize_grid
     character(len=MAX_STRING_LEN) :: output_model_path, model_fname
     contains 
       procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, run_linesearch
-      procedure, private :: get_model_idx, alpha_scaling, model_update_tmp, interp_initial_model
+      procedure, private :: get_model_idx, model_update_tmp, interp_initial_model
   end type OptGridFlow
 
 contains
@@ -58,9 +58,7 @@ contains
   end subroutine init_optimize
 
   subroutine interp_initial_model(this)
-
     class(OptGridFlow), intent(inout) :: this
-    character(len=MAX_STRING_LEN) :: fname
     real(kind=cr), dimension(:), allocatable :: x, y, z
     real(kind=cr), dimension(:,:,:), allocatable :: rm, gm
     integer :: ipar, i, j, k, nx, ny, nz
@@ -69,7 +67,7 @@ contains
     if(worldrank == 0) then
       this%model = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
       
-      call h5file%open(fname, status='old', action='read')
+      call h5file%open(this%model_fname, status='old', action='read')
       call h5file%get('/x', x)
       call h5file%get('/y', y)
       call h5file%get('/z', z)
@@ -77,7 +75,7 @@ contains
       ny = size(y)
       nz = size(z)
       do ipar = 1, nkernel
-        call h5read(fname, '/'//trim(parameter_names(ipar)), gm)
+        call h5file%get('/'//trim(parameter_names(ipar)), gm)
         gm = transpose_3(gm)
         do i = 1, MEXT_V%nx
           do j = 1, MEXT_V%ny
@@ -124,18 +122,18 @@ contains
     real(kind=cr) :: max_dir_loc, max_dir
     integer :: ipar
 
-    if (fpar%update%model_type == 1) then
-    ! update model
-      do ipar = 1, nkernel
-        this%model(:,:,:,ipar) = this%model(:,:,:,ipar) * exp(step_len*this%direction(:,:,:,ipar))
-      enddo
-      call this%alpha_scaling()
-    elseif (fpar%update%model_type == 2) then
-      do ipar = 1, nkernel
-        this%model(:,:,:,ipar) = this%model(:,:,:,ipar) + step_len*this%direction(:,:,:,ipar)
-      enddo
-    else
-      call exit_MPI(0, 'Unknown model type')
+    if (worldrank == 0) then
+      if (fpar%update%model_type == 1) then
+      ! update model
+        this%model = this%model * exp(step_len*this%direction)
+        call alpha_scaling(this%model)
+      elseif (fpar%update%model_type == 2) then
+        do ipar = 1, nkernel
+          this%model(:,:,:,ipar) = this%model(:,:,:,ipar) + step_len*this%direction(:,:,:,ipar)
+        enddo
+      else
+        call exit_MPI(0, 'Unknown model type')
+      endif
     endif
     call synchronize_all()
   end subroutine model_update
@@ -144,19 +142,19 @@ contains
     class(OptGridFlow), intent(inout) :: this
     integer :: ipar
 
-    this%model_tmp = zeros(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz, nkernel)
-    do ipar = 1, nkernel
+    if (worldrank == 0) then
+      this%model_tmp = zeros(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz, nkernel)
       if (fpar%update%model_type == 1) then
-        this%model_tmp(:,:,:,ipar) = this%model(:,:,:,ipar) * exp(step_len*this%direction(:,:,:,ipar))
+        this%model_tmp = this%model * exp(step_len*this%direction)
+        call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
         this%model_tmp(:,:,:,ipar) = this%model(:,:,:,ipar) + step_len*this%direction(:,:,:,ipar)
       else
         call exit_MPI(0, 'Unknown model type')
       endif
-    enddo
+    endif
     call synchronize_all()
     if (fpar%update%model_type == 1) then
-      call this%alpha_scaling()
     endif
     call synchronize_all()
 
@@ -196,7 +194,7 @@ contains
     if (worldrank == 0) then
       iter_store = this%iter_current-fpar%update%LBFGS_M_STORE
       if ( iter_store <= fpar%update%ITER_START ) then
-            iter_store = fpar%update%ITER_START
+        iter_store = fpar%update%ITER_START
       endif
 
       call read_gradient_grid(this%iter_current, q_vector)
@@ -256,17 +254,17 @@ contains
 
   end subroutine get_lbfgs_direction
 
-  subroutine alpha_scaling(this)
-    class(OptGridFlow), intent(inout) :: this
+  subroutine alpha_scaling(model_inout)
+    real(kind=cr), dimension(:,:,:,:), intent(inout) :: model_inout
     real(kind=cr), dimension(:,:,:), allocatable :: ratio
 
-    ratio = this%model(:,:,:,1) / this%model(:,:,:,2)
+    ratio = model_inout(:,:,:,1) / model_inout(:,:,:,2)
 
     where (ratio < fpar%update%VPVS_RATIO_RANGE(1))
-      this%model(:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(1)*this%model(:,:,:,2)
+      model_inout(:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(1)*model_inout(:,:,:,2)
     end where
     where (ratio > fpar%update%VPVS_RATIO_RANGE(2))
-      this%model(:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(2)*this%model(:,:,:,2)
+      model_inout(:,:,:,1) = fpar%update%VPVS_RATIO_RANGE(2)*model_inout(:,:,:,2)
     end where
   end subroutine alpha_scaling
 
