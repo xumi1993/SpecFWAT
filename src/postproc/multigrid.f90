@@ -224,6 +224,7 @@ contains
         end do
       end do
     end do
+    data_grid = data_grid / fpar%postproc%n_inversion_grid
     call synchronize_all()
 
   end subroutine inv2grid

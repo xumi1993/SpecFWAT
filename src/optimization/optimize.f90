@@ -78,14 +78,10 @@ contains
 
     if (fpar%update%model_type == 1) then
     ! update model
-      do ipar = 1, nkernel
-        this%model(:,:,:,:,ipar) = this%model(:,:,:,:,ipar) * exp(step_len*this%direction(:,:,:,:,ipar))
-      enddo
+      this%model = this%model * exp(step_len*this%direction)
       call this%alpha_scaling()
     elseif (fpar%update%model_type == 2) then
-      do ipar = 1, nkernel
-        this%model(:,:,:,:,ipar) = this%model(:,:,:,:,ipar) + step_len*this%direction(:,:,:,:,ipar)
-      enddo
+      this%model = this%model + step_len*this%direction
     else
       call exit_MPI(0, 'Unknown model type')
     endif
@@ -97,15 +93,13 @@ contains
     integer :: ipar
 
     this%model_tmp = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB, nkernel)
-    do ipar = 1, nkernel
-      if (fpar%update%model_type == 1) then
-        this%model_tmp(:,:,:,:,ipar) = this%model(:,:,:,:,ipar) * exp(step_len*this%direction(:,:,:,:,ipar))
-      elseif (fpar%update%model_type == 2) then
-        this%model_tmp(:,:,:,:,ipar) = this%model(:,:,:,:,ipar) + step_len*this%direction(:,:,:,:,ipar)
-      else
-        call exit_MPI(0, 'Unknown model type')
-      endif
-    enddo
+    if (fpar%update%model_type == 1) then
+      this%model_tmp = this%model * exp(step_len*this%direction)
+    elseif (fpar%update%model_type == 2) then
+      this%model_tmp = this%model + step_len*this%direction
+    else
+      call exit_MPI(0, 'Unknown model type')
+    endif
     call synchronize_all()
     if (fpar%update%model_type == 1) then
       call this%alpha_scaling()

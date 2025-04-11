@@ -128,9 +128,7 @@ contains
         this%model = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
-        do ipar = 1, nkernel
-          this%model(:,:,:,ipar) = this%model(:,:,:,ipar) + step_len*this%direction(:,:,:,ipar)
-        enddo
+        this%model = this%model + step_len*this%direction
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -282,6 +280,7 @@ contains
       call log%write(msg, .true.)
       call this%model_update_tmp()
       call write_grid_model(this%model_fname, this%model_tmp)
+      ! TODO: generate database here
       call synchronize_all()
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
