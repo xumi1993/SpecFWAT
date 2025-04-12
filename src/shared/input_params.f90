@@ -32,6 +32,7 @@ module input_params
   end type rf_params
 
   type sim_params
+    character(len=MAX_STRING_LEN) :: mesh_par_file
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE, TELE_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
@@ -205,6 +206,7 @@ contains
         this%sim%ITAPER = 1
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
         this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
         this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
         list => noise%get_list('RCOMPS', required=.true., error=io_err)
@@ -250,6 +252,7 @@ contains
         this%sim%USE_RHO_SCALING = .false.
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
         list => tele%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_string_list(list, this%sim%RCOMPS)
@@ -363,6 +366,7 @@ contains
     call synchronize_all()
 
     ! broadcast noise parameters
+    call bcast_all_ch_array(noise_par%mesh_par_file, 1, MAX_STRING_LEN)
     call bcast_all_singlei(noise_par%NSTEP)
     call bcast_all_singlei(noise_par%IMEAS)
     call bcast_all_singlei(noise_par%ITAPER)
@@ -394,6 +398,7 @@ contains
     call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
 
     ! broadcast tele parameters
+    call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
     call bcast_all_singlei(tele_par%NSTEP)
     call bcast_all_singlei(tele_par%IMEAS)
     call bcast_all_singlei(tele_par%ITAPER)

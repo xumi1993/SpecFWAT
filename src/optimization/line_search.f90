@@ -23,8 +23,6 @@ contains
     misfit_start = 0.0_dp
     misfit_prev = 0.0_dp
 
-    call fpar%select_simu_type()
-
     call get_dat_type()
 
     call fpar%acqui%read()

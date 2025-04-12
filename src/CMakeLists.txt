@@ -81,6 +81,9 @@ endif()
 # shared
 add_subdirectory(shared)
 
+# add patch
+add_subdirectory(patch)
+
 # meshfem3D_objs
 file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/meshfem3D/*.[Ff]90")
 file(GLOB SOURCES_C "${SPECFEM_DIR}/src/meshfem3D/*.c")
@@ -96,21 +99,17 @@ file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/generate_databases/*.[Ff]90")
 file(GLOB SOURCES_C "${SPECFEM_DIR}/src/generate_databases/*.c")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/generate_databases.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/model_external_values.F90")
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/generate_databases_par.F90")
 # if(USE_SERIAL)
   # list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/model_sep.f90")
 # else()
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${SPECFEM_DIR}/src/generate_databases/model_sep_nompi.f90")
 # endif()
-list(APPEND SOURCES_Fortran
-    "${PROJECT_SOURCE_DIR}/src/grid/model_external_values.f90"
-    "${PROJECT_SOURCE_DIR}/src/shared/hdf5_interface.f90"
-    "${PROJECT_SOURCE_DIR}/src/shared/utils.f90"
-)
 if(NOT (USE_ADIOS AND USE_ADIOS2))
   list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/.*adios.*$")
 endif()
 add_library(generate_databases_objs OBJECT ${SOURCES_Fortran} ${SOURCES_C})
-target_link_libraries(generate_databases_objs PRIVATE shared_objs shared_fwat_objs)
+target_link_libraries(generate_databases_objs PRIVATE shared_objs external_values_objs)
 
 # specfem3D_objs
 file(GLOB SOURCES_Fortran "${SPECFEM_DIR}/src/specfem3D/*.[Ff]90")
@@ -140,11 +139,9 @@ foreach(execsourcefile ${APP_SOURCES})
     ${HEADERS}
   )
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
-  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs MPI::MPI_Fortran)
+  target_link_libraries(${EXEC_NAME} PUBLIC "${EXEC_NAME}_objs" shared_objs cuda_objs
+                        external_values_objs utils_objs config_objs hdf5_interface_objs MPI::MPI_Fortran)
   set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
-  # if (EXEC_NAME STREQUAL "generate_databases")
-  #   target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs)
-  # endif()
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)
   endif()
@@ -178,6 +175,8 @@ endforeach()
 add_subdirectory(fortran-yaml)
 # add grid library
 add_subdirectory(grid)
+# add mesh_database_api library
+add_subdirectory(mesh_database_api)
 
 # ==============================================================================
 # ------------------------ Add FWAT executables --------------------------------

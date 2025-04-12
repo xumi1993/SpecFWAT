@@ -95,6 +95,17 @@
 !---
 
   ! the variables read are declared and stored in structure MEXT_V
+
+  ! initialize the model
+  if(allocated(MEXT_V%vp)) deallocate(MEXT_V%vp)
+  if(allocated(MEXT_V%vs)) deallocate(MEXT_V%vs)
+  if(allocated(MEXT_V%rho)) deallocate(MEXT_V%rho)
+  if(allocated(MEXT_V%qkappa_atten)) deallocate(MEXT_V%qkappa_atten)
+  if(allocated(MEXT_V%qmu_atten)) deallocate(MEXT_V%qmu_atten)
+  if(allocated(MEXT_V%x)) deallocate(MEXT_V%x)
+  if(allocated(MEXT_V%y)) deallocate(MEXT_V%y)
+  if(allocated(MEXT_V%z)) deallocate(MEXT_V%z)
+
   if (myrank == 0) call read_external_model()
 
   ! broadcast the information read on the main to the nodes

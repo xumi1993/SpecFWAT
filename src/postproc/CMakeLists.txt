@@ -19,7 +19,8 @@ foreach(execsourcefile ${APP_SOURCES})
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs
                         shared_objs specfem3D_objs postproc_objs
-                        cuda_objs grid_objs
+                        cuda_objs grid_objs external_values_objs
+                        config_objs hdf5_interface_objs utils_objs
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

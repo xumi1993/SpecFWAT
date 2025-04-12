@@ -128,21 +128,21 @@ contains
   end function interpolate_func_dp
 
   subroutine dif1(data, dt)
-  double precision, intent(in)                   :: dt
-  double precision, dimension(:), intent(inout)  :: data
-  double precision, dimension(:), allocatable    :: temp_signal
-  integer :: i, nt
+    double precision, intent(in)                   :: dt
+    double precision, dimension(:), intent(inout)  :: data
+    double precision, dimension(:), allocatable    :: temp_signal
+    integer :: i, nt
 
-  nt = size(data)
-  temp_signal=data(1:nt)
+    nt = size(data)
+    temp_signal=data(1:nt)
 
-  do i=2,nt-1
-    data(i) = - 0.5 * ( temp_signal(i+1) - temp_signal(i-1) ) / dt
-  enddo
+    do i=2,nt-1
+      data(i) = - 0.5 * ( temp_signal(i+1) - temp_signal(i-1) ) / dt
+    enddo
 
-  data(1)=0.
-  data(nt)=0.
-end subroutine dif1
+    data(1)=0.
+    data(nt)=0.
+  end subroutine dif1
 
   subroutine myconvolution_dp(sig1,sig2,conv,part)
 

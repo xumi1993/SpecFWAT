@@ -1,5 +1,5 @@
 NOISE:
-  mesh_file: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
+  MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   SCOMPS: ['Z'] # Components of the source
   RCOMPS: ['Z'] # Components of the receiver
   CH_CODE: BX # Channel code
@@ -18,7 +18,7 @@ NOISE:
 
 TELE:
   TELE_TYPE: 3 # 1: teleseismic data, 2: receiver function, 3: teleseismic Cross-convolution
-  mesh_file: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
+  MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   SAVE_FK: True
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code

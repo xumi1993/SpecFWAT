@@ -212,6 +212,8 @@ contains
   end subroutine alpha_scaling
 
   subroutine run_linesearch(this)
+    use meshfem3D_subs
+    use generate_databases_subs
     class(OptFlow), intent(inout) :: this
     real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_start, misfit_prev
     integer :: itype, isub
@@ -229,7 +231,12 @@ contains
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
 
         simu_type = INV_TYPE_NAMES(itype)
-        
+
+        call fpar%select_simu_type()
+
+        call meshfem3D_fwat(fpar%sim%mesh_par_file)
+        call generate_databases_fwat()
+
         call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
 
         total_misfit(itype) = fpar%postproc%JOINT_WEIGHT(itype)*total_misfit(itype)/misfit_start(itype)

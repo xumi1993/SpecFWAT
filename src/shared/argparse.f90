@@ -135,4 +135,40 @@ contains
       endif
     enddo
   end subroutine parse_args_optimize
+
+  subroutine parse_args_mesh_databases()
+    integer, parameter :: max_num_args = 2
+    character(len=MAX_STRING_LEN), dimension(max_num_args) :: argv
+    integer :: i, iarg, argc
+    character(len=MAX_STRING_LEN) :: usage
+
+    usage = 'Usage: fwat_mesh_databases -s <simu_type>'
+
+    argc = command_argument_count()
+    if (argc /= 2) then
+      if (worldrank == 0) print *, trim(usage)
+      call exit_MPI(0, 'ERROR: Known arguments')
+    endif
+    do i = 1, argc
+      call get_command_argument(i, argv(i))
+    enddo
+
+    if (argc > max_num_args) then
+      if (worldrank == 0) print *, trim(usage)
+      call exit_MPI(0, 'ERROR: Too more arguments')
+    endif
+
+    ! parse arguments
+    do i = 1, argc
+      if (argv(i) == '-s' .or. argv(i) == '--simu_type') then
+        iarg = i + 1
+        if (iarg > argc) then
+          if (worldrank == 0) print *, usage
+          call exit_MPI(0, 'ERROR: simu_type not set')
+        endif
+        simu_type = argv(iarg)
+      endif
+    enddo
+
+  end subroutine parse_args_mesh_databases
 end module argparse

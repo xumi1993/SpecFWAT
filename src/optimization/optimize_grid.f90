@@ -267,6 +267,7 @@ contains
   end subroutine alpha_scaling
 
   subroutine run_linesearch(this)
+    use generate_databases_subs
     class(OptGridFlow), intent(inout) :: this
     real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_start, misfit_prev
     integer :: itype, isub
@@ -280,7 +281,7 @@ contains
       call log%write(msg, .true.)
       call this%model_update_tmp()
       call write_grid_model(this%model_fname, this%model_tmp)
-      ! TODO: generate database here
+      call generate_databases_fwat()
       call synchronize_all()
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
