@@ -237,10 +237,10 @@ contains
     real(kind=cr), intent(in) :: freq_max
     real(kind=cr) :: gauss_fac
 
-    gauss_fac =  2 * pi * freq_max / sqrt(-log(0.01))
-    if (gauss_fac < 1.5) then
-      gauss_fac = 1.5
-    endif
+    gauss_fac =  pi * freq_max / sqrt(-log(0.01))
+    ! if (gauss_fac < 1.5) then
+      ! gauss_fac = 1.5
+    ! endif
   end function get_gauss_fac
 
   function get_icomp_syn(comp_code) result(icomp)

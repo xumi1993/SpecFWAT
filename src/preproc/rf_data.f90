@@ -26,7 +26,7 @@ module rf_data
     integer :: ttp_win, rf_win, syn_win
     contains
     procedure :: semd2sac, preprocess, finalize
-    procedure, private :: calc_times, calc_rf, interp_data, measure_adj
+    procedure, private :: calc_times, calc_rf, interp_data, measure_adj, get_baz
   end type RFData
 
   contains
@@ -43,6 +43,7 @@ module rf_data
     call this%init(ievt)
     call this%od%read_stations(ievt, .true.)
 
+    call this%get_baz()
     bazi = zeros(this%nrec)+this%baz
     call this%read(bazi)
 
@@ -91,6 +92,7 @@ module rf_data
     class(RFData), intent(inout) :: this
     integer, intent(in) :: ievt    
     integer :: irec_local, irec
+    real(kind=cr), dimension(:), allocatable :: bazi
     
     fpar%sim%NRCOMP = 1
     fpar%sim%RCOMPS(1) = 'R'
@@ -102,10 +104,12 @@ module rf_data
     call this%od%read_obs_data()
     call this%interp_data()
 
-    call this%read(this%od%baz)
-    call this%calc_rf()
-
+    call this%get_baz()
+    bazi = zeros(this%nrec)+this%baz
+    call this%read(bazi)
     call this%calc_times()
+
+    call this%calc_rf()
 
     ! measure adjoint source
     call this%measure_adj()
@@ -155,8 +159,8 @@ module rf_data
                               window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
                               this%od%netwk(irec), this%od%stnm(irec) &
                               )
-          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw * fpar%acqui%src_weight(this%ievt)
-          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw * fpar%acqui%src_weight(this%ievt)
+          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw 
+          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw
           tr_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
           am_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
           T_pmax_dat(irec_local, 1) = 0.0_dp
@@ -182,11 +186,11 @@ module rf_data
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
     if (IS_OUTPUT_ADJ_SRC) then
       call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-      header%kstnm = this%od%stnm(irec)
-      header%knetwk = this%od%netwk(irec)
       if (this%nrec_loc > 0) then
         do irec_local = 1, this%nrec_loc
           irec = select_global_id_for_rec(irec_local)
+          header%kstnm = this%od%stnm(irec)
+          header%knetwk = this%od%netwk(irec)
           do icomp = 1, 2
             if (icomp == 1) then
               header%kcmpnm = 'Z'
@@ -267,6 +271,7 @@ module rf_data
           header%kstnm = this%od%stnm(irec)
           header%knetwk = this%od%netwk(irec)
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
+          header%t0 = this%ttp(irec)
           call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/wsyn.'//&
                               trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                               '.'//trim(fpar%sim%CH_CODE)//'Z.sac', header, win, ier)
@@ -336,6 +341,15 @@ module rf_data
     call sync_from_main_rank_dp_3d(this%rf_syn, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
   end subroutine calc_rf
 
+  subroutine get_baz(this)
+    class(RFData), intent(inout) :: this
+
+    call read_fk_model(fpar%acqui%evtid_names(this%ievt)) 
+    this%baz = -phi_FK - 90.d0
+    this%az = 90.d0 - phi_FK
+    call free_fk_arrays()
+  end subroutine get_baz
+
   subroutine calc_times(this)
     class(RFData), intent(inout) :: this
     real(kind=cr), dimension(:), allocatable :: ttp_local
@@ -343,21 +357,15 @@ module rf_data
 
     ttp_local = zeros(this%nrec)
     call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
-    call read_fk_model(fpar%acqui%evtid_names(this%ievt))
-
-    this%baz = -phi_FK - 90.d0
-    this%az = 90.d0 - phi_FK
     
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
-        ttp_local(irec) = maxloc(this%data(:, 1, irec_local), dim=1) * DT - T0
+        ttp_local(irec) = maxloc(this%data(:, 1, irec), dim=1) * DT - T0
       end do
     endif
     call sum_all_1Darray_cr(ttp_local, this%ttp, this%nrec)
     call sync_from_main_rank_cr_1d(this%ttp, this%nrec)
-    call free_fk_arrays()
-
   end subroutine calc_times
 
   subroutine finalize(this)

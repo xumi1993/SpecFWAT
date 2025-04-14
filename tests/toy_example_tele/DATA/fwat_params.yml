@@ -22,12 +22,12 @@ TELE:
   SAVE_FK: True
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code
-  NSTEP: 2500 # Number of time steps
+  NSTEP: 3000 # Number of time steps
   DT: 0.025 # Time step for the teleseismic data
   SHORT_P: [1] # Short period of filters
   LONG_P: [20] # Long period of filters
   TIME_WIN: [-5, 35] # Time window for the teleseismic data
-  PRECOND_TYPE: 2 # 1: abs(Z); 2: root squared z
+  PRECOND_TYPE: 2 # 2: abs(Z); 3: root squared z
   SIGMA_H: 5000 # Smoothing parameter for the horizontal component
   SIGMA_V: 5000 # Smoothing parameter for the vertical component
   RF:
@@ -66,8 +66,8 @@ OUTPUT:
 
 MODEL_GRID:
   REGULAR_GRID_MIN_COORD: [833950, -44274.0, -80000]
-  REGULAR_GRID_INTERVAL: [4000, 4000, 2000]
-  REGULAR_GRID_SIZE: [52, 24, 41]
+  REGULAR_GRID_INTERVAL: [2000, 2000, 1000]
+  REGULAR_GRID_SIZE: [104, 48, 81]
 
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
@@ -76,9 +76,9 @@ POSTPROC:
   NINV: [19, 9, 9]
   N_INVERSION_GRID: 5
   TAPER_H_SUPPRESS: 5000
-  TAPER_H_BUFFER: 15000
-  TAPER_V_SUPPRESS: 5000
-  TAPER_V_BUFFER: 15000
+  TAPER_H_BUFFER: 10000
+  TAPER_V_SUPPRESS: 0
+  TAPER_V_BUFFER: 0
   USE_RHO_SCALING_NOISE: true
   IS_PRECOND: True
 

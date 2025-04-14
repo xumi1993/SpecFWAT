@@ -25,7 +25,7 @@ module telecc_data
   type, extends(TeleData) :: TeleCCData
   contains
   procedure :: preprocess, finalize
-  procedure, private :: measure_adj, pre_proc
+  procedure, private :: measure_adj, pre_proc, calc_times
   end type TeleCCData
 
 contains
@@ -104,8 +104,8 @@ contains
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-          call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
-                                  tstart, dble(dt), nstep_cut)
+          ! call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
+          !                         tstart, dble(dt), NSTEP)
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:NSTEP)
 
           seismo_inp = this%data(:, icomp, irec)
@@ -113,8 +113,8 @@ contains
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-          call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
-                                  tstart, dble(dt), nstep_cut)
+          ! call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
+          !                         tstart, dble(dt), NSTEP)
           this%seismo_syn(:, icomp, irec_local) = seismo_inp(1:NSTEP)
         enddo
       enddo
@@ -149,43 +149,29 @@ contains
             character(len=MAX_STRING_LEN) :: sacfile
             real(kind=dp), dimension(:), allocatable :: conv
             integer :: nb
-            nb = floor(fpar%sim%TIME_WIN(1)/DT)
-            call myconvolution_dp(this%seismo_syn(:, 2, irec_local),&
-                                  this%seismo_dat(:, 1, irec_local),&
-                                  conv, 1)
             call sacio_newhead(header, real(DT), NSTEP, -real(T0))
             header%knetwk = trim(this%od%netwk(irec))
             header%kstnm = trim(this%od%stnm(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
-            sacfile = trim(OUTPUT_FILES)//'/wconv.'//trim(this%od%netwk(irec))//&
+            header%t0 = this%ttp(irec)
+            sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
-            call sacio_writesac(sacfile, header, conv(nb:NSTEP+nb-1), ier)
-            ! sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
-            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-            !           'Z.sac.'//trim(this%band_name)
-            ! call sacio_writesac(sacfile, header, this%seismo_dat(:, 1, irec_local), ier)
-            ! sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
-            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-            !           'Z.sac.'//trim(this%band_name)
-            ! call sacio_writesac(sacfile, header, this%seismo_syn(:, 1, irec_local), ier)
+            call sacio_writesac(sacfile, header, this%seismo_dat(:, 1, irec_local), ier)
+            sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
+                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+                      'Z.sac.'//trim(this%band_name)
+            call sacio_writesac(sacfile, header, this%seismo_syn(:, 1, irec_local), ier)
             
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
-            call myconvolution_dp(this%seismo_syn(:, 1, irec_local),&
-                                  this%seismo_dat(:, 2, irec_local),&
-                                  conv, 1)
-            sacfile = trim(OUTPUT_FILES)//'/wconv.'//trim(this%od%netwk(irec))//&
+            sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'R.sac.'//trim(this%band_name)
-            call sacio_writesac(sacfile, header, conv(nb:NSTEP+nb-1), ier)
-            ! sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
-            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-            !           'R.sac.'//trim(this%band_name)
-            ! call sacio_writesac(sacfile, header, this%seismo_dat(:, 2, irec_local), ier)
-            ! sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
-            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-            !           'R.sac.'//trim(this%band_name)
-            ! call sacio_writesac(sacfile, header, this%seismo_syn(:, 2, irec_local), ier)
+            call sacio_writesac(sacfile, header, this%seismo_dat(:, 2, irec_local), ier)
+            sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
+                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+                      'R.sac.'//trim(this%band_name)
+            call sacio_writesac(sacfile, header, this%seismo_syn(:, 2, irec_local), ier)
           end block
         endif
 
@@ -195,7 +181,7 @@ contains
                                 dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), dble(this%ttp(irec)),&
                                 NSTEP, -dble(fpar%sim%TIME_WIN(1)), f0, NITER, 0.001_dp, &
                                 dble(1/fpar%sim%LONG_P(1)), dble(1/fpar%sim%SHORT_P(1)), &
-                                window_chi_local, adj_r_tw, adj_z_tw)
+                                window_chi_local, adj_r_tw, adj_z_tw, this%od%stnm(irec))
 
         call this%write_adj(adj_z_tw(1:NSTEP), trim(this%comp_name(1)), irec)
         adj_src = zeros_dp(NSTEP, 2)
