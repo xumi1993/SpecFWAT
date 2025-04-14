@@ -92,6 +92,11 @@ contains
         irec = select_global_id_for_rec(irec_local)
         tstart = this%ttp(irec) + fpar%sim%time_win(1)
         tend = this%ttp(irec) + fpar%sim%time_win(2)
+        if (tend > NSTEP*DT-T0) then
+          call log%write('Error: Time windows length of '//trim(this%od%netwk(irec))&
+                          //'.'//trim(this%od%stnm(irec))//' larger than NSTEP', .false.)
+          call exit_mpi(worldrank, 'Error: Time windows length larger than NSTEP')
+        endif
         nstep_cut = int((tend - tstart) / dble(DT)) + 1
         do icomp = 1, ncomp
           ! seismo_inp = this%od%data(:, icomp, irec)
