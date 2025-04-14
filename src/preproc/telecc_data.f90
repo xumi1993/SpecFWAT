@@ -152,8 +152,6 @@ contains
         if (IS_OUTPUT_PREPROC) then
           block
             character(len=MAX_STRING_LEN) :: sacfile
-            real(kind=dp), dimension(:), allocatable :: conv
-            integer :: nb
             call sacio_newhead(header, real(DT), NSTEP, -real(T0))
             header%knetwk = trim(this%od%netwk(irec))
             header%kstnm = trim(this%od%stnm(irec))
