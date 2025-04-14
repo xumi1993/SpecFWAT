@@ -142,6 +142,38 @@ contains
     endif
   end subroutine write_grid_kernel_smooth
 
+  subroutine write_grid(filename, key_name, grid_data)
+    real(kind=cr), dimension(:,:,:), intent(in) :: grid_data
+    character(len=*), intent(in) :: filename, key_name
+    integer :: iker
+    type(hdf5_file) :: h5file
+    
+    if (worldrank == 0) then
+      call h5file%open(filename, status='new', action='write')
+      call h5file%add('/x', MEXT_V%x)
+      call h5file%add('/y', MEXT_V%y)
+      call h5file%add('/z', MEXT_V%z)
+      call h5file%add('/'//trim(key_name), transpose_3(grid_data(:,:,:)))
+      call h5file%close(finalize=.true.)
+    endif
+
+  end subroutine write_grid
+
+  subroutine read_grid(filename, key_name, grid_data)
+    real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
+    character(len=*), intent(in) :: filename, key_name
+    real(kind=cr), dimension(:,:,:), allocatable :: gm  
+    integer :: iker
+    type(hdf5_file) :: h5file
+
+    if (worldrank == 0) then
+      call h5file%open(filename, status='old', action='read')
+      call h5file%get('/'//trim(key_name), gm)
+      grid_data = transpose_3(gm)
+      call h5file%close(finalize=.true.)
+    endif
+  end subroutine read_grid
+
   subroutine read_grid_kernel_smooth(filename, grid_model)
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: grid_model
     character(len=*), intent(in) :: filename

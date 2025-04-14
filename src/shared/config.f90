@@ -21,6 +21,7 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: STATIONS_PREFIX = "STATIONS"
   character(len=MAX_STRING_LEN), parameter :: CMTSOLUTION_PREFIX = "CMTSOLUTION"
   character(len=MAX_STRING_LEN), parameter :: FORCESOLUTION_PREFIX = "FORCESOLUTION"
+  character(len=MAX_STRING_LEN), parameter :: HESS_PREFIX = "hess_inv"
   character(len=MAX_STRING_LEN), parameter :: OUTPUT_PATH = "OUTPUT_FILES"
   character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
   character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
@@ -55,7 +56,7 @@ module fwat_constants
   real(kind=cr), parameter :: km2deg = 1.0 /(6371.0d0*pi/180.0d0)
 
   ! meas_adj
-  integer, parameter :: NITER = 300
+  integer, parameter :: NITER = 200
 
 end module fwat_constants
 

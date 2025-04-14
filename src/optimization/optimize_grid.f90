@@ -22,7 +22,7 @@ module optimize_grid
   type :: OptGridFlow
     real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_tmp, gradient, direction
     integer :: iter_current, iter_prev, iter_next
-    character(len=MAX_STRING_LEN) :: output_model_path, model_fname
+    character(len=MAX_STRING_LEN) :: output_model_path, model_fname, current_model_name
     contains 
       procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, run_linesearch
       procedure, private :: get_model_idx, model_update_tmp, interp_initial_model
@@ -102,6 +102,7 @@ contains
     ! get model index
     read(model_name(2:3),'(I2.2)', iostat=ier) this%iter_current
     if (ier /= 0) call exit_MPI(0, 'Error reading model name of '//trim(model_name))
+    this%current_model_name = trim(model_name)
     model_name = trim(model_name)//'_ls'
 
     ! get model prev and next
@@ -175,11 +176,13 @@ contains
   subroutine get_lbfgs_direction(this)
     class(OptGridFlow), intent(inout) :: this
 
-    integer :: iter_store, istore
+    integer :: iter_store, istore, i
     real(kind=cr) :: max_dir_loc, max_dir
-    real(kind=cr), dimension(:,:,:,:), allocatable :: model0, model1, gradient0, gradient1
+    real(kind=cr), dimension(:,:,:,:), allocatable :: model0, model1, gradient0, gradient1, hess, grad_bak
+    real(kind=cr), dimension(:,:,:), allocatable :: hess_loc
     real(kind=cr), dimension(:,:,:,:), allocatable :: q_vector, r_vector, gradient_diff, model_diff
-    real(kind=cr) :: p_sum, a_sum, b_sum, p(1000), a(1000), b, p_k_up_sum, p_k_down_sum, p_k
+    real(kind=cr) :: p_sum, a_sum, b_sum, p(1000), a(1000), b, p_k_up_sum, p_k_down_sum, p_k, angle
+    character(len=MAX_STRING_LEN) :: msg
 
     ! get direction
     if (this%iter_current == fpar%update%ITER_START) then
@@ -194,8 +197,15 @@ contains
       if ( iter_store <= fpar%update%ITER_START ) then
         iter_store = fpar%update%ITER_START
       endif
+      call read_grid(trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(this%current_model_name)//'.h5', &
+                     HESS_PREFIX, hess_loc)
+      hess = zeros_dp(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      do i = 1, nkernel
+        hess(:,:,:,i) = hess_loc
+      enddo
 
       call read_gradient_grid(this%iter_current, q_vector)
+      grad_bak = q_vector
 
       do istore=this%iter_current-1,iter_store,-1
         call read_gradient_grid(istore+1,gradient1)
@@ -226,7 +236,7 @@ contains
       p_k_up_sum = sum(gradient_diff*model_diff)
       p_k_down_sum = sum(gradient_diff*gradient_diff)
       p_k = p_k_up_sum / p_k_down_sum
-      r_vector=p_k*q_vector
+      r_vector=p_k * hess * q_vector
 
       ! forward store
       do istore = iter_store, this%iter_current-1, 1
@@ -247,6 +257,18 @@ contains
 
       max_dir = maxval(abs(this%direction))
       this%direction = this%direction / max_dir
+      
+      ! check the angle between search direction and negative grad
+      block
+        real(kind=cr) :: grad_sum, grad_norm, direc_norm
+        grad_bak = -grad_bak
+        grad_sum = sum(grad_bak*this%direction)
+        grad_norm = sqrt(sum(grad_bak*grad_bak))
+        direc_norm = sqrt(sum(this%direction*this%direction))
+        angle = acosd(grad_sum/(grad_norm*direc_norm))
+      end block
+      write(msg, '(a,F8.4,a)') 'Angle between search direction and negative gradient: ', angle, ' degrees'
+      call log%write(msg, .true.)
     endif ! worldrank == 0
     call synchronize_all()
 

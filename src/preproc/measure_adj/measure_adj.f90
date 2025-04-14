@@ -927,13 +927,13 @@ subroutine measure_adj()
     call reverse(synz_shift, npts, z_rev)
     ! radial adjoint source
     ! call myconvolution_dp(conv_full, z_rev, conv_den, 1)
-    call deconit(obj_cc(1:npts), z_rev, real(SPECFEM_DT), real(e), real(f0), 100, real(minderr), 1, adj_r)
+    call deconit(obj_cc(1:npts), z_rev, real(SPECFEM_DT), real(e), real(f0), NITER, real(minderr), 1, adj_r)
 
     ! vertical adjoint source
     call myconvolution_dp(-obj_cc(1:npts), r_rev, conv_num, 1)
     call myconvolution_dp(z_rev, z_rev, conv_den, 1)
     ! call myconvolution_dp(tmp, conv_full, conv_den, 1)
-    call deconit(conv_num, conv_den, real(SPECFEM_DT), real(e), real(f0), 100, real(minderr), 1, adj_z)
+    call deconit(conv_num, conv_den, real(SPECFEM_DT), real(e), real(f0), NITER, real(minderr), 1, adj_z)
 
     adj_file_prefix = 'MX.'//trim(sta)//'.BXR'
     call dwsac1(trim(OUTPUT_FILES)//'/../SEM/'//trim(adj_file_prefix)//'.objcc.sac',obj_cc(1:npts),npts,-tshift,SPECFEM_DT)

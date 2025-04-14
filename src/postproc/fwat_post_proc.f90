@@ -35,25 +35,25 @@ program fwat_post_proc
       ! sum kernels for this type
       call fpp%sum_kernel()
 
-      if (is_output_sum_kernel) call fpp%write(.false.)
-
-      if (.not. is_joint .and. fpar%postproc%IS_PRECOND) call fpp%sum_precond()
+      if (.not. (is_joint .and. itype == 1)) call fpp%sum_precond()
 
       if (fpar%postproc%SMOOTH_TYPE == 1) then
         call fpp%multigrid_smooth()
 
         call fpp%taper_kernel_grid()
 
-        call fpp%write_grid()
+        call fpp%write_gradient_grid()
       elseif (fpar%postproc%SMOOTH_TYPE == 2) then
-        ! smooth kernels
-        call fpp%smooth_kernel()
+        call log%write('PDE smoothing will not be applied', .false.)
+        call exit_MPI(0, 'PDE smoothing will not be applied')
+        ! ! smooth kernels
+        ! call fpp%smooth_kernel()
 
-        ! taper kernels
-        call fpp%taper_kernel()
+        ! ! taper kernels
+        ! call fpp%taper_kernel()
 
-        ! write kernels
-        call fpp%write(.true.)
+        ! ! write kernels
+        ! call fpp%write(.true.)
       else
         call log%write('No smoothing applied', .false.)
       endif

@@ -25,7 +25,7 @@ module telecc_data
   type, extends(TeleData) :: TeleCCData
   contains
   procedure :: preprocess, finalize
-  procedure, private :: measure_adj, pre_proc, calc_times
+  procedure, private :: measure_adj, pre_proc
   end type TeleCCData
 
 contains
