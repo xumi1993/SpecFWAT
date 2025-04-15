@@ -1,6 +1,5 @@
 module multigrid
   use config
-  use specfem_par
   use fwat_mpi
   use fwat_constants
   use utils
@@ -112,20 +111,20 @@ contains
     tmp = zeros(this%ninvx * this%ninvy * this%ninvz, fpar%postproc%n_inversion_grid)
     
     do igrid = 1, fpar%postproc%n_inversion_grid
-      do ispec = 1, NSPEC_AB
+      do ispec = 1, NSPEC_FWAT
         do i = 1, NGLLX
           do j = 1, NGLLY
             do k = 1, NGLLZ
-              iglob = ibool(i, j, k, ispec)
-              call locate_bissection(dble(this%xinv(:, igrid)), this%ninvx, dble(xstore(iglob)), idx)
+              ! iglob = ibool(i, j, k, ispec)
+              call locate_bissection(dble(this%xinv(:, igrid)), this%ninvx, dble(xstore_fwat(i, j, k, ispec)), idx)
               if (idx == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: x is out of boundary')
-              wx = (xstore(iglob) - this%xinv(idx, igrid)) / (this%xinv(idx+1, igrid) - this%xinv(idx, igrid))
-              call locate_bissection(dble(this%yinv(:, igrid)), this%ninvy, dble(ystore(iglob)), idy)
+              wx = (xstore_fwat(i, j, k, ispec) - this%xinv(idx, igrid)) / (this%xinv(idx+1, igrid) - this%xinv(idx, igrid))
+              call locate_bissection(dble(this%yinv(:, igrid)), this%ninvy, dble(ystore_fwat(i, j, k, ispec)), idy)
               if (idy == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: y is out of boundary')
-              wy = (ystore(iglob) - this%yinv(idy, igrid)) / (this%yinv(idy+1, igrid) - this%yinv(idy, igrid))
-              call locate_bissection(dble(this%zinv(:, igrid)), this%ninvz, dble(zstore(iglob)), idz)
+              wy = (ystore_fwat(i, j, k, ispec) - this%yinv(idy, igrid)) / (this%yinv(idy+1, igrid) - this%yinv(idy, igrid))
+              call locate_bissection(dble(this%zinv(:, igrid)), this%ninvz, dble(zstore_fwat(i, j, k, ispec)), idz)
               if (idz == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: z is out of boundary')
-              wz = (zstore(iglob) - this%zinv(idz, igrid)) / (this%zinv(idz+1, igrid) - this%zinv(idz, igrid))
+              wz = (zstore_fwat(i, j, k, ispec) - this%zinv(idz, igrid)) / (this%zinv(idz+1, igrid) - this%zinv(idz, igrid))
               do n = 1, 8
                 select case (n)
                   case (1)

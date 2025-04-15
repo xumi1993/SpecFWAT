@@ -7,7 +7,8 @@ module generate_databases_subs
   include 'version.fh'
 
 contains
-  subroutine generate_databases_fwat()
+  subroutine generate_databases_fwat(is_get_model)
+    logical, intent(in) :: is_get_model
 
     call world_rank(myrank)
     call world_size(sizeprocs)
@@ -33,7 +34,7 @@ contains
       call read_partition_files()
     endif
 
-    call setup_mesh_fwat()
+    call setup_mesh_fwat(is_get_model)
 
     ! finalize mesher
     call finalize_databases()
@@ -42,10 +43,11 @@ contains
 
   end subroutine generate_databases_fwat
 
-  subroutine setup_mesh_fwat()
+  subroutine setup_mesh_fwat(is_get_model)
 
   ! local parameters
   integer :: iface,icorner,inode,ier
+  logical, intent(in) :: is_get_model
 
   ! compute maximum number of points
   npointot = NSPEC_AB * NGLLX * NGLLY * NGLLZ
@@ -87,9 +89,210 @@ contains
   call synchronize_all()
 
   call crm_ext_deallocate_arrays()
-  call create_regions_mesh()
+  if (is_get_model) then
+    call create_regions_mesh()
+  else
+    call create_regions_mesh_coord()
+  endif
 
   end subroutine setup_mesh_fwat
+
+  subroutine create_regions_mesh_coord()
+    use constants, only: myrank,PARALLEL_FAULT,IMAIN
+
+    use shared_parameters, only: &
+      ACOUSTIC_SIMULATION, ELASTIC_SIMULATION, POROELASTIC_SIMULATION, &
+      STACEY_ABSORBING_CONDITIONS,SAVE_MESH_FILES,PML_CONDITIONS, &
+      ANISOTROPY,APPROXIMATE_OCEAN_LOAD,OLSEN_ATTENUATION_RATIO, &
+      ATTENUATION,USE_OLSEN_ATTENUATION, &
+      SAVE_MOHO_MESH,ATTENUATION_f0_REFERENCE, &
+      LOCAL_PATH,LTS_MODE
+
+    use generate_databases_par, only: &
+        nnodes_ext_mesh,nelmnts_ext_mesh, &
+        nodes_coords_ext_mesh, elmnts_ext_mesh, &
+        max_memory_size,num_interfaces_ext_mesh, &
+        nibool_interfaces_ext_mesh, &
+        nspec2D_xmin, nspec2D_xmax, &
+        nspec2D_ymin, nspec2D_ymax, &
+        NSPEC2D_BOTTOM, NSPEC2D_TOP, &
+        ibelm_xmin, ibelm_xmax, ibelm_ymin, ibelm_ymax, ibelm_bottom, ibelm_top, &
+        nodes_ibelm_xmin,nodes_ibelm_xmax,nodes_ibelm_ymin,nodes_ibelm_ymax, &
+        nodes_ibelm_bottom,nodes_ibelm_top, &
+        nspec2D_moho_ext,ibelm_moho,nodes_ibelm_moho
+
+    ! global index array
+    use generate_databases_par, only: nspec => NSPEC_AB, nglob => NGLOB_AB, ibool, xstore, ystore, zstore
+
+    use create_regions_mesh_ext_par
+
+    use fault_generate_databases, only: fault_read_input,fault_setup, &
+                            fault_save_arrays,fault_save_arrays_test, &
+                            nnodes_coords_open,nodes_coords_open,ANY_FAULT_IN_THIS_PROC, &
+                            ANY_FAULT
+
+    !! setup wavefield discontinuity interface
+    use shared_parameters, only: IS_WAVEFIELD_DISCONTINUITY
+    use wavefield_discontinuity_db, only: &
+                                setup_boundary_wavefield_discontinuity, &
+                                read_partition_files_wavefield_discontinuity
+
+    implicit none
+
+    ! local parameters
+    ! memory size needed by the solver
+    double precision :: memory_size
+    real(kind=CUSTOM_REAL) :: model_speed_max,min_resolved_period
+    ! timing
+    double precision, external :: wtime
+    double precision :: time_start
+    logical, parameter :: DEBUG_TIMING = .false.
+
+    ! get MPI starting time
+    if (DEBUG_TIMING) time_start = wtime()
+
+    ! initializes arrays
+    call synchronize_all()
+    if (myrank == 0) then
+      write(IMAIN,*)
+      write(IMAIN,*) '  ...allocating arrays '
+      call flush_IMAIN()
+    endif
+    call crm_ext_allocate_arrays(nspec2D_xmin,nspec2D_xmax,nspec2D_ymin,nspec2D_ymax, &
+                                nspec2D_bottom,nspec2D_top, &
+                                nodes_coords_ext_mesh,nnodes_ext_mesh,elmnts_ext_mesh,nelmnts_ext_mesh)
+
+    ! if faults exist this reads nodes_coords_open
+    call fault_read_input(prname)
+
+    ! user output
+    ! call print_timing()
+
+    ! fills location and weights for Gauss-Lobatto-Legendre points, shape and derivations,
+    ! returns jacobianstore,xixstore,...gammazstore
+    ! and GLL-point locations in xstore,ystore,zstore
+    call synchronize_all()
+    if (myrank == 0) then
+      write(IMAIN,*)
+      write(IMAIN,*) '  ...setting up jacobian '
+      call flush_IMAIN()
+    endif
+    if (ANY_FAULT_IN_THIS_PROC) then
+    ! compute jacobians with fault open and *store needed for ibool.
+      call crm_ext_setup_jacobian(nodes_coords_open, nnodes_coords_open, elmnts_ext_mesh, nelmnts_ext_mesh)
+    else ! with no fault
+      call crm_ext_setup_jacobian(nodes_coords_ext_mesh, nnodes_ext_mesh, elmnts_ext_mesh, nelmnts_ext_mesh)
+    endif
+
+    ! user output
+    ! call print_timing()
+
+    ! creates ibool index array for projection from local to global points
+    call synchronize_all()
+    if (myrank == 0) then
+      write(IMAIN,*)
+      write(IMAIN,*) '  ...indexing global points'
+      call flush_IMAIN()
+    endif
+    if (ANY_FAULT_IN_THIS_PROC) then
+      call crm_ext_setup_indexing(nnodes_coords_open, nodes_coords_open)
+    else ! with no fault
+      call crm_ext_setup_indexing(nnodes_ext_mesh, nodes_coords_ext_mesh)
+    endif
+
+    ! user output
+    ! call print_timing()
+
+    if (ANY_FAULT) then
+      ! recalculate *store with faults closed
+      call synchronize_all()
+      if (myrank == 0) then
+        write(IMAIN,*)
+        write(IMAIN,*) '  ...resetting up jacobian in fault domains'
+        call flush_IMAIN()
+      endif
+      if (ANY_FAULT_IN_THIS_PROC) then
+        call crm_ext_setup_jacobian(nodes_coords_ext_mesh, nnodes_ext_mesh, elmnts_ext_mesh, nelmnts_ext_mesh)
+      endif
+      ! at this point (xyz)store_unique are still open
+      if (.not. PARALLEL_FAULT) then
+        call fault_setup(ibool,nnodes_ext_mesh,nodes_coords_ext_mesh, &
+                        xstore,ystore,zstore,nspec,nglob)
+      endif
+      ! this closes (xyz)store_unique
+
+      ! user output
+      ! call print_timing()
+    endif
+
+
+    ! sets up MPI interfaces between partitions
+    call synchronize_all()
+    if (myrank == 0) then
+      write(IMAIN,*)
+      write(IMAIN,*) '  ...preparing MPI interfaces '
+      call flush_IMAIN()
+    endif
+    call get_MPI_interface(nglob_unique,nspec,ibool)
+
+    ! setting up parallel fault
+    if (PARALLEL_FAULT .and. ANY_FAULT) then
+      call synchronize_all()
+      !at this point (xyz)store_unique are still open
+      call fault_setup(ibool,nnodes_ext_mesh,nodes_coords_ext_mesh, &
+                      xstore,ystore,zstore,nspec,nglob)
+    ! this closes (xyz)store_unique
+    endif
+
+    ! user output
+    ! call print_timing()
+
+    ! sets up absorbing/free surface boundaries
+    call synchronize_all()
+    if (myrank == 0) then
+      write(IMAIN,*)
+      write(IMAIN,*) '  ...setting up absorbing boundaries'
+      call flush_IMAIN()
+    endif
+    call get_absorbing_boundary(nspec,ibool, &
+                                nodes_coords_ext_mesh,nnodes_ext_mesh, &
+                                ibelm_xmin,ibelm_xmax,ibelm_ymin,ibelm_ymax,ibelm_bottom,ibelm_top, &
+                                nodes_ibelm_xmin,nodes_ibelm_xmax,nodes_ibelm_ymin,nodes_ibelm_ymax, &
+                                nodes_ibelm_bottom,nodes_ibelm_top, &
+                                nspec2D_xmin,nspec2D_xmax,nspec2D_ymin,nspec2D_ymax, &
+                                nspec2D_bottom,nspec2D_top)
+
+    ! user output
+    ! call print_timing()
+
+    ! sets up mesh surface
+    call synchronize_all()
+    if (myrank == 0) then
+      write(IMAIN,*)
+      write(IMAIN,*) '  ...setting up mesh surface'
+      call flush_IMAIN()
+    endif
+    call crm_setup_mesh_surface()
+
+    ! user output
+    ! call print_timing()
+
+    ! sets up up Moho surface
+    if (SAVE_MOHO_MESH) then
+      call synchronize_all()
+      if (myrank == 0) then
+        write(IMAIN,*)
+        write(IMAIN,*) '  ...setting up Moho surface'
+        call flush_IMAIN()
+      endif
+      call crm_setup_moho(nspec2D_moho_ext,ibelm_moho,nodes_ibelm_moho, &
+                          nodes_coords_ext_mesh,nnodes_ext_mesh)
+
+      ! user output
+      ! call print_timing()
+    endif
+
+  end subroutine create_regions_mesh_coord
 
   subroutine crm_ext_deallocate_arrays()
     use create_regions_mesh_ext_par

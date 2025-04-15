@@ -326,7 +326,7 @@ contains
         simu_type = INV_TYPE_NAMES(itype)
 
         call meshfem3D_fwat(fpar%sim%Mesh_Par_file)
-        call generate_databases_fwat()
+        call generate_databases_fwat(.true.)
 
         call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
 

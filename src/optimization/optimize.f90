@@ -235,7 +235,7 @@ contains
         call fpar%select_simu_type()
 
         call meshfem3D_fwat(fpar%sim%mesh_par_file)
-        call generate_databases_fwat()
+        call generate_databases_fwat(.true.)
 
         call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
 

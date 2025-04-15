@@ -22,7 +22,7 @@ program fwat_mesh_databases
 
   ! generate mesh and databases
   call meshfem3D_fwat(fpar%sim%mesh_par_file)
-  call generate_databases_fwat()
+  call generate_databases_fwat(.true.)
 
   call finalize_mpi()
 end program fwat_mesh_databases
