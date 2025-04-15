@@ -1,7 +1,7 @@
 module fk_coupling
   use specfem_par
   use specfem_par_coupling
-  use config, only: worldrank, local_path_backup
+  use config, only: worldrank, local_path_backup, compress_level
   use fwat_constants, only: cr, FKMODEL_PREFIX, SRC_REC_DIR, DEG2RAD
 
   implicit none
@@ -326,11 +326,14 @@ contains
 
   subroutine write_fk_coupling_file(evtid)
     use hdf5
+    use hdf5_interface
+
     character(len=MAX_STRING_LEN), intent(in) :: evtid
     integer(HSIZE_T), dimension(3) :: dims, chunk_dims
     character(len=MAX_STRING_LEN) :: fname, out_dir
     integer(HID_T) :: file_id, dset_idv, dset_idt, dataspace_id, plist_id
     integer, parameter :: rank_fk=3
+    type(hdf5_file) :: h5file
 
     chunk_dims = (/NDIM, 1000, 128/)
     dims = shape(Veloc_FK)
@@ -339,8 +342,6 @@ contains
     if (worldrank == 0) call system('mkdir -p '//trim(out_dir))
     call synchronize_all()
     
-    ! create HDF5 file
-    call h5open_f(ierr)
 
     write(fname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.h5'
     call h5fcreate_f(fname, H5F_ACC_TRUNC_F, file_id, ierr)
@@ -348,33 +349,43 @@ contains
       call exit_MPI(worldrank, 'error creating file 2205')
     end if
 
-    ! create dataspace for the dataset
-    call h5screate_simple_f(rank_fk, dims, dataspace_id, ierr)
+    if (compress_level <= 0) then
+      call h5file%open(fname)
+      call h5file%add("/Veloc_FK", Veloc_FK)
+      call h5file%add("/Tract_FK", Tract_FK)
+      call h5file%close(finalize=.true.)
+    else
+      ! create HDF5 file
+      call h5open_f(ierr)
 
-    ! create property list for chunking
-    call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, ierr)
-    call h5pset_chunk_f(plist_id, rank_fk, chunk_dims, ierr)
-    call h5pset_deflate_f(plist_id, 4, ierr)  ! compression level 4
+      ! create dataspace for the dataset
+      call h5screate_simple_f(rank_fk, dims, dataspace_id, ierr)
 
-    ! create dataset for velocity
-    call h5dcreate_f(file_id, "Veloc_FK", H5T_NATIVE_REAL, dataspace_id, &
-                      dset_idv, ierr, plist_id)
+      ! create property list for chunking
+      call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, ierr)
+      call h5pset_chunk_f(plist_id, rank_fk, chunk_dims, ierr)
+      call h5pset_deflate_f(plist_id, compress_level, ierr)  ! compression level
 
-    ! create dataset for traction
-    call h5dcreate_f(file_id, "Tract_FK", H5T_NATIVE_REAL, dataspace_id, &
-                      dset_idt, ierr, plist_id)
+      ! create dataset for velocity
+      call h5dcreate_f(file_id, "Veloc_FK", H5T_NATIVE_REAL, dataspace_id, &
+                        dset_idv, ierr, plist_id)
 
-    ! write data to dataset
-    call h5dwrite_f(dset_idv, H5T_NATIVE_REAL, Veloc_FK, dims, ierr)
-    call h5dwrite_f(dset_idt, H5T_NATIVE_REAL, Tract_FK, dims, ierr)
+      ! create dataset for traction
+      call h5dcreate_f(file_id, "Tract_FK", H5T_NATIVE_REAL, dataspace_id, &
+                        dset_idt, ierr, plist_id)
 
-    ! close dataset and file
-    call h5dclose_f(dset_idv, ierr)
-    call h5dclose_f(dset_idt, ierr)
-    call h5sclose_f(dataspace_id, ierr)
-    call h5pclose_f(plist_id, ierr)
-    call h5fclose_f(file_id, ierr)
-    call h5close_f(ierr)
+      ! write data to dataset
+      call h5dwrite_f(dset_idv, H5T_NATIVE_REAL, Veloc_FK, dims, ierr)
+      call h5dwrite_f(dset_idt, H5T_NATIVE_REAL, Tract_FK, dims, ierr)
+
+      ! close dataset and file
+      call h5dclose_f(dset_idv, ierr)
+      call h5dclose_f(dset_idt, ierr)
+      call h5sclose_f(dataspace_id, ierr)
+      call h5pclose_f(plist_id, ierr)
+      call h5fclose_f(file_id, ierr)
+      call h5close_f(ierr)
+    end if
     call synchronize_all()
 
   end subroutine write_fk_coupling_file

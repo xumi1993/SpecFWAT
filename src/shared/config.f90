@@ -68,7 +68,7 @@ module config
   integer, dimension(:,:), allocatable :: rank_map
 
   logical :: single_run = .false.
-  integer :: event_index = 0, run_mode
+  integer :: event_index = 0, run_mode, compress_level
   
   character(len=MAX_STRING_LEN) :: mesh_par_file
   character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup, output_files_backup

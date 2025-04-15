@@ -276,6 +276,7 @@ contains
         this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
         this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
         this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
+        compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -414,6 +415,7 @@ contains
     call bcast_all_singlecr(tele_par%SIGMA_V)
     call bcast_all_singlel(tele_par%USE_RHO_SCALING)
     call bcast_all_singlel(tele_par%SAVE_FK)
+    call bcast_all_singlei(compress_level)
     if (worldrank > 0) then
       allocate(tele_par%RCOMPS(tele_par%NRCOMP))
       allocate(tele_par%TIME_WIN(2))

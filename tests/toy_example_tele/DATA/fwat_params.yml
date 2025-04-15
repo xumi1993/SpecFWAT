@@ -20,6 +20,7 @@ TELE:
   TELE_TYPE: 3 # 1: teleseismic data, 2: receiver function, 3: teleseismic Cross-convolution
   MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   SAVE_FK: True
+  COMPRESS_LEVEL: 4
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code
   NSTEP: 3000 # Number of time steps
