@@ -944,7 +944,7 @@ subroutine measure_adj()
 
     nstart = floor((tstart + tshift)/SPECFEM_DT+1)
     nend = floor((tend + tshift)/SPECFEM_DT+1)
-    nstop = min(nend, npts)
+    ! nstop = min(nend, npts)
 
     adj_r_tw = zeros_dp(npts)
     adj_z_tw = zeros_dp(npts)
@@ -953,10 +953,10 @@ subroutine measure_adj()
     obj_cc_tw = zeros_dp(npts)
     n = 1
     ! Cosine taper
-    do i = nstart, nstop
+    do i = nstart, nend
       fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-      data_tw(i) = conv1(i+nc) * fac
-      synt_tw(i) = conv2(i+nc) * fac
+      data_tw(i) = conv1(i) * fac
+      synt_tw(i) = conv2(i) * fac
       obj_cc_tw(i) = obj_cc(i) * fac
       adj_r_tw(nb+i) = adj_r(i) * fac
       adj_z_tw(nb+i) = adj_z(i) * fac
@@ -974,7 +974,7 @@ subroutine measure_adj()
     window_chi(16) = (nend - nstart)*SPECFEM_DT
     window_chi(17) = 0.5 * sum( conv1**2 )
     window_chi(18) = 0.5 * sum( conv2**2 )
-    window_chi(19) = 0.5 * sum( (conv_diff)**2 )
+    window_chi(19) = 0.5 * sum( (obj_cc)**2 )
     window_chi(20) = npts*SPECFEM_DT
 
   end subroutine meas_adj_conv_diff
