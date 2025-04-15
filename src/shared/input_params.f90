@@ -316,8 +316,8 @@ contains
         is_output_adj_src = output%get_logical('IS_OUTPUT_ADJ_SRC', error=io_err, default=.false.)
         is_output_event_kernel = output%get_logical('IS_OUTPUT_EVENT_KERNEL', error=io_err, default=.false.)
         is_output_sum_kernel = output%get_logical('IS_OUTPUT_SUM_KERNEL', error=io_err, default=.false.)
-        is_output_hess_inv = output%get_logical('IS_OUTPUT_HESS_INV', error=io_err, default=.false.)
         is_output_inv_grid = output%get_logical('IS_OUTPUT_INV_GRID', error=io_err, default=.false.)
+        is_output_direction = output%get_logical('IS_OUTPUT_DIRECTION', error=io_err, default=.false.)
 
         ! model grid
         grid => root%get_dictionary('MODEL_GRID', required=.true., error=io_err)
@@ -458,8 +458,8 @@ contains
     call bcast_all_singlel(IS_OUTPUT_ADJ_SRC)
     call bcast_all_singlel(IS_OUTPUT_EVENT_KERNEL)
     call bcast_all_singlel(IS_OUTPUT_SUM_KERNEL)
-    call bcast_all_singlel(IS_OUTPUT_HESS_INV)
     call bcast_all_singlel(IS_OUTPUT_INV_GRID)
+    call bcast_all_singlel(IS_OUTPUT_DIRECTION)
 
     ! model grid
     call bcast_all_i(this%grid%regular_grid_size, 3)

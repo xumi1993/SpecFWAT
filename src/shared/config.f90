@@ -82,12 +82,13 @@ module config
 
   ! output
   logical :: is_output_preproc, is_output_adj_src, IS_OUTPUT_EVENT_KERNEL,&
-             is_output_sum_kernel, is_output_hess_inv, is_output_inv_grid
+             is_output_sum_kernel, is_output_direction, is_output_inv_grid
 
   ! mesh
   real(kind=cr) :: x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
                    elemsize_min_glob,elemsize_max_glob, &
                    distance_min_glob,distance_max_glob
+  integer :: NSPEC_FWAT
 
   ! post
   logical :: is_joint

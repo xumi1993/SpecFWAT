@@ -20,12 +20,12 @@ module optimize_grid
   integer, private :: ier
 
   type :: OptGridFlow
-    real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_tmp, gradient, direction
+    real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_tmp, gradient, direction, hess
     integer :: iter_current, iter_prev, iter_next
     character(len=MAX_STRING_LEN) :: output_model_path, model_fname, current_model_name
     contains 
       procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, run_linesearch
-      procedure, private :: get_model_idx, model_update_tmp, interp_initial_model
+      procedure, private :: get_model_idx, model_update_tmp, interp_initial_model, read_hess_inv
   end type OptGridFlow
 
 contains
@@ -35,7 +35,7 @@ contains
   
     this%model_fname = trim(TOMOGRAPHY_PATH)//'/tomography_model.h5'
 
-    call read_mesh_databases_minimum(is_read_database)
+    ! call read_mesh_databases_minimum(is_read_database)
 
     call create_grid()
 
@@ -45,6 +45,9 @@ contains
     step_len = fpar%update%MAX_SLEN
 
     call this%get_model_idx()
+
+    call this%read_hess_inv()
+
     this%output_model_path = trim(OPT_DIR)//'/model_'//trim(model_next)//'.h5'
 
     if (this%iter_current == 0) then
@@ -96,6 +99,22 @@ contains
 
   end subroutine interp_initial_model
 
+  subroutine read_hess_inv(this)
+    class(OptGridFlow), intent(inout) :: this
+    real(kind=cr), dimension(:,:,:), allocatable :: hess_loc
+    integer :: i
+    
+    if(worldrank == 0) then
+      call read_grid(trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(this%current_model_name)//'.h5', &
+                      HESS_PREFIX, hess_loc)
+      this%hess = zeros_dp(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      do i = 1, nkernel
+        this%hess(:,:,:,i) = hess_loc
+      enddo
+    endif
+    call synchronize_all()
+  end subroutine read_hess_inv
+
   subroutine get_model_idx(this)
     class(OptGridFlow), intent(inout) :: this
 
@@ -124,6 +143,9 @@ contains
     integer :: ipar
 
     if (worldrank == 0) then
+      if (is_output_direction) then
+        call write_grid_model(trim(OPT_DIR)//'/direction_'//trim(this%current_model_name)//'.h5', this%direction)
+      endif
       if (fpar%update%model_type == 1) then
       ! update model
         this%model = this%model * exp(step_len*this%direction)
@@ -165,7 +187,7 @@ contains
 
     call log%write('Starting steepest descent direction', .true.)
     if (worldrank == 0) then
-      this%direction = -this%gradient
+      this%direction = -this%gradient * this%hess
       max_dir = maxval(abs(this%direction))
       this%direction = this%direction / max_dir
     endif
@@ -176,10 +198,9 @@ contains
   subroutine get_lbfgs_direction(this)
     class(OptGridFlow), intent(inout) :: this
 
-    integer :: iter_store, istore, i
+    integer :: iter_store, istore
     real(kind=cr) :: max_dir_loc, max_dir
-    real(kind=cr), dimension(:,:,:,:), allocatable :: model0, model1, gradient0, gradient1, hess, grad_bak
-    real(kind=cr), dimension(:,:,:), allocatable :: hess_loc
+    real(kind=cr), dimension(:,:,:,:), allocatable :: model0, model1, gradient0, gradient1, grad_bak
     real(kind=cr), dimension(:,:,:,:), allocatable :: q_vector, r_vector, gradient_diff, model_diff
     real(kind=cr) :: p_sum, a_sum, b_sum, p(1000), a(1000), b, p_k_up_sum, p_k_down_sum, p_k, angle
     character(len=MAX_STRING_LEN) :: msg
@@ -197,12 +218,6 @@ contains
       if ( iter_store <= fpar%update%ITER_START ) then
         iter_store = fpar%update%ITER_START
       endif
-      call read_grid(trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(this%current_model_name)//'.h5', &
-                     HESS_PREFIX, hess_loc)
-      hess = zeros_dp(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
-      do i = 1, nkernel
-        hess(:,:,:,i) = hess_loc
-      enddo
 
       call read_gradient_grid(this%iter_current, q_vector)
       grad_bak = q_vector
@@ -236,7 +251,7 @@ contains
       p_k_up_sum = sum(gradient_diff*model_diff)
       p_k_down_sum = sum(gradient_diff*gradient_diff)
       p_k = p_k_up_sum / p_k_down_sum
-      r_vector=p_k * hess * q_vector
+      r_vector=p_k * this%hess * q_vector
 
       ! forward store
       do istore = iter_store, this%iter_current-1, 1
@@ -289,6 +304,7 @@ contains
   end subroutine alpha_scaling
 
   subroutine run_linesearch(this)
+    use meshfem3D_subs
     use generate_databases_subs
     class(OptGridFlow), intent(inout) :: this
     real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_start, misfit_prev
@@ -303,13 +319,15 @@ contains
       call log%write(msg, .true.)
       call this%model_update_tmp()
       call write_grid_model(this%model_fname, this%model_tmp)
-      call generate_databases_fwat()
       call synchronize_all()
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
 
         simu_type = INV_TYPE_NAMES(itype)
-        
+
+        call meshfem3D_fwat(fpar%sim%Mesh_Par_file)
+        call generate_databases_fwat()
+
         call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
 
         total_misfit(itype) = fpar%postproc%JOINT_WEIGHT(itype)*total_misfit(itype)/misfit_start(itype)

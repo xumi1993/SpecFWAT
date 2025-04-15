@@ -1,10 +1,14 @@
 # object libraries of preproc
-file(GLOB SOURCES_Fortran "*.f90")
-list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
-add_library(mesh_databases_objs OBJECT ${SOURCES_Fortran})
-target_link_libraries(mesh_databases_objs PRIVATE shared_objs
-                      cuda_objs generate_databases_objs
-                      meshfem3D_objs shared_fwat_objs
+file(GLOB SOURCES_Fortran "meshfem3D_subs.f90")
+add_library(mesh_subs_objs OBJECT ${SOURCES_Fortran})
+target_link_libraries(mesh_subs_objs PRIVATE shared_objs
+                      cuda_objs meshfem3D_objs shared_fwat_objs
+)
+
+file(GLOB SOURCES_Fortran "generate_databases_subs.f90")
+add_library(databases_subs_objs OBJECT ${SOURCES_Fortran})
+target_link_libraries(databases_subs_objs PRIVATE shared_objs
+                      cuda_objs generate_databases_objs shared_fwat_objs
 )
 
 # executables
@@ -20,7 +24,7 @@ foreach(execsourcefile ${APP_SOURCES})
 
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   target_link_libraries(${EXEC_NAME} PUBLIC
-                        shared_objs mesh_databases_objs
+                        shared_objs databases_subs_objs mesh_subs_objs
                         generate_databases_objs cuda_objs
                         meshfem3D_objs external_values_objs
                         utils_objs hdf5_interface_objs config_objs

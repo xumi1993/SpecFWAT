@@ -3,7 +3,6 @@ module kernel_io
   use input_params, only: fpar => fwat_par_global
   use fwat_mpi
   use config
-  use specfem_par
   use external_model
   use projection_on_FD_grid_fwat
 
@@ -14,6 +13,8 @@ module kernel_io
 contains
 
   subroutine read_mesh_databases_minimum(is_read_database)
+    use specfem_par
+
     logical, intent(in) :: is_read_database
     character(len=MAX_STRING_LEN) :: database_name
 
@@ -25,6 +26,7 @@ contains
       ! reads in external mesh
       call read_mesh_databases()
     endif
+    NSPEC_FWAT = NSPEC_AB
     ! call synchronize_all()
 
     call check_mesh_distances(worldrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
@@ -44,6 +46,55 @@ contains
 
   end subroutine read_mesh_databases_minimum
 
+  subroutine get_mesh_coord()
+    use meshfem3D_subs
+    ! real(kind=CUSTOM_REAL) :: x_min,x_max
+    ! real(kind=CUSTOM_REAL) :: y_min,y_max
+    ! real(kind=CUSTOM_REAL) :: z_min,z_max
+
+    call meshfem3D_fwat(fpar%sim%MESH_PAR_FILE)
+    NSPEC_FWAT = NSPEC_AB
+
+    ! ! initializes
+    ! x_min_glob = HUGEVAL
+    ! x_max_glob = -HUGEVAL
+
+    ! y_min_glob = HUGEVAL
+    ! y_max_glob = -HUGEVAL
+
+    ! z_min_glob = HUGEVAL
+    ! z_max_glob = -HUGEVAL
+
+    ! model dimensions
+   
+    ! x_min_glob = minval(xstore_mesh)
+    ! x_max_glob = maxval(xstore_mesh)
+
+    ! y_min_glob = minval(ystore_mesh)
+    ! y_max_glob = maxval(ystore_mesh)
+
+    ! z_min_glob = minval(zstore_mesh)
+    ! z_max_glob = maxval(zstore_mesh)
+
+    ! ! min and max dimensions of the model
+    ! x_min = x_min_glob
+    ! x_max = x_max_glob
+    ! call min_all_cr(x_min,x_min_glob)
+    ! call max_all_cr(x_max,x_max_glob)
+
+    ! y_min = y_min_glob
+    ! y_max = y_max_glob
+    ! call min_all_cr(y_min,y_min_glob)
+    ! call max_all_cr(y_max,y_max_glob)
+
+    ! z_min = z_min_glob
+    ! z_max = z_max_glob
+    ! call min_all_cr(z_min,z_min_glob)
+    ! call max_all_cr(z_max,z_max_glob)
+
+    call synchronize_all()
+  end subroutine get_mesh_coord
+
   subroutine read_event_kernel(ievt, dataname, data)
     integer, intent(in) :: ievt
     character(len=*), intent(in) :: dataname
@@ -59,7 +110,7 @@ contains
       call exit_mpi(myrank,'Error opening database file')
     endif
 
-    allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
+    allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT),stat=ier)
     read(IIN) data
     close(IIN)
 
@@ -89,7 +140,7 @@ contains
       call exit_mpi(myrank,'Error opening database file')
     endif
 
-    allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
+    allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT),stat=ier)
     read(IIN) data
     close(IIN)
 

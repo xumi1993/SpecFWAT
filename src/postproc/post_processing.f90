@@ -33,15 +33,16 @@ contains
     logical, intent(in) :: is_read_database
     integer :: itype
 
-    call read_mesh_databases_minimum(is_read_database)
+    ! call read_mesh_databases_minimum(is_read_database)
 
     call get_kernel_names()
 
     call create_grid()
 
-    call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name))
+    ! call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name))
 
     call log%init('output_post_processing_'//trim(model_name)//'.log')
+    call log%write('*******************************************', .false.)
 
   end subroutine init_post_flow
 
@@ -53,20 +54,35 @@ contains
     ! set simu type
     simu_type = INV_TYPE_NAMES(itype)
     call fpar%select_simu_type()
-    
+
     ! read src_rec for this data type
     call get_dat_type()
 
     ! read src_rec for this data type
     call fpar%acqui%read()
-
-    call log%write('*******************************************', .false.)
+    
+    ! setup mesh
+    call get_mesh_coord()
+    
     call log%write('Simulation type: '//trim(simu_type), .false.)
-    write(msg, '(a, F12.2, F12.2)') 'Smoothing: ', fpar%sim%SIGMA_H, fpar%sim%SIGMA_V
+    if (fpar%postproc%SMOOTH_TYPE == 1) then
+      write(msg, '(a,I4,I4,I4)') 'Multi-grid smoothing: ', fpar%postproc%ninv(1), &
+                                  fpar%postproc%ninv(2), fpar%postproc%ninv(3)
+    else
+      write(msg, '(a, F12.2, F12.2)') 'PDE Smoothing: ', fpar%sim%SIGMA_H, fpar%sim%SIGMA_V
+    end if
     call log%write(msg, .false.)
-    write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_PRECOND
+    if (is_joint) then
+      write(msg, '(a)') 'Preconditioned L-BFGS'
+    else
+      write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_PRECOND
+    endif
     call log%write(msg, .false.)
-    write(msg, '(a, I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE
+    if (is_joint) then
+      write(msg, '(a,I3)') 'Precondition type: ', tele_par%PRECOND_TYPE
+    else
+      write(msg, '(a,I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE
+    endif
     call log%write(msg, .false.)
     write(msg, '(a, L5)') 'USE_RHO_SCALING: ', fpar%sim%USE_RHO_SCALING
     call log%write(msg, .false.)
@@ -75,14 +91,14 @@ contains
     if (worldrank == 0) then
       if (is_joint) then
         this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(simu_type)
-        call system('mkdir -p '//trim(this%kernel_path))
       else
         this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
       endif
+      call system('mkdir -p '//trim(this%kernel_path))
     endif
     call synchronize_all()
 
-    this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB, nkernel)
+    this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT, nkernel)
     call prepare_shm_array_cr_4d(this%ker_data_smooth, MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel, this%ks_win)
   end subroutine init_for_type
   
@@ -117,9 +133,8 @@ contains
     type(InvGrid) :: inv
 
     call log%write('This is applying preconditioned kernels...', .true.)
-    total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
     if (simu_type /= SIMU_TYPE_TELE) then
-      ! total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
+      total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)
         total_hess = total_hess + abs(ker)
@@ -188,6 +203,7 @@ contains
 
     do iker = 1, nkernel
       if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
+        call log%write('This is scaling for rhop kernels...', .true.)
         this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
       else
         call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
@@ -215,7 +231,6 @@ contains
 
     call write_grid_kernel_smooth(this%ker_data_smooth, fname)
 
-  
   end subroutine write_gradient_grid
 
   subroutine smooth_kernel(this)
@@ -255,7 +270,7 @@ contains
                     fpar%postproc%TAPER_V_SUPPRESS, &
                     fpar%postproc%TAPER_V_BUFFER)
     do iker = 1, nkernel
-      do ispec = 1, NSPEC_AB
+      do ispec = 1, NSPEC_FWAT
         do igllx = 1, NGLLX
           do iglly = 1, NGLLY
             do igllz = 1, NGLLZ
@@ -279,11 +294,13 @@ contains
     real(kind=cr) :: dh, val
     call log%write('This is tapering kernels...', .true.)
 
-    dh = (distance_max_glob+distance_min_glob)/2.0_cr
+    ! dh = (distance_max_glob+distance_min_glob)/2.0_cr
     call tap%create(MEXT_V%x(1), MEXT_V%x(MEXT_V%nx),&
                     MEXT_V%y(1), MEXT_V%y(MEXT_V%ny),&
                     MEXT_V%z(1), MEXT_V%z(MEXT_V%nz), &
-                    dh, dh, dh, &
+                    fpar%grid%regular_grid_interval(1),&
+                    fpar%grid%regular_grid_interval(2),&
+                    fpar%grid%regular_grid_interval(3),&
                     fpar%postproc%TAPER_H_SUPPRESS, &
                     fpar%postproc%TAPER_H_BUFFER, &
                     fpar%postproc%TAPER_V_SUPPRESS, &
@@ -291,14 +308,15 @@ contains
     
     if (worldrank == 0) then
       do iker = 1, nkernel
-        do i = 1, MEXT_V%nx
-          do j = 1, MEXT_V%ny
-            do k = 1, MEXT_V%nz
-              val = tap%interp(MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
-              this%ker_data_smooth(i,j,k,iker) = this%ker_data_smooth(i,j,k,iker) * val
-            enddo
-          enddo
-        enddo
+      !   do i = 1, MEXT_V%nx
+      !     do j = 1, MEXT_V%ny
+      !       do k = 1, MEXT_V%nz
+      !         val = tap%interp(MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
+      !         this%ker_data_smooth(i,j,k,iker) = this%ker_data_smooth(i,j,k,iker) * val
+      !       enddo
+      !     enddo
+      !   enddo
+        this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,iker) * tap%taper
       enddo
     endif
     call sync_from_main_rank_cr_4d(this%ker_data_smooth, MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
@@ -313,7 +331,7 @@ contains
   ! H_nn = \frac{ \partial^2 \chi }{ \partial \rho_n \partial \rho_n }
   ! on all GLL points, which are indexed (i,j,k,ispec)
 
-    real(kind=cr), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_AB) :: hess_matrix
+    real(kind=cr), dimension(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT) :: hess_matrix
 
     ! local parameters
     real(kind=cr) :: maxh,maxh_all
@@ -377,7 +395,7 @@ contains
   end subroutine write
 
   subroutine remove_ekernel(this)
-    use specfem_par
+    use shared_parameters
     class(PostFlow), intent(inout) :: this
     integer :: ievt
 
@@ -427,7 +445,7 @@ contains
     enddo
 
     do iker = 1, nkernel
-      total_kernel = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
+      total_kernel = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
         type_name = INV_TYPE_NAMES(itype)
@@ -459,6 +477,7 @@ contains
       total_kernel = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
+        type_name = INV_TYPE_NAMES(itype)
         call calc_kernel0_weight_grid(itype, norm_val)
         fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(type_name)//'.h5'
         call read_grid_kernel_smooth(fname, kernel)
@@ -480,7 +499,7 @@ contains
 
     max_ker = zeros(nkernel)
     type_name = INV_TYPE_NAMES(itype)
-    output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(type_name)
+    output_dir = trim(OPT_DIR)//'/SUM_KERNELS_M00_'//trim(type_name)
     do iker = 1, nkernel
       call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel_data)
       max_local = maxval( abs(kernel_data))
@@ -497,7 +516,7 @@ contains
     real(kind=cr), intent(out) :: max_global
     character(len=MAX_STRING_LEN) :: fname
 
-    fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(INV_TYPE_NAMES(itype))//'.h5'
+    fname = trim(OPT_DIR)//'/gradient_M00_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
     max_global = maxval( abs(kernel_data))
 
@@ -505,7 +524,7 @@ contains
 
   subroutine finalize(this)
     class(PostFlow), intent(inout) :: this
-    call log%write('This is finalizing post-processing...', .true.)
+    call log%write('This is finalizing post-processing of '//trim(simu_type)//'...', .true.)
     call log%write('*******************************************', .false.)
     call free_shm_array(this%ks_win)
   end subroutine finalize
