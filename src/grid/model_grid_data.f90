@@ -35,6 +35,9 @@ contains
     MEXT_V%nx = nx_fd_proj
     MEXT_V%ny = ny_fd_proj
     MEXT_V%nz = nz_fd_proj
+    MEXT_V%dx = hx_fd_proj
+    MEXT_V%dy = hy_fd_proj
+    MEXT_V%dz = hz_fd_proj
 
     call synchronize_all()
   end subroutine create_grid
@@ -55,22 +58,22 @@ contains
 
   end subroutine database2model
 
-  subroutine model_gll2grid(grid_model)
-    real(kind=cr), dimension(:,:,:,:,:), allocatable :: gll_data
-    real(kind=cr), dimension(:,:,:), allocatable :: gm
-    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: grid_model
-    integer :: ier, i
+  ! subroutine model_gll2grid(grid_model)
+  !   real(kind=cr), dimension(:,:,:,:,:), allocatable :: gll_data
+  !   real(kind=cr), dimension(:,:,:), allocatable :: gm
+  !   real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: grid_model
+  !   integer :: ier, i
     
-    allocate(grid_model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel), stat=ier)
-    grid_model = 0.0_cr
+  !   allocate(grid_model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel), stat=ier)
+  !   grid_model = 0.0_cr
 
-    call database2model(gll_data)
+  !   call database2model(gll_data)
 
-    do i = 1, nkernel
-      call gll2grid(gll_data(:,:,:,:,i), gm, .true.)
-      grid_model(:,:,:,i) = gm
-    end do
-  end subroutine model_gll2grid
+  !   do i = 1, nkernel
+  !     call gll2grid(gll_data(:,:,:,:,i), gm, .true.)
+  !     grid_model(:,:,:,i) = gm
+  !   end do
+  ! end subroutine model_gll2grid
 
   subroutine write_grid_model(filename, grid_model)
     real(kind=cr), dimension(:,:,:,:), intent(in) :: grid_model
@@ -177,43 +180,43 @@ contains
     endif
   end subroutine read_grid_model
   
-  subroutine gll2grid(data, grid_data, is_replace_zero)
-    real(kind=cr), dimension(:,:,:,:), intent(in) :: data
-    real(kind=cr), dimension(:,:,:,:), allocatable :: dat
-    real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
-    logical, intent(in) :: is_replace_zero
-    integer :: i, j, k, ier
-    type(profd)  :: projection_fd
+  ! subroutine gll2grid(data, grid_data, is_replace_zero)
+  !   real(kind=cr), dimension(:,:,:,:), intent(in) :: data
+  !   real(kind=cr), dimension(:,:,:,:), allocatable :: dat
+  !   real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
+  !   logical, intent(in) :: is_replace_zero
+  !   integer :: i, j, k, ier
+  !   type(profd)  :: projection_fd
 
-    dat = data
+  !   dat = data
 
-    call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
-    call zwgljd(yigll,wygll,NGLLY,GAUSSALPHA,GAUSSBETA)
-    call zwgljd(zigll,wzgll,NGLLZ,GAUSSALPHA,GAUSSBETA)
+  !   call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
+  !   call zwgljd(yigll,wygll,NGLLY,GAUSSALPHA,GAUSSBETA)
+  !   call zwgljd(zigll,wzgll,NGLLZ,GAUSSALPHA,GAUSSBETA)
  
-    call compute_interpolation_coeff_FD_SEM(projection_fd, worldrank)
-    call Project_model_SEM2FD_grid(dat, grid_data, projection_fd, worldrank)
+  !   call compute_interpolation_coeff_FD_SEM(projection_fd, worldrank)
+  !   call Project_model_SEM2FD_grid(dat, grid_data, projection_fd, worldrank)
     
-    if (is_replace_zero .and. worldrank == 0) then
-      do i=1,projection_fd%nx
-        do j=1,projection_fd%ny
-          do k=1,projection_fd%nz
-            if (grid_data(i,j,k) == 0) then
-              if (MEXT_V%z(k)>=0) then
-                call find_nearestZ_nonzero(grid_data,i,j,k,&
-                      projection_fd%nx,projection_fd%ny,projection_fd%nz)
-              else
-                call find_nearestXY_nonzero(grid_data,i,j,k,&
-                      projection_fd%nx,projection_fd%ny,projection_fd%nz)
-              endif
-            endif
-          enddo
-        enddo
-      enddo
-    endif
-    call synchronize_all()
+  !   if (is_replace_zero .and. worldrank == 0) then
+  !     do i=1,projection_fd%nx
+  !       do j=1,projection_fd%ny
+  !         do k=1,projection_fd%nz
+  !           if (grid_data(i,j,k) == 0) then
+  !             if (MEXT_V%z(k)>=0) then
+  !               call find_nearestZ_nonzero(grid_data,i,j,k,&
+  !                     projection_fd%nx,projection_fd%ny,projection_fd%nz)
+  !             else
+  !               call find_nearestXY_nonzero(grid_data,i,j,k,&
+  !                     projection_fd%nx,projection_fd%ny,projection_fd%nz)
+  !             endif
+  !           endif
+  !         enddo
+  !       enddo
+  !     enddo
+  !   endif
+  !   call synchronize_all()
 
-  end subroutine gll2grid
+  ! end subroutine gll2grid
 
 
 

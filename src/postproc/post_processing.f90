@@ -9,7 +9,9 @@ module post_processing
   use taper3d
   use common_lib, only: get_dat_type, get_kernel_names
   use multigrid
-  use model_grid_data
+  use shared_parameters
+  use model_grid_data, only: read_grid_kernel_smooth, create_grid,&
+                              write_grid_kernel_smooth, write_grid
 
   implicit none
 
@@ -22,9 +24,7 @@ module post_processing
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
     procedure :: sum_kernel, init=>init_post_flow, sum_precond, write, init_for_type,&
-                 smooth_kernel, write_gradient_grid,sum_joint_kernel, taper_kernel, &
-                 remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
-    procedure, private :: calc_kernel0_std_weight
+                 write_gradient_grid, remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
   end type PostFlow
 contains
 
@@ -65,12 +65,8 @@ contains
     call get_mesh_coord()
     
     call log%write('Simulation type: '//trim(simu_type), .false.)
-    if (fpar%postproc%SMOOTH_TYPE == 1) then
-      write(msg, '(a,I4,I4,I4)') 'Multi-grid smoothing: ', fpar%postproc%ninv(1), &
-                                  fpar%postproc%ninv(2), fpar%postproc%ninv(3)
-    else
-      write(msg, '(a, F12.2, F12.2)') 'PDE Smoothing: ', fpar%sim%SIGMA_H, fpar%sim%SIGMA_V
-    end if
+    write(msg, '(a,I4,I4,I4)') 'Multi-grid smoothing: ', fpar%postproc%ninv(1), &
+                                fpar%postproc%ninv(2), fpar%postproc%ninv(3)
     call log%write(msg, .false.)
     if (is_joint) then
       write(msg, '(a)') 'Preconditioned L-BFGS'
@@ -233,60 +229,6 @@ contains
 
   end subroutine write_gradient_grid
 
-  subroutine smooth_kernel(this)
-    use smooth_mod, only: smooth_sem_pde
-    class(PostFlow), intent(inout) :: this
-    integer :: iker
-    real(kind=cr), dimension(:,:,:,:), allocatable :: ker
-    character(len=MAX_STRING_LEN) :: msg
-
-    do iker = 1, nkernel
-      if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
-        call log%write('This is scaling for rhop kernels...', .true.)
-        this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,2) * RHO_SCALING_FAC
-      else
-        call log%write('This is smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
-        call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%SIGMA_H, fpar%sim%SIGMA_V, ker)
-        this%ker_data(:,:,:,:,iker) = ker
-      endif
-    enddo
-    call synchronize_all()
-  
-  end subroutine smooth_kernel
-
-  subroutine taper_kernel(this)
-    class(PostFlow), intent(inout) :: this
-    type(taper_cls) :: tap
-    integer :: iker
-    real(kind=cr) :: dh, val
-    integer :: ispec, igllx, iglly, igllz, iglob
-
-    call log%write('This is tapering kernels...', .true.)
-    dh = (distance_max_glob+distance_min_glob)/2.0_cr
-    call tap%create(x_min_glob, x_max_glob, y_min_glob, y_max_glob,&
-                    z_min_glob, z_max_glob, dh, dh, dh, &
-                    fpar%postproc%TAPER_H_SUPPRESS, &
-                    fpar%postproc%TAPER_H_BUFFER, &
-                    fpar%postproc%TAPER_V_SUPPRESS, &
-                    fpar%postproc%TAPER_V_BUFFER)
-    do iker = 1, nkernel
-      do ispec = 1, NSPEC_FWAT
-        do igllx = 1, NGLLX
-          do iglly = 1, NGLLY
-            do igllz = 1, NGLLZ
-              iglob = ibool(igllx,iglly,igllz,ispec)
-              val = tap%interp(xstore(iglob), ystore(iglob), zstore(iglob))
-              this%ker_data(igllx,iglly,igllz,ispec,iker) = this%ker_data(igllx,iglly,igllz,ispec,iker) * val
-            enddo
-          enddo
-        enddo
-      enddo
-    enddo
-    call tap%Destroy()
-    call synchronize_all()
-
-  end subroutine taper_kernel
-
   subroutine taper_kernel_grid(this)
     class(PostFlow), intent(inout) :: this
     type(taper_cls) :: tap
@@ -395,75 +337,36 @@ contains
   end subroutine write
 
   subroutine remove_ekernel(this)
-    use shared_parameters
     class(PostFlow), intent(inout) :: this
     integer :: ievt
 
     if (is_output_event_kernel) return
 
     do ievt = 1, fpar%acqui%nevents
-      if (ELASTIC_SIMULATION) then
-        if (ANISOTROPIC_KL) then
-          if (SAVE_TRANSVERSE_KL) then
-            call remove_event_kernel(ievt, 'alphav_kernel')
-            call remove_event_kernel(ievt, 'alphah_kernel')
-            call remove_event_kernel(ievt, 'betav_kernel')
-            call remove_event_kernel(ievt, 'betah_kernel')
-            call remove_event_kernel(ievt, 'eta_kernel')
-          else
-            call remove_event_kernel(ievt, 'rho_kernel')
-            call remove_event_kernel(ievt, 'cijkl_kernel')
-          endif
+      if (ANISOTROPIC_KL) then
+        if (SAVE_TRANSVERSE_KL) then
+          call remove_event_kernel(ievt, 'alphav_kernel')
+          call remove_event_kernel(ievt, 'alphah_kernel')
+          call remove_event_kernel(ievt, 'betav_kernel')
+          call remove_event_kernel(ievt, 'betah_kernel')
+          call remove_event_kernel(ievt, 'eta_kernel')
         else
           call remove_event_kernel(ievt, 'rho_kernel')
-          call remove_event_kernel(ievt, 'mu_kernel')
-          call remove_event_kernel(ievt, 'kappa_kernel')
-          call remove_event_kernel(ievt, 'rhop_kernel')
-          call remove_event_kernel(ievt, 'beta_kernel')
-          call remove_event_kernel(ievt, 'alpha_kernel')
+          call remove_event_kernel(ievt, 'cijkl_kernel')
         endif
+      else
+        call remove_event_kernel(ievt, 'rho_kernel')
+        call remove_event_kernel(ievt, 'mu_kernel')
+        call remove_event_kernel(ievt, 'kappa_kernel')
+        call remove_event_kernel(ievt, 'rhop_kernel')
+        call remove_event_kernel(ievt, 'beta_kernel')
+        call remove_event_kernel(ievt, 'alpha_kernel')
       endif
       call remove_event_kernel(ievt, 'hess_kernel')
     enddo
     call synchronize_all()
 
   end subroutine remove_ekernel
-
-  subroutine sum_joint_kernel(this)
-    class(PostFlow), intent(inout) :: this
-    real(kind=cr), dimension(:,:,:,:),allocatable :: kernel1, total_kernel
-    real(kind=cr) :: norm, norm_glob
-    integer :: iker, itype
-    real(kind=cr), dimension(NUM_INV_TYPE) :: norm_val
-    character(len=MAX_STRING_LEN) :: output_dir, type_name, msg
-
-    call log%write('This is taking sum of kernels for joint inversion...', .true.)
-
-    do itype = 1, NUM_INV_TYPE
-      if (.not. fpar%postproc%INV_TYPE(itype)) cycle
-      call this%calc_kernel0_std_weight(itype, norm_val(itype))
-    enddo
-
-    do iker = 1, nkernel
-      total_kernel = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
-      do itype = 1, NUM_INV_TYPE
-        if (.not. fpar%postproc%INV_TYPE(itype)) cycle
-        type_name = INV_TYPE_NAMES(itype)
-        output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(type_name)
-        call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel1)
-        kernel1 = fpar%postproc%JOINT_WEIGHT(itype)*kernel1 / norm_val(itype)
-        norm = maxval(abs(kernel1))
-        call max_all_cr(norm, norm_glob)
-        write(msg, '(a,e13.8)') 'Max '//trim(kernel_names(iker))//' kernel of '//trim(type_name)//&
-                               ': ', norm_glob
-        call log%write(msg, .true.)
-        total_kernel = total_kernel + kernel1
-      enddo
-      ! output_dir = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
-      call write_kernel(trim(kernel_names(iker))//'_kernel_smooth', total_kernel, .false.)
-    enddo
-
-  end subroutine sum_joint_kernel
 
   subroutine sum_joint_kernel_grid()
     integer :: itype, iker
@@ -488,27 +391,6 @@ contains
     endif
 
   end subroutine sum_joint_kernel_grid
-
-  subroutine calc_kernel0_std_weight(this, itype, max_global)
-    class(PostFlow), intent(inout) :: this
-    real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: kernel_data
-    real(kind=cr) :: max_local, max_global
-    real(kind=cr), dimension(:), allocatable :: max_ker
-    integer :: n, itype, iker, i
-    character(len=MAX_STRING_LEN) :: type_name, output_dir, model0
-
-    max_ker = zeros(nkernel)
-    type_name = INV_TYPE_NAMES(itype)
-    output_dir = trim(OPT_DIR)//'/SUM_KERNELS_M00_'//trim(type_name)
-    do iker = 1, nkernel
-      call read_kernel(output_dir, trim(kernel_names(iker))//'_kernel_smooth', kernel_data)
-      max_local = maxval( abs(kernel_data))
-      call max_all_dp(max_local, max_ker(iker))
-      call bcast_all_singledp(max_ker(iker))
-    enddo
-    max_global = maxval(max_ker(:))
-    call synchronize_all()
-  end subroutine calc_kernel0_std_weight
 
   subroutine calc_kernel0_weight_grid(itype, max_global)
     integer, intent(in) :: itype

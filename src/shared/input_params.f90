@@ -36,7 +36,7 @@ module input_params
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE, TELE_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
-    real(kind=cr) :: DT, SIGMA_H, SIGMA_V
+    real(kind=cr) :: DT
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING, SAVE_FK
     type(rf_params) :: rf
@@ -241,8 +241,6 @@ contains
         this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
         this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
         this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
-        this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
-        this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
         this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
 
         ! read parameters for teleseismic FWI
@@ -272,8 +270,6 @@ contains
         call read_real_list(list, this%sim%LONG_P)
         this%sim%NUM_FILTER = 1
         this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
-        this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
-        this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
         this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
         this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
         compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
@@ -379,8 +375,6 @@ contains
     call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
     call bcast_all_singlel(noise_par%SUPPRESS_EGF)
     call bcast_all_singlel(noise_par%USE_RHO_SCALING)
-    call bcast_all_singlecr(noise_par%SIGMA_H)
-    call bcast_all_singlecr(noise_par%SIGMA_V)
     if (worldrank > 0) then
       allocate(noise_par%RCOMPS(noise_par%NRCOMP))
       allocate(noise_par%SCOMPS(noise_par%NSCOMP))
@@ -411,8 +405,6 @@ contains
     call bcast_all_singlecr(tele_par%rf%MINDERR)
     call bcast_all_singlecr(tele_par%rf%TSHIFT)
     call bcast_all_singlei(tele_par%rf%NGAUSS)
-    call bcast_all_singlecr(tele_par%SIGMA_H)
-    call bcast_all_singlecr(tele_par%SIGMA_V)
     call bcast_all_singlel(tele_par%USE_RHO_SCALING)
     call bcast_all_singlel(tele_par%SAVE_FK)
     call bcast_all_singlei(compress_level)

@@ -1,5 +1,4 @@
 program fwat_optimize
-  use optimize, only: OptFlow
   use optimize_grid, only: OptGridFlow
   use fwat_mpi
   use config

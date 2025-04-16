@@ -42,17 +42,7 @@ program fwat_post_proc
         call fpp%taper_kernel_grid()
 
         call fpp%write_gradient_grid()
-      elseif (fpar%postproc%SMOOTH_TYPE == 2) then
-        call log%write('PDE smoothing will not be applied', .false.)
-        call exit_MPI(0, 'PDE smoothing will not be applied')
-        ! ! smooth kernels
-        ! call fpp%smooth_kernel()
 
-        ! ! taper kernels
-        ! call fpp%taper_kernel()
-
-        ! ! write kernels
-        ! call fpp%write(.true.)
       else
         call log%write('No smoothing applied', .false.)
       endif
@@ -69,13 +59,7 @@ program fwat_post_proc
   end do
 
   if (is_joint) then
-    if (fpar%postproc%SMOOTH_TYPE == 1) then
-      call sum_joint_kernel_grid()
-    elseif (fpar%postproc%SMOOTH_TYPE == 2) then
-      call fpp%sum_joint_kernel()
-    else
-      call log%write('No smoothing applied', .false.)
-    endif
+    call sum_joint_kernel_grid()
   endif
 
   call log%write('*******************************************', .false.)

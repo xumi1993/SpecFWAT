@@ -53,6 +53,7 @@
       real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp, vs, rho
       real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: qkappa_atten, qmu_atten
       real(kind=CUSTOM_REAL), dimension(:), allocatable :: x, y, z
+      real(kind=CUSTOM_REAL) :: dx, dy, dz
       integer nx, ny, nz
     end type model_external_variables
   type (model_external_variables) MEXT_V

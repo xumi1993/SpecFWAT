@@ -5,7 +5,6 @@ module projection_on_FD_grid_fwat
        NGLOB_AB, ibool, xstore, ystore, zstore,  NUM_ITER, NGNOD, xigll, yigll, zigll, NPROC, HUGEVAL, &
        MIDX, MIDY, MIDZ, CUSTOM_REAL, MAX_STRING_LEN
   use fwat_mpi
-!   use fullwave_adjoint_tomo_par
 
   !! IMPORT INVERSE_PROBLEM VARIABLES ---------------------------------------------------------------------------------------------
 !   use inverse_problem_par
