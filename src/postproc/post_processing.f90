@@ -23,7 +23,7 @@ module post_processing
     integer :: nker, ks_win
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init=>init_post_flow, sum_precond, write, init_for_type,&
+    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,&
                  write_gradient_grid, remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
   end type PostFlow
 contains
@@ -110,9 +110,11 @@ contains
         call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
         this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
       enddo
+      if (is_output_event_kernel) then
+        call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
+      endif
     enddo
     call synchronize_all()
-    if (is_output_sum_kernel) call this%write(.false.)
   
   end subroutine sum_kernel
 
@@ -311,30 +313,6 @@ contains
     !hess_matrix = hess_matrix * maxh_all
 
   end subroutine invert_hess
-
-  subroutine write(this, is_smooth)
-    class(PostFlow), intent(inout) :: this
-    logical, intent(in) :: is_smooth
-    integer :: iker, ievt
-    character(len=MAX_STRING_LEN) :: suffix 
-    logical :: is_simu_type
-
-    if (is_smooth) then
-      suffix = '_kernel_smooth'
-    else
-      suffix = '_kernel'
-    endif
-
-    if (is_joint) then
-      is_simu_type = .true.
-    else
-      is_simu_type = .false.
-    endif
-    do iker = 1, nkernel
-      call write_kernel(trim(kernel_names(iker))//trim(suffix), this%ker_data(:,:,:,:,iker), is_simu_type)
-    enddo
-
-  end subroutine write
 
   subroutine remove_ekernel(this)
     class(PostFlow), intent(inout) :: this

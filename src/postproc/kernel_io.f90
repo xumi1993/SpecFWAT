@@ -167,16 +167,10 @@ contains
 
   end subroutine read_kernel
 
-  subroutine write_kernel(dataname, data, is_simu_type)
+  subroutine write_kernel(path, dataname, data)
     character(len=*), intent(in) :: dataname
-    logical, optional, intent(in) :: is_simu_type
     real(kind=cr), dimension(:,:,:,:), intent(in) :: data
     character(len=MAX_STRING_LEN) :: path
-
-    path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
-    if (present(is_simu_type) .and. is_simu_type) then
-      path = path//'_'//trim(simu_type)
-    endif
 
     call create_name_database(fprname, worldrank, path)
     ! path = fprname(1:len_trim(fprname))//'/'//trim(dataname)
