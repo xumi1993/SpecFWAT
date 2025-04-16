@@ -92,6 +92,7 @@ contains
       endif
       call system('mkdir -p '//trim(this%kernel_path))
     endif
+    call bcast_all_ch_array(this%kernel_path, 1, MAX_STRING_LEN)
     call synchronize_all()
 
     this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT, nkernel)

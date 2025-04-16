@@ -89,7 +89,8 @@ module config
                    elemsize_min_glob,elemsize_max_glob, &
                    distance_min_glob,distance_max_glob
   integer :: NSPEC_FWAT
-  real(kind=cr), dimension(:,:,:,:), allocatable :: xstore_fwat, ystore_fwat, zstore_fwat
+  real(kind=cr), dimension(:), allocatable :: xstore_fwat, ystore_fwat, zstore_fwat
+  integer, dimension(:,:,:,:), allocatable :: ibool_fwat
 
   ! post
   logical :: is_joint

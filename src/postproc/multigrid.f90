@@ -115,16 +115,16 @@ contains
         do i = 1, NGLLX
           do j = 1, NGLLY
             do k = 1, NGLLZ
-              ! iglob = ibool(i, j, k, ispec)
-              call locate_bissection(dble(this%xinv(:, igrid)), this%ninvx, dble(xstore_fwat(i, j, k, ispec)), idx)
+              iglob = ibool_fwat(i, j, k, ispec)
+              call locate_bissection(dble(this%xinv(:, igrid)), this%ninvx, dble(xstore_fwat(iglob)), idx)
               if (idx == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: x is out of boundary')
-              wx = (xstore_fwat(i, j, k, ispec) - this%xinv(idx, igrid)) / (this%xinv(idx+1, igrid) - this%xinv(idx, igrid))
-              call locate_bissection(dble(this%yinv(:, igrid)), this%ninvy, dble(ystore_fwat(i, j, k, ispec)), idy)
+              wx = (xstore_fwat(iglob) - this%xinv(idx, igrid)) / (this%xinv(idx+1, igrid) - this%xinv(idx, igrid))
+              call locate_bissection(dble(this%yinv(:, igrid)), this%ninvy, dble(ystore_fwat(iglob)), idy)
               if (idy == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: y is out of boundary')
-              wy = (ystore_fwat(i, j, k, ispec) - this%yinv(idy, igrid)) / (this%yinv(idy+1, igrid) - this%yinv(idy, igrid))
-              call locate_bissection(dble(this%zinv(:, igrid)), this%ninvz, dble(zstore_fwat(i, j, k, ispec)), idz)
+              wy = (ystore_fwat(iglob) - this%yinv(idy, igrid)) / (this%yinv(idy+1, igrid) - this%yinv(idy, igrid))
+              call locate_bissection(dble(this%zinv(:, igrid)), this%ninvz, dble(zstore_fwat(iglob)), idz)
               if (idz == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: z is out of boundary')
-              wz = (zstore_fwat(i, j, k, ispec) - this%zinv(idz, igrid)) / (this%zinv(idz+1, igrid) - this%zinv(idz, igrid))
+              wz = (zstore_fwat(iglob) - this%zinv(idz, igrid)) / (this%zinv(idz+1, igrid) - this%zinv(idz, igrid))
               do n = 1, 8
                 select case (n)
                   case (1)

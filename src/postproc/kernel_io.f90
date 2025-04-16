@@ -48,7 +48,9 @@ contains
 
   subroutine get_mesh_coord()
     use meshfem3D_subs, only: meshfem3D_fwat
-    use generate_databases_subs
+    use generate_databases_subs, only: generate_databases_fwat
+    use create_regions_mesh_ext_par, only: xstore_unique, ystore_unique, zstore_unique
+    use generate_databases_par, only: ibool, NSPEC_AB
     real(kind=cr) :: x_min,x_max
     real(kind=cr) :: y_min,y_max
     real(kind=cr) :: z_min,z_max
@@ -57,9 +59,10 @@ contains
     call meshfem3D_fwat(fpar%sim%MESH_PAR_FILE)
     call generate_databases_fwat(.false.)
     NSPEC_FWAT = NSPEC_AB
-    xstore_fwat = xstore
-    ystore_fwat = ystore
-    zstore_fwat = zstore
+    xstore_fwat = xstore_unique
+    ystore_fwat = ystore_unique
+    zstore_fwat = zstore_unique
+    ibool_fwat = ibool
   
     x_min = minval(xstore_fwat)
     x_max = maxval(xstore_fwat)
@@ -79,6 +82,15 @@ contains
 
     call min_all_cr(z_min,z_min_glob)
     call max_all_cr(z_max,z_max_glob)
+
+    if (worldrank == 0) then
+      write(0,*) 'x_min_glob:', x_min_glob
+      write(0,*) 'x_max_glob:', x_max_glob
+      write(0,*) 'y_min_glob:', y_min_glob
+      write(0,*) 'y_max_glob:', y_max_glob
+      write(0,*) 'z_min_glob:', z_min_glob
+      write(0,*) 'z_max_glob:', z_max_glob
+    endif
 
     if (worldrank == 0) then
       if (MEXT_V%x(1) > x_min_glob) then
@@ -170,10 +182,9 @@ contains
   subroutine write_kernel(path, dataname, data)
     character(len=*), intent(in) :: dataname
     real(kind=cr), dimension(:,:,:,:), intent(in) :: data
-    character(len=MAX_STRING_LEN) :: path
+    character(len=*), intent(in) :: path
 
     call create_name_database(fprname, worldrank, path)
-    ! path = fprname(1:len_trim(fprname))//'/'//trim(dataname)
     open(unit=IOUT, file=trim(fprname)//trim(dataname)//'.bin', status='replace', action='write', form='unformatted', iostat=ier)
     if (ier /= 0) then
       write(0, *) 'Error could not open database file: ',trim(fprname)//trim(dataname)//'.bin'
