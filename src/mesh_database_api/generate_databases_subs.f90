@@ -297,6 +297,9 @@ contains
   subroutine crm_ext_deallocate_arrays()
     use create_regions_mesh_ext_par
 
+    if (allocated(xstore_unique)) deallocate(xstore_unique)
+    if (allocated(ystore_unique)) deallocate(ystore_unique)
+    if (allocated(zstore_unique)) deallocate(zstore_unique)
     if (allocated(neighbors_adjncy)) deallocate(neighbors_adjncy)
     if (allocated(neighbors_xadj)) deallocate(neighbors_xadj)
     if (allocated(qkappa_attenuation_store)) deallocate(qkappa_attenuation_store)
