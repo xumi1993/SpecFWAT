@@ -62,6 +62,7 @@ module input_params
     real(kind=cr) :: MAX_SLEN, MAX_SHRINK
     logical :: DO_LS
     real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
+    character(len=MAX_STRING_LEN) :: INIT_MODEL_PATH
   end type update_params
 
   type fwat_params
@@ -345,6 +346,8 @@ contains
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: INIT_MODEL_PATH is not set')
         this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err)
         this%update%ITER_START = update%get_integer('ITER_START', error=io_err)
         this%update%LBFGS_M_STORE = update%get_integer('LBFGS_M_STORE', error=io_err)
@@ -471,6 +474,7 @@ contains
     call bcast_all_singlei(this%postproc%SMOOTH_TYPE)
 
     ! Model UPDATE
+    call bcast_all_ch_array(this%update%INIT_MODEL_PATH, 1, MAX_STRING_LEN)
     call bcast_all_singlei(this%update%MODEL_TYPE)
     call bcast_all_singlei(this%update%ITER_START)
     call bcast_all_singlei(this%update%LBFGS_M_STORE)

@@ -70,7 +70,7 @@ contains
     if(worldrank == 0) then
       this%model = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
       
-      call h5file%open(this%model_fname, status='old', action='read')
+      call h5file%open(fpar%update%INIT_MODEL_PATH, status='old', action='read')
       call h5file%get('/x', x)
       call h5file%get('/y', y)
       call h5file%get('/z', z)
