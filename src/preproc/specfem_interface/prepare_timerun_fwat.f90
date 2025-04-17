@@ -33,7 +33,8 @@
   use specfem_par_elastic
   use specfem_par_poroelastic
   use specfem_par_movie
-  use fk_coupling, only: read_fk_coupling_file
+  use fk_coupling, only: read_fk_coupling_file, check_fk_files, &
+                        couple_with_injection_prepare_boundary_fwat
   use input_params, only: fpar => fwat_par_global
 
   !! solving wavefield discontinuity problem with non-split-node scheme
@@ -100,10 +101,15 @@
   ! prepares coupling with injection boundary
   ! call couple_with_injection_prepare_boundary()
   if (COUPLE_WITH_INJECTION_TECHNIQUE .and. SIMULATION_TYPE==1) then
-    if (.not. fpar%sim%SAVE_FK) then
-      call couple_with_injection_prepare_boundary()
-    else
+    if (check_fk_files(evtid)) then
+      call log%write('Read FK wavefield for event '//trim(evtid), .true.)
       call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))
+    else
+      if (.not. fpar%sim%SAVE_FK) then
+        call couple_with_injection_prepare_boundary()
+      else
+        call couple_with_injection_prepare_boundary_fwat(evtid)
+      endif
     endif
   endif
 

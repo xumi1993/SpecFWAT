@@ -119,8 +119,8 @@ contains
           this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FORCESOLUTION_PREFIX)//'_'//trim(evtnm)
         else if (simu_type == SIMU_TYPE_TELE) then
           ! this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
-          this%src_solution_file(ievt) = 'DATA/'//trim(CMTSOLUTION_PREFIX)
           this%fkmodel_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FKMODEL_PREFIX)//'_'//trim(evtnm)
+          this%src_solution_file(ievt) = 'DATA/'//trim(CMTSOLUTION_PREFIX)
         endif
         this%evtid_names(ievt) = evtnm
         this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(dat_type)//'/'//trim(evtnm)

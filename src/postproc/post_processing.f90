@@ -14,6 +14,7 @@ module post_processing
                               write_grid_kernel_smooth, write_grid
 
   implicit none
+  character(len=MAX_STRING_LEN), private :: msg
 
   type PostFlow
     character(len=MAX_STRING_LEN), dimension(:), allocatable :: ker_names
@@ -49,7 +50,6 @@ contains
   subroutine init_for_type(this, itype)
     class(PostFlow), intent(inout) :: this
     integer, intent(in) :: itype
-    character(len=MAX_STRING_LEN) :: msg
 
     ! set simu type
     simu_type = INV_TYPE_NAMES(itype)
@@ -103,6 +103,7 @@ contains
     class(PostFlow), intent(inout) :: this
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
     integer :: iker, ievt
+    real(kind=cr) :: max_loc, min_loc, max_glob, min_glob
 
     call log%write('This is taking sum of kernels...', .true.)
     do iker = 1, nkernel
@@ -115,6 +116,14 @@ contains
         call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
       endif
     enddo
+    max_loc = maxval(this%ker_data)
+    min_loc = minval(this%ker_data)
+    call max_all_all_cr(max_loc, max_glob)
+    call min_all_all_cr(min_loc, min_glob)
+    write(msg, '(a,E0.9)') 'Max kernel value: ', max_glob
+    call log%write(msg, .false.)
+    write(msg, '(a,E0.9)') 'Min kernel value: ', min_glob
+    call log%write(msg, .false.)
     call synchronize_all()
   
   end subroutine sum_kernel
@@ -216,7 +225,6 @@ contains
 
   subroutine write_gradient_grid(this)
     class(PostFlow), intent(inout) :: this
-    character(len=MAX_STRING_LEN) :: msg
     integer :: iker, ievt
     character(len=MAX_STRING_LEN) :: fname, suffix
     logical :: is_simu_type
@@ -364,6 +372,9 @@ contains
         fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(type_name)//'.h5'
         call read_grid_kernel_smooth(fname, kernel)
         total_kernel = total_kernel + fpar%postproc%JOINT_WEIGHT(itype)*kernel/norm_val
+        write(msg, '(a,F18.6)') 'Max gradient of '//trim(type_name), &
+              fpar%postproc%JOINT_WEIGHT(itype)*maxval(abs(kernel))/norm_val
+        call log%write(msg, .false.)
       enddo
       fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'.h5'
       call write_grid_kernel_smooth(total_kernel, fname)

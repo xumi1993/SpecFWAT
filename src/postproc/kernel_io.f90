@@ -84,15 +84,6 @@ contains
     call max_all_cr(z_max,z_max_glob)
 
     if (worldrank == 0) then
-      write(0,*) 'x_min_glob:', x_min_glob
-      write(0,*) 'x_max_glob:', x_max_glob
-      write(0,*) 'y_min_glob:', y_min_glob
-      write(0,*) 'y_max_glob:', y_max_glob
-      write(0,*) 'z_min_glob:', z_min_glob
-      write(0,*) 'z_max_glob:', z_max_glob
-    endif
-
-    if (worldrank == 0) then
       if (MEXT_V%x(1) > x_min_glob) then
         write(msg, '(A,F20.6,A,F20.6)') 'Error: Min x: ',MEXT_V%x(1), &
               ' value of grid larger than x_min_glob:', x_min_glob
