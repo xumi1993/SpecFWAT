@@ -36,6 +36,7 @@
   use fk_coupling, only: read_fk_coupling_file, check_fk_files, &
                         couple_with_injection_prepare_boundary_fwat
   use input_params, only: fpar => fwat_par_global
+  use logger, only: log
 
   !! solving wavefield discontinuity problem with non-split-node scheme
   use wavefield_discontinuity_solver, only: &
@@ -101,14 +102,14 @@
   ! prepares coupling with injection boundary
   ! call couple_with_injection_prepare_boundary()
   if (COUPLE_WITH_INJECTION_TECHNIQUE .and. SIMULATION_TYPE==1) then
-    if (check_fk_files(evtid)) then
-      call log%write('Read FK wavefield for event '//trim(evtid), .true.)
+    if (check_fk_files(fpar%acqui%evtid_names(ievt))) then
+      call log%write('Read FK wavefield for event '//trim(fpar%acqui%evtid_names(ievt)), .true.)
       call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))
     else
       if (.not. fpar%sim%SAVE_FK) then
         call couple_with_injection_prepare_boundary()
       else
-        call couple_with_injection_prepare_boundary_fwat(evtid)
+        call couple_with_injection_prepare_boundary_fwat(fpar%acqui%evtid_names(ievt))
       endif
     endif
   endif
