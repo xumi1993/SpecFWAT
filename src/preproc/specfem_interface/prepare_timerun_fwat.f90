@@ -106,11 +106,13 @@
       call log%write('Read FK wavefield for event '//trim(fpar%acqui%evtid_names(ievt)), .true.)
       call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))
     else
+      call log%write('Calculating FK wavefield for event '//trim(fpar%acqui%evtid_names(ievt)), .true.)
       if (.not. fpar%sim%SAVE_FK) then
         call couple_with_injection_prepare_boundary()
       else
         call couple_with_injection_prepare_boundary_fwat(fpar%acqui%evtid_names(ievt))
       endif
+      call log%write('Finished calculating FK wavefield', .true.)
     endif
   endif
 
