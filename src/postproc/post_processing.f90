@@ -141,7 +141,7 @@ contains
     type(InvGrid) :: inv
 
     call log%write('This is applying preconditioned kernels...', .true.)
-    if (simu_type /= SIMU_TYPE_TELE) then
+    if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)

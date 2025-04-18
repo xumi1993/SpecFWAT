@@ -35,6 +35,7 @@
   use specfem_par_movie
   use config, only: run_mode, local_path_backup, simu_type, output_files_backup
   use fwat_constants, only: FORWARD_ADJOINT, SIMU_TYPE_TELE
+  use input_params, fpar => fwat_par_global
 
   use manager_adios
   use io_server_hdf5
@@ -88,7 +89,7 @@
   else
     SIMULATION_TYPE = 3
     SAVE_FORWARD = .true.
-    if (simu_type /= SIMU_TYPE_TELE) APPROXIMATE_HESS_KL=.true.
+    if (fpar%sim%PRECOND_TYPE == 1) APPROXIMATE_HESS_KL=.true.
   endif
 
   ! hdf5 i/o server
