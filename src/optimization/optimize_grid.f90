@@ -39,7 +39,7 @@ contains
 
     call create_grid()
 
-    call log%init('output_fwat_optimize_'//trim(model_name)//'.log')
+    call log%init('output_optimize_'//trim(model_name)//'.log')
 
     call get_kernel_names()
     step_len = fpar%update%MAX_SLEN
