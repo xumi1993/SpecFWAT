@@ -359,7 +359,7 @@ contains
     integer :: itype, iker
     character(len=MAX_STRING_LEN) :: type_name, fname
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel, total_kernel
-    real(kind=cr) :: norm_val
+    real(kind=cr) :: norm_val, std_val, mean_val
 
     call log%write('This is taking sum of kernels for joint inversion...', .true.)
 
@@ -371,9 +371,11 @@ contains
         call calc_kernel0_weight_grid(itype, norm_val)
         fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(type_name)//'.h5'
         call read_grid_kernel_smooth(fname, kernel)
+        mean_val = sum(kernel) / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel)
+        std_val = sqrt(sum((kernel - mean_val)**2) / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel))
         total_kernel = total_kernel + fpar%postproc%JOINT_WEIGHT(itype)*kernel/norm_val
         write(msg, '(a,F18.6)') 'Max gradient of '//trim(type_name), &
-              fpar%postproc%JOINT_WEIGHT(itype)*maxval(abs(kernel))/norm_val
+              fpar%postproc%JOINT_WEIGHT(itype)*std_val/norm_val
         call log%write(msg, .false.)
       enddo
       fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'.h5'
@@ -385,12 +387,15 @@ contains
   subroutine calc_kernel0_weight_grid(itype, max_global)
     integer, intent(in) :: itype
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel_data
+    real(kind=cr) :: mean_val
     real(kind=cr), intent(out) :: max_global
     character(len=MAX_STRING_LEN) :: fname
 
     fname = trim(OPT_DIR)//'/gradient_M00_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
-    max_global = maxval( abs(kernel_data))
+    ! max_global = maxval( abs(kernel_data))
+    mean_val = sum(kernel_data) / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel)
+    max_global = sqrt(sum(kernel_data - mean_val)**2 / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel))
 
   end subroutine calc_kernel0_weight_grid
 

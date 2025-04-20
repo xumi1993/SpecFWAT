@@ -237,7 +237,7 @@ contains
     real(kind=cr), intent(in) :: freq_max
     real(kind=cr) :: gauss_fac
 
-    gauss_fac =  pi * freq_max / sqrt(-log(0.01))
+    gauss_fac =  pi * freq_max / sqrt(-log(0.1))
     ! if (gauss_fac < 1.5) then
       ! gauss_fac = 1.5
     ! endif
