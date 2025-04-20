@@ -21,5 +21,5 @@ for it in `seq 0 9`; do
     mpirun -np $NPROC ../../bin/xfwat_mesh_databases -s tele
     mpirun -np $NPROC ../../bin/xfwat_fwd_measure_adj -m $model -s tele -r 3
     mpirun -np $NPROC ../../bin/xfwat_post_proc -m $model
-    # mpirun -np $NPROC ../../bin/xfwat_optimize -m $model
+    mpirun -np $NPROC ../../bin/xfwat_optimize -m $model
 done
