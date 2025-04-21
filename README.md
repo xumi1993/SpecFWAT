@@ -3,6 +3,7 @@
 Full-waveform Inversion Based on SPECFEM3D
 
 ## Installation
+Change directory to `build` and run the following commands to install the dependencies and build the project.
 
 ### For PC
 ```bash
@@ -17,7 +18,7 @@ cmake .. && make -j
 
 #### N40@BSCC (NVIDIA RTX 4090)
 ```bash
-module load openmpi/4.1.5_gcc11.2_ucx1.14.1_cuda11.8 cmake/3.30.0 cuda/11.8  
+module load openmpi/4.1.5_gcc11.2_ucx1.14.1_cuda11.8 cmake/3.30.0 cuda/11.8 hdf5/1.13.3
 ```
 
 ```bash
