@@ -280,7 +280,8 @@ contains
         grad_sum = sum(grad_bak*this%direction)
         grad_norm = sqrt(sum(grad_bak*grad_bak))
         direc_norm = sqrt(sum(this%direction*this%direction))
-        angle = acosd(grad_sum/(grad_norm*direc_norm))
+        angle = acos(grad_sum/(grad_norm*direc_norm))
+        angle = angle * rad2deg
       end block
       write(msg, '(a,F8.4,a)') 'Angle between search direction and negative gradient: ', angle, ' degrees'
       call log%write(msg, .true.)

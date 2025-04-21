@@ -120,9 +120,9 @@ contains
     min_loc = minval(this%ker_data)
     call max_all_all_cr(max_loc, max_glob)
     call min_all_all_cr(min_loc, min_glob)
-    write(msg, '(a,E0.9)') 'Max kernel value: ', max_glob
+    write(msg, '(a,G0.9)') 'Max kernel value: ', max_glob
     call log%write(msg, .false.)
-    write(msg, '(a,E0.9)') 'Min kernel value: ', min_glob
+    write(msg, '(a,G0.9)') 'Min kernel value: ', min_glob
     call log%write(msg, .false.)
     call synchronize_all()
   
