@@ -76,7 +76,6 @@ contains
       enddo
     endif
 
-
     ! collect data to rank 0
     if (worldrank == 0) then
       if (nrec_local > 0) then
@@ -134,7 +133,7 @@ contains
       array_global = zeros_dp(NSTEP, this%nrec)
       if (this%nrec_loc > 0) then
         do irec_local = 1, this%nrec_loc
-          irec = number_receiver_global(irec_local)
+          irec = select_global_id_for_rec(irec_local)
           array_global(:, irec) = array_local(:, irec_local)
         enddo
       endif
@@ -196,7 +195,7 @@ contains
       array_global = zeros_dp(NSTEP, nc, nrec)
       if (this%nrec_loc > 0) then
         do irec_local = 1, this%nrec_loc
-          irec = number_receiver_global(irec_local)
+          irec = select_global_id_for_rec(irec_local)
           array_global(:, :, irec) = array_local(:, :, irec_local)
         enddo
       endif

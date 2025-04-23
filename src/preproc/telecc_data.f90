@@ -83,7 +83,17 @@ contains
     class(TeleCCData), intent(inout) :: this
     integer :: irec_local, irec, nstep_cut, icomp
     real(kind=dp), dimension(:), allocatable :: seismo_inp
-    real(kind=dp) :: tstart, tend, t01
+    real(kind=dp) :: tstart, tend, t01, max_amp
+
+    if (worldrank == 0) then
+      seismo_inp = zeros_dp(NSTEP)
+      do irec = 1, this%nrec
+        seismo_inp = + seismo_inp + this%od%data(:, 1, irec)
+      enddo
+      max_amp = sum(seismo_inp)/real(this%nrec)
+    endif
+    call synchronize_all()
+    call bcast_all_singledp(max_amp)
 
     if (this%nrec_loc > 0) then
       this%seismo_dat = zeros_dp(NSTEP, ncomp, this%nrec_loc)
@@ -104,7 +114,7 @@ contains
           t01 = this%od%tbeg(irec) - (this%od%tarr(irec) - this%ttp(irec))
           seismo_inp = interpolate_func_dp(this%od%data(:, icomp, irec), t01,&
                                            dble(this%od%dt), this%od%npts, &
-                                           -dble(T0), dble(DT), NSTEP)
+                                           -dble(T0), dble(DT), NSTEP)/max_amp
           call detrend(seismo_inp)
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&

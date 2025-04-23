@@ -1,7 +1,7 @@
 module tele_data
   use config
   use ma_constants
-  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii
+  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, get_gauss_fac
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
   use syn_data, only: SynData, average_amp_scale
@@ -14,6 +14,7 @@ module tele_data
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
   use specfem_par, only: T0,OUTPUT_FILES
+  use decon_mod, only: deconit
   implicit none
 
   integer, private :: ier
@@ -159,7 +160,7 @@ contains
       this%seismo_syn = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, this%nrec_loc)
       seismo_stf = zeros_dp(fpar%sim%nstep, this%nrec_loc)
       do irec_local = 1, this%nrec_loc
-        irec = number_receiver_global(irec_local)
+        irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           call this%interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
                                   dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
@@ -301,10 +302,10 @@ contains
   subroutine deconv_for_stf(this, data_num, data_den, tref, stf)
     class(TeleData), intent(inout) :: this
     real(kind=dp), dimension(:), intent(in) :: data_num, data_den
-    real(kind=dp), dimension(:), allocatable, intent(inout) :: stf
-    real(kind=cr), dimension(:), allocatable :: stf_dp
+    real(kind=dp), dimension(:), allocatable, intent(out) :: stf
+    ! real(kind=cr), dimension(:), allocatable :: stf_dp
     real(kind=cr), intent(in) :: tref
-    real(kind=cr) :: tb, te
+    real(kind=cr) :: tb, te, f0, time_shift
     integer :: nstep_cut
     real(kind=dp), dimension(:), allocatable :: data_num_win, data_den_win
 
@@ -313,6 +314,7 @@ contains
     data_den_win = data_den(1:fpar%sim%nstep)
     tb = tref + fpar%sim%time_win(1)
     te = tref + fpar%sim%time_win(2)
+    time_shift = (NSTEP / 2) * DT
     nstep_cut = int((te - tb) / fpar%sim%dt) + 1
     call interpolate_syn_dp(data_num_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
                             dble(tb), dble(fpar%sim%dt), nstep_cut)
@@ -324,9 +326,10 @@ contains
                             -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
     if (maxval(abs(data_den_win)) < 1.0e-10) &
       call exit_MPI(0, 'Error: data_den_win is zero')
-    call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
-                     fpar%sim%nstep,NITER,stf_dp)
-    stf = dble(stf_dp)
+    ! call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
+    !                  fpar%sim%nstep,NITER,stf_dp)
+    f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 2
+    call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
     call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
                      1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
 

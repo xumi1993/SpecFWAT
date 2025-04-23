@@ -43,7 +43,6 @@ contains
 
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
-        ! irec = number_receiver_global(irec_local)
         irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
           icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
@@ -124,7 +123,6 @@ contains
           allocate(net(this%nrec_loc))
         endif
         do irec_local = 1, this%nrec_loc
-          ! irec = number_receiver_global(irec_local)
           irec = select_global_id_for_rec(irec_local)
           do icomp = 1, fpar%sim%NRCOMP
             ! get data component
