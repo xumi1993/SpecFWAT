@@ -74,14 +74,14 @@ contains
     z_max = maxval(zstore_fwat)
 
     ! min and max dimensions of the model
-    call min_all_cr(x_min,x_min_glob)
-    call max_all_cr(x_max,x_max_glob)
+    call min_all_all_cr(x_min,x_min_glob)
+    call max_all_all_cr(x_max,x_max_glob)
 
-    call min_all_cr(y_min,y_min_glob)
-    call max_all_cr(y_max,y_max_glob)
+    call min_all_all_cr(y_min,y_min_glob)
+    call max_all_all_cr(y_max,y_max_glob)
 
-    call min_all_cr(z_min,z_min_glob)
-    call max_all_cr(z_max,z_max_glob)
+    call min_all_all_cr(z_min,z_min_glob)
+    call max_all_all_cr(z_max,z_max_glob)
 
     if (worldrank == 0) then
       if (MEXT_V%x(1) > x_min_glob) then
