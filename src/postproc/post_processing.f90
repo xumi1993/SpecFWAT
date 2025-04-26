@@ -24,7 +24,7 @@ module post_processing
     integer :: nker, ks_win
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,&
+    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,apply_precond,&
                  write_gradient_grid, remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
   end type PostFlow
 contains
@@ -130,7 +130,7 @@ contains
           call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
           this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
         enddo
-        if (is_output_event_kernel) then
+        if (is_output_sum_kernel) then
           call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
         endif
       enddo
@@ -147,6 +147,37 @@ contains
   
   end subroutine sum_kernel
 
+  subroutine apply_precond(this)
+    class(PostFlow), intent(inout) :: this
+    integer :: iker,  ievt, i, j, k, iglob, ispec
+    real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
+
+    call log%write('This is applying preconditioned kernels...', .true.)
+    if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+      total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
+      do ievt = 1, fpar%acqui%nevents
+        call read_event_kernel(ievt, 'hess_kernel', ker)
+        total_hess = total_hess + abs(ker)
+      enddo
+      call invert_hess(total_hess)
+      call write_kernel(this%kernel_path, 'hess_inv_kernel', total_hess)
+      do iker = 1, nkernel
+        this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
+      enddo
+    else
+      do ispec = 1, NSPEC_FWAT
+        do i = 1, NGLLX
+          do j = 1, NGLLY
+            do k = 1, NGLLZ
+              iglob = ibool_fwat(i,j,k,ispec)
+              this%ker_data(i,j,k,ispec,:) = this%ker_data(i,j,k,ispec,:) * set_z_precond(zstore_fwat(iglob))
+            enddo
+          enddo
+        enddo
+      enddo
+    endif
+    call synchronize_all()
+  end subroutine apply_precond
 
   subroutine sum_precond(this)
     class(PostFlow), intent(inout) :: this
@@ -160,7 +191,7 @@ contains
     integer :: iker, ievt, i, j, k, iglob
     type(InvGrid) :: inv
 
-    call log%write('This is applying preconditioned kernels...', .true.)
+    call log%write('This is saving preconditioned kernels...', .true.)
     if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
@@ -168,12 +199,6 @@ contains
         total_hess = total_hess + abs(ker)
       enddo
       call invert_hess(total_hess)
-      ! if (IS_OUTPUT_HESS_INV) call write_kernel(trim(hess_name)//'_inv_kernel', total_hess, .false.)
-
-      ! do iker = 1, nkernel
-      !   if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
-      !   this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
-      ! enddo
       call inv%init()
       call inv%sem2inv(total_hess, gk)
       call inv%inv2grid(gk, gm)

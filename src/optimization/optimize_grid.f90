@@ -6,15 +6,13 @@ module optimize_grid
   use kernel_io, only: read_mesh_databases_minimum
   use logger, only: log
   use line_search
-  use utils, only: zeros
+  use utils, only: zeros, ones
   use model_grid_data
   use shared_input_parameters, only: TOMOGRAPHY_PATH
   use hdf5_interface
   use common_lib, only: get_kernel_names
 
-
   implicit none
-
 
   character(len=MAX_STRING_LEN) :: msg
   integer, private :: ier
@@ -46,7 +44,11 @@ contains
 
     call this%get_model_idx()
 
-    call this%read_hess_inv()
+    if (.not. fpar%postproc%IS_PRECOND) then
+      call this%read_hess_inv()
+    else
+      this%hess = ones(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+    endif
 
     this%output_model_path = trim(OPT_DIR)//'/model_'//trim(model_next)//'.h5'
 

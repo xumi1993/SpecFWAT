@@ -29,7 +29,7 @@ module utils
   end interface zeros_dp
 
   interface ones
-    module procedure ones1, ones2, ones3
+    module procedure ones1, ones2, ones3, ones4
   end interface ones
   public :: ones
   private :: ones1, ones2, ones3
@@ -427,6 +427,15 @@ end function
     ones3 = 1.0d0
     return
   end function ones3
+
+  function ones4(dim1, dim2, dim3, dim4)
+    real(kind = RPRE), dimension(:,:,:,:), allocatable :: ones4
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4
+    
+    allocate(ones4(dim1, dim2, dim3, dim4))
+    ones4 = 1.0d0
+    return
+  end function ones4
 
 !=======================================================================
 ! randu

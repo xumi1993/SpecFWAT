@@ -33,8 +33,12 @@ program fwat_post_proc
     
       ! sum kernels for this type
       call fpp%sum_kernel()
-
-      if (.not. (is_joint .and. itype == 1)) call fpp%sum_precond()
+      
+      if (fpar%postproc%IS_PRECOND) then
+        call fpp%apply_precond()
+      else
+        if (.not. (is_joint .and. itype == 1)) call fpp%sum_precond()
+      endif
 
       if (fpar%postproc%SMOOTH_TYPE == 1) then
         call fpp%multigrid_smooth()
