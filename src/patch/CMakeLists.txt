@@ -5,5 +5,6 @@ list(APPEND SOURCES_Fortran
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 add_library(external_values_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(external_values_objs PRIVATE shared_objs
-                      utils_objs hdf5_interface_objs config_objs                     
+                      utils_objs hdf5_interface_objs config_objs
+                                          
 )

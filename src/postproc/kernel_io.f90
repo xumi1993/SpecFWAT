@@ -140,6 +140,22 @@ contains
 
   end subroutine read_event_kernel
 
+  subroutine kernel_cijkl2hti(ievt, ker)
+    integer, intent(in) :: ievt
+    real(kind=cr), dimension(:,:,:,:,:), allocatable, intent(out) :: ker
+    real(kind=cr), dimension(:,:,:,:), allocatable :: c44_kl, c55_kl, c45_kl
+
+    ! read event kernel
+    call read_event_kernel(ievt, 'c44_kernel', c44_kl)
+    call read_event_kernel(ievt, 'c55_kernel', c55_kl)
+    call read_event_kernel(ievt, 'c45_kernel', c45_kl)
+    allocate(ker(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT,3),stat=ier)
+    ker(:,:,:,:,1) = c44_kl + c55_kl ! ker_L
+    ker(:,:,:,:,2) = c55_kl - c44_kl ! ker_Gc
+    ker(:,:,:,:,3) = -c45_kl ! ker_Gs
+
+  end subroutine kernel_cijkl2hti
+
   subroutine remove_event_kernel(ievt, dataname)
     integer, intent(in) :: ievt
     character(len=*), intent(in) :: dataname

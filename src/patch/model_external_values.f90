@@ -39,6 +39,7 @@
 
   module external_model
   use constants
+  use config
 !---
 !
 ! ADD YOUR MODEL HERE
@@ -50,7 +51,7 @@
   ! only here to illustrate an example
   type model_external_variables
       sequence
-      real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp, vs, rho
+      real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp, vs, rho, L, Gc, Gs
       real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: qkappa_atten, qmu_atten
       real(kind=CUSTOM_REAL), dimension(:), allocatable :: x, y, z
       real(kind=CUSTOM_REAL) :: dx, dy, dz
@@ -101,6 +102,9 @@
   if(allocated(MEXT_V%vp)) deallocate(MEXT_V%vp)
   if(allocated(MEXT_V%vs)) deallocate(MEXT_V%vs)
   if(allocated(MEXT_V%rho)) deallocate(MEXT_V%rho)
+  if(allocated(MEXT_V%L)) deallocate(MEXT_V%L)
+  if(allocated(MEXT_V%Gc)) deallocate(MEXT_V%Gc)
+  if(allocated(MEXT_V%Gs)) deallocate(MEXT_V%Gs)
   if(allocated(MEXT_V%qkappa_atten)) deallocate(MEXT_V%qkappa_atten)
   if(allocated(MEXT_V%qmu_atten)) deallocate(MEXT_V%qmu_atten)
   if(allocated(MEXT_V%x)) deallocate(MEXT_V%x)
@@ -120,10 +124,20 @@
     allocate(MEXT_V%x(MEXT_V%nx))
     allocate(MEXT_V%y(MEXT_V%ny))
     allocate(MEXT_V%z(MEXT_V%nz))
+    if (parameter_type == 2) then
+      allocate(MEXT_V%L(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      allocate(MEXT_V%Gc(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      allocate(MEXT_V%Gs(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+    endif 
   endif
-  call bcast_all_cr(MEXT_V%vs, size(MEXT_V%vs))
   call bcast_all_cr(MEXT_V%vp, size(MEXT_V%vp))
-  call bcast_all_cr(MEXT_V%rho, size(MEXT_V%rho))
+  call bcast_all_cr(MEXT_V%vs, size(MEXT_V%vs))
+  call bcast_all_cr(MEXT_V%rho, size(MEXT_V%rho))    
+  if (parameter_type == 2) then
+    call bcast_all_cr(MEXT_V%L, size(MEXT_V%L))
+    call bcast_all_cr(MEXT_V%Gc, size(MEXT_V%Gc))
+    call bcast_all_cr(MEXT_V%Gs, size(MEXT_V%Gs))
+  endif
   call bcast_all_cr(MEXT_V%x, size(MEXT_V%x))
   call bcast_all_cr(MEXT_V%y, size(MEXT_V%y))
   call bcast_all_cr(MEXT_V%z, size(MEXT_V%z))
@@ -152,21 +166,25 @@
 !
 !---
   fname = trim(TOMOGRAPHY_PATH)//'/tomography_model.h5'
-  if (.not. ANISOTROPY) then
-    call h5read(fname, '/vp', MEXT_V%vp)
-    call h5read(fname, '/vs', MEXT_V%vs)
-    call h5read(fname, '/rho', MEXT_V%rho)
-    MEXT_V%vp = transpose_3(MEXT_V%vp)
-    MEXT_V%vs = transpose_3(MEXT_V%vs)
-    MEXT_V%rho = transpose_3(MEXT_V%rho)
-    call h5read(fname, '/x', MEXT_V%x)
-    call h5read(fname, '/y', MEXT_V%y)
-    call h5read(fname, '/z', MEXT_V%z)
-    MEXT_V%nx = size(MEXT_V%x)
-    MEXT_V%ny = size(MEXT_V%y)
-    MEXT_V%nz = size(MEXT_V%z)
-  else
-    call exit_MPI(0, 'Error: Anisotropic model not implemented yet')
+  call h5read(fname, '/x', MEXT_V%x)
+  call h5read(fname, '/y', MEXT_V%y)
+  call h5read(fname, '/z', MEXT_V%z)
+  MEXT_V%nx = size(MEXT_V%x)
+  MEXT_V%ny = size(MEXT_V%y)
+  MEXT_V%nz = size(MEXT_V%z)
+  call h5read(fname, '/vp', MEXT_V%vp)
+  call h5read(fname, '/vs', MEXT_V%vs)
+  call h5read(fname, '/rho', MEXT_V%rho)
+  MEXT_V%vp = transpose_3(MEXT_V%vp)
+  MEXT_V%vs = transpose_3(MEXT_V%vs)
+  MEXT_V%rho = transpose_3(MEXT_V%rho)    
+  if (parameter_type == 2) then
+    call h5read(fname, '/L', MEXT_V%L)
+    call h5read(fname, '/Gc', MEXT_V%Gc)
+    call h5read(fname, '/Gs', MEXT_V%Gs)
+    MEXT_V%L = transpose_3(MEXT_V%L)
+    MEXT_V%Gc = transpose_3(MEXT_V%Gc)
+    MEXT_V%Gs = transpose_3(MEXT_V%Gs)
   endif
 
   end subroutine read_external_model
@@ -244,4 +262,71 @@
   idomain_id = IDOMAIN_ELASTIC
 
   end subroutine model_external_values
+
+  subroutine model_external_values_aniso(xmesh,ymesh,zmesh,vp,vs,rho,&
+                                          c11,c12,c13,c14,c15,c16, &
+                                          c22,c23,c24,c25,c26,c33, &
+                                          c34,c35,c36,c44,c45,c46,c55,c56,c66,&
+                                          iflag_aniso,idomain_id )
+    use external_model
+    use utils, only: interp3, interp3_nearest_simple
+    use aniso, only: AnisoStruct
+    use generate_databases_par, only: IDOMAIN_ELASTIC,CUSTOM_REAL
+    double precision, intent(in) :: xmesh,ymesh,zmesh
+    real(kind=CUSTOM_REAL) :: xsem, ysem, zsem
+    ! density, Vp and Vs
+    real(kind=CUSTOM_REAL), intent(out) :: vp,vs,rho
+    real(kind=CUSTOM_REAL) :: AL, Gc, Gs
+
+    ! anisotropy parameters
+    real(kind=CUSTOM_REAL), intent(out) :: c11,c12,c13,c14,c15,c16, &
+                                          c22,c23,c24,c25,c26,c33, &
+                                          c34,c35,c36,c44,c45,c46,c55,c56,c66
+    ! anisotropy flag
+    integer, intent(out) :: iflag_aniso
+
+    ! acoustic/elastic/.. domain flag ( 1 = acoustic / 2 = elastic / ... )
+    integer, intent(out) :: idomain_id
+    type(AnisoStruct) :: anistruct
+
+    xsem = xmesh
+    ysem = ymesh
+    zsem = zmesh
+
+    ! interpolate the anisotropic parameters
+    if (xsem < MEXT_V%x(1) .or. xsem > MEXT_V%x(MEXT_V%nx) .or. &
+      ysem < MEXT_V%y(1) .or. ysem > MEXT_V%y(MEXT_V%ny) .or. &
+      zsem < MEXT_V%z(1) .or. zsem > MEXT_V%z(MEXT_V%nz)) then
+      rho = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%rho, xsem, ysem, zsem)
+      vp = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vp, xsem, ysem, zsem)
+      vs = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vs, xsem, ysem, zsem)
+      AL = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
+      Gc = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
+      Gs = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
+    else
+      rho = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%rho, xsem, ysem, zsem)
+      vp = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vp, xsem, ysem, zsem)
+      vs = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vs, xsem, ysem, zsem)
+      AL = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
+      Gc = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
+      Gs = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
+    endif
+
+    call anistruct%init_iso(vp, vs, rho)
+    if (parameter_type == 2) then
+      call anistruct%hti2aniso(AL, Gc, Gs)
+    else
+      call exit_mpi(0, 'Error: anisotropic model not available')
+    endif
+    call anistruct%output(c11,c12,c13,c14,c15,c16, &
+                          c22,c23,c24,c25,c26,c33, &
+                          c34,c35,c36,c44,c45,c46,c55,c56,c66)
+
+    iflag_aniso = 1
+    idomain_id = IDOMAIN_ELASTIC
+
+
+  end subroutine model_external_values_aniso
+
+
 

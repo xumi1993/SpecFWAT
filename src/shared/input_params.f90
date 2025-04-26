@@ -348,7 +348,7 @@ contains
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: INIT_MODEL_PATH is not set')
-        this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err)
+        this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err, default=1)
         this%update%ITER_START = update%get_integer('ITER_START', error=io_err)
         this%update%LBFGS_M_STORE = update%get_integer('LBFGS_M_STORE', error=io_err)
         this%update%OPT_METHOD = update%get_integer('OPT_METHOD', error=io_err)
@@ -484,6 +484,7 @@ contains
     call bcast_all_singlei(this%update%MAX_SUB_ITER)
     call bcast_all_singlel(this%update%DO_LS)
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)
+    parameter_type = this%update%MODEL_TYPE
     call synchronize_all()
 
   end subroutine read_fwat_parameter_file

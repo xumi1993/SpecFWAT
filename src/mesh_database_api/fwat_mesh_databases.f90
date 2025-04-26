@@ -5,6 +5,7 @@ program fwat_mesh_databases
   use config
   use input_params, fpar => fwat_par_global
   use argparse, only: parse_args_mesh_databases
+  use shared_parameters, only : ANISOTROPY
 
   ! init MPI
   call init_mpi()
@@ -16,6 +17,11 @@ program fwat_mesh_databases
   ! read input parameters
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
+  if ( fpar%update%MODEL_TYPE > 1) then
+    ANISOTROPY = .true.
+  else
+    ANISOTROPY = .false.
+  end if
 
   ! select simulation type
   call fpar%select_simu_type()

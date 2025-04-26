@@ -91,6 +91,13 @@
     SAVE_FORWARD = .true.
     if (fpar%sim%PRECOND_TYPE == 1) APPROXIMATE_HESS_KL=.true.
   endif
+  if (fpar%update%MODEL_TYPE > 1) then
+    ANISOTROPIC_KL = .true.
+    ANISOTROPY = .true.
+  else
+    ANISOTROPIC_KL = .false.
+    ANISOTROPY = .false.
+  endif
 
   ! hdf5 i/o server
   ! HDF5 separate nodes for i/o server

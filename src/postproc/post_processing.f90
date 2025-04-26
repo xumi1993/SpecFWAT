@@ -40,6 +40,14 @@ contains
 
     call create_grid()
 
+    if (fpar%update%MODEL_TYPE == 1) then
+      ANISOTROPIC_KL = .false.
+      ANISOTROPY = .false.
+    else
+      ANISOTROPIC_KL = .true.
+      ANISOTROPY = .true.
+    endif
+
     ! call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name))
 
     call log%init('output_post_processing_'//trim(model_name)//'.log')
@@ -102,20 +110,31 @@ contains
   subroutine sum_kernel(this)
     class(PostFlow), intent(inout) :: this
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
+    real(kind=cr), dimension(:,:,:,:,:), allocatable :: ker_aniso
     integer :: iker, ievt
     real(kind=cr) :: max_loc, min_loc, max_glob, min_glob
 
     call log%write('This is taking sum of kernels...', .true.)
-    do iker = 1, nkernel
-      if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
-      do ievt = 1, fpar%acqui%nevents
-        call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
-        this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
-      enddo
-      if (is_output_event_kernel) then
-        call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
+    if (ANISOTROPIC_KL) then
+      ! take sum of anisotropic kernels
+      if (fpar%update%MODEL_TYPE == 2) then
+        do ievt = 1, fpar%acqui%nevents
+          call kernel_cijkl2hti(ievt, ker_aniso)
+          this%ker_data = this%ker_data + ker_aniso
+        enddo
       endif
-    enddo
+    else
+      do iker = 1, nkernel
+        if(fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
+        do ievt = 1, fpar%acqui%nevents
+          call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
+          this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
+        enddo
+        if (is_output_event_kernel) then
+          call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
+        endif
+      enddo
+    endif
     max_loc = maxval(this%ker_data)
     min_loc = minval(this%ker_data)
     call max_all_all_cr(max_loc, max_glob)
@@ -127,6 +146,7 @@ contains
     call synchronize_all()
   
   end subroutine sum_kernel
+
 
   subroutine sum_precond(this)
     class(PostFlow), intent(inout) :: this
@@ -157,7 +177,7 @@ contains
       call inv%init()
       call inv%sem2inv(total_hess, gk)
       call inv%inv2grid(gk, gm)
-      this%hess_smooth = gm
+      this%hess_smooth = gm/maxval(abs(gm))
     else
       if (worldrank == 0) then
         this%hess_smooth = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz)
@@ -261,14 +281,6 @@ contains
     
     if (worldrank == 0) then
       do iker = 1, nkernel
-      !   do i = 1, MEXT_V%nx
-      !     do j = 1, MEXT_V%ny
-      !       do k = 1, MEXT_V%nz
-      !         val = tap%interp(MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
-      !         this%ker_data_smooth(i,j,k,iker) = this%ker_data_smooth(i,j,k,iker) * val
-      !       enddo
-      !     enddo
-      !   enddo
         this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,iker) * tap%taper
       enddo
     endif
@@ -278,7 +290,6 @@ contains
   end subroutine taper_kernel_grid
 
   subroutine invert_hess( hess_matrix )
-
   ! inverts the Hessian matrix
   ! the approximate Hessian is only defined for diagonal elements: like
   ! H_nn = \frac{ \partial^2 \chi }{ \partial \rho_n \partial \rho_n }
@@ -339,7 +350,27 @@ contains
           call remove_event_kernel(ievt, 'eta_kernel')
         else
           call remove_event_kernel(ievt, 'rho_kernel')
-          call remove_event_kernel(ievt, 'cijkl_kernel')
+          call remove_event_kernel(ievt, 'c11_kernel')
+          call remove_event_kernel(ievt, 'c12_kernel')
+          call remove_event_kernel(ievt, 'c13_kernel')
+          call remove_event_kernel(ievt, 'c14_kernel')
+          call remove_event_kernel(ievt, 'c15_kernel')
+          call remove_event_kernel(ievt, 'c16_kernel')
+          call remove_event_kernel(ievt, 'c22_kernel')
+          call remove_event_kernel(ievt, 'c23_kernel')
+          call remove_event_kernel(ievt, 'c24_kernel')
+          call remove_event_kernel(ievt, 'c25_kernel')
+          call remove_event_kernel(ievt, 'c26_kernel')
+          call remove_event_kernel(ievt, 'c33_kernel')
+          call remove_event_kernel(ievt, 'c34_kernel')
+          call remove_event_kernel(ievt, 'c35_kernel')
+          call remove_event_kernel(ievt, 'c36_kernel')
+          call remove_event_kernel(ievt, 'c44_kernel')
+          call remove_event_kernel(ievt, 'c45_kernel')
+          call remove_event_kernel(ievt, 'c46_kernel')
+          call remove_event_kernel(ievt, 'c55_kernel')
+          call remove_event_kernel(ievt, 'c56_kernel')
+          call remove_event_kernel(ievt, 'c66_kernel')
         endif
       else
         call remove_event_kernel(ievt, 'rho_kernel')
