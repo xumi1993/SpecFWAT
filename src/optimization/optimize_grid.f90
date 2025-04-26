@@ -171,13 +171,10 @@ contains
         this%model_tmp = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
-        this%model_tmp(:,:,:,ipar) = this%model(:,:,:,ipar) + step_len*this%direction(:,:,:,ipar)
+        this%model_tmp = this%model + step_len*this%direction
       else
         call exit_MPI(0, 'Unknown model type')
       endif
-    endif
-    call synchronize_all()
-    if (fpar%update%model_type == 1) then
     endif
     call synchronize_all()
 
