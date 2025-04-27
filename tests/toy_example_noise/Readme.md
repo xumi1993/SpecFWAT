@@ -6,8 +6,9 @@ This is a toy example for the ambient noise adjoint tomography.
 
 Run `create_ckb.ipynb` to create the initial and target models. The initial model is saved as `initial_model.h5`, and the target model is saved as `target_model.h5`.
 
-![image](https://github.com/user-attachments/assets/865a1a2b-d6fc-47aa-a93d-3d595dab7f2f)
+![image](https://github.com/user-attachments/assets/d3c83c20-420e-4625-8c75-53ca9c985e66)
 
+- This is the perturbation of target model at 7 km depth.
 - Dots are stations.
 - Blue dots are virtual sources.
 
