@@ -12,7 +12,7 @@ Run `00_forward.sh` to generate synthetic data for target model. The synthetic d
 
 ## 3. Run inversion
 
-Run `01_run_this_test.sh` for the inversion. The inversion will run for 9 iterations. Then change `ITER_START` to 9 to restart L-BFGS. setup `for it in ``seq 0 8``; do`
+Run `01_run_this_test.sh` for the inversion. The inversion will run for 9 iterations. Then change `ITER_START` to 9 to restart L-BFGS. setup `for it in ``seq 9 12``; do`
 
 ## 4. Check the result
 
