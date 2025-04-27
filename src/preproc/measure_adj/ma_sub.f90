@@ -1160,12 +1160,12 @@ contains
     Wlen = dt*nlen
 
     if( NCYCLE_IN_WINDOW * T_pmax > Wlen ) then
-       print *, '   MTM: rejecting for too few cycles within time window:'
-       print *, '   T_pmax : ', sngl(T_pmax)
-       print *, '   Wlen : ', sngl(Wlen)
-       print *, '   NCYCLE_IN_WINDOW : ', NCYCLE_IN_WINDOW
-       print *, '   REJECTION: ', sngl(NCYCLE_IN_WINDOW*T_pmax), &
-            sngl(Wlen), NCYCLE_IN_WINDOW * T_pmax < Wlen
+      !  print *, '   MTM: rejecting for too few cycles within time window:'
+      !  print *, '   T_pmax : ', sngl(T_pmax)
+      !  print *, '   Wlen : ', sngl(Wlen)
+      !  print *, '   NCYCLE_IN_WINDOW : ', NCYCLE_IN_WINDOW
+      !  print *, '   REJECTION: ', sngl(NCYCLE_IN_WINDOW*T_pmax), &
+      !       sngl(Wlen), NCYCLE_IN_WINDOW * T_pmax < Wlen
        use_trace = .false.
     endif
 

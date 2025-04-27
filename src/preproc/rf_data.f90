@@ -1,7 +1,7 @@
 module rf_data
   use config
   use ma_constants
-  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii
+  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
   use syn_data, only: SynData, average_amp_scale
@@ -49,7 +49,8 @@ module rf_data
 
     call this%calc_times()
 
-    if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
+    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
+    call mkdir(fpar%acqui%in_dat_path(this%ievt))
     call synchronize_all()
 
     if (this%nrec_loc > 0) then

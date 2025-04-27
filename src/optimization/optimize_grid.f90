@@ -14,12 +14,13 @@ module optimize_grid
 
   implicit none
 
-  character(len=MAX_STRING_LEN) :: msg
+  character(len=MAX_STRING_LEN), private :: msg
   integer, private :: ier
 
   type :: OptGridFlow
     real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_tmp, gradient, direction, hess
     integer :: iter_current, iter_prev, iter_next
+    real(kind=cr) :: angle
     character(len=MAX_STRING_LEN) :: output_model_path, model_fname, current_model_name
     contains 
       procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, run_linesearch
@@ -27,13 +28,10 @@ module optimize_grid
   end type OptGridFlow
 
 contains
-  subroutine init_optimize(this, is_read_database)
+  subroutine init_optimize(this)
     class(OptGridFlow), intent(inout) :: this
-    logical, intent(in) :: is_read_database
   
     this%model_fname = trim(TOMOGRAPHY_PATH)//'/tomography_model.h5'
-
-    ! call read_mesh_databases_minimum(is_read_database)
 
     call create_grid()
 
@@ -57,6 +55,12 @@ contains
       call write_grid_model(trim(OPT_DIR)//'/model_M00.h5', this%model)
     else
       call read_model_grid(this%iter_current, this%model)
+    endif
+    if (this%iter_current < fpar%update%ITER_START) then
+      call log%write('ERROR: Iteration '//trim(this%current_model_name)//&
+                     ' is less than ITER_START', .true.)
+      call exit_MPI(0, 'ERROR: Iteration '//trim(this%current_model_name)//&
+                    ' is less than ITER_START')
     endif
     call read_gradient_grid(this%iter_current, this%gradient)
     call synchronize_all()
@@ -279,14 +283,14 @@ contains
         grad_sum = sum(grad_bak*this%direction)
         grad_norm = sqrt(sum(grad_bak*grad_bak))
         direc_norm = sqrt(sum(this%direction*this%direction))
-        angle = acos(grad_sum/(grad_norm*direc_norm))
-        angle = angle * rad2deg
+        this%angle = acos(grad_sum/(grad_norm*direc_norm))
+        this%angle = this%angle * rad2deg
       end block
-      write(msg, '(a,F8.4,a)') 'Angle between search direction and negative gradient: ', angle, ' degrees'
+      write(msg, '(a,F8.4,a)') 'Angle between search direction and negative gradient: ', this%angle, ' degrees'
       call log%write(msg, .true.)
     endif ! worldrank == 0
     call synchronize_all()
-
+    call bcast_all_singlecr(this%angle)
   end subroutine get_lbfgs_direction
 
   subroutine alpha_scaling(model_inout)

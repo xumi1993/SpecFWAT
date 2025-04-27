@@ -280,4 +280,15 @@ contains
   
   end subroutine rotate_ZRT_to_ZNE
 
+  subroutine mkdir(dirname)
+    character(len=*), intent(in) :: dirname
+    integer :: ios
+
+    if (worldrank == 0) call execute_command_line('mkdir -p ' // trim(dirname), wait=.true., exitstat=ios)
+    call bcast_all_singlei(ios)
+    if (ios /= 0) then
+      call exit_MPI(0, 'Error creating directory')
+    endif
+  end subroutine mkdir
+
 end module common_lib

@@ -21,7 +21,7 @@ program fwat_optimize
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
 
-  call fop%init(.true.)
+  call fop%init()
 
   if (fpar%update%OPT_METHOD == 1) then
     call fop%get_SD_direction()

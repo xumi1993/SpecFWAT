@@ -9,7 +9,7 @@ module noise_data
   use fwat_mpi
   use utils, only: zeros_dp, zeros
   use distaz_lib
-  use common_lib, only: get_band_name, get_icomp_syn, rotate_ZRT_to_ZNE
+  use common_lib, only: get_band_name, get_icomp_syn, rotate_ZRT_to_ZNE, mkdir
   use signal, only: interpolate_func_dp, dif1, detrend, demean, bandpass_dp
   use sacio
   use logger, only: log
@@ -33,7 +33,8 @@ contains
 
     call this%init(ievt)
 
-    if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
+    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
+    call mkdir(fpar%acqui%in_dat_path(this%ievt))
 
     call this%od%read_stations(ievt, .true.)
 

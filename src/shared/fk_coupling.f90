@@ -3,6 +3,7 @@ module fk_coupling
   use specfem_par_coupling
   use config, only: worldrank, local_path_backup, compress_level
   use fwat_constants, only: cr, FKMODEL_PREFIX, SRC_REC_DIR, DEG2RAD
+  use common_lib, only: mkdir
 
   implicit none
   integer, private :: ierr
@@ -80,7 +81,8 @@ contains
     real(kind=cr), parameter :: TOL_ZERO_TAKEOFF = 1.e-14
     
     out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
-    call system('mkdir -p '//trim(out_dir))
+    ! call system('mkdir -p '//trim(out_dir))
+    call mkdir(out_dir)
     write(fkprname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.bin'
 
     call read_fk_model(evtid)
@@ -339,7 +341,8 @@ contains
     dims = shape(Veloc_FK)
 
     out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
-    if (worldrank == 0) call system('mkdir -p '//trim(out_dir))
+    ! if (worldrank == 0) call system('mkdir -p '//trim(out_dir))
+    call mkdir(out_dir)
     call synchronize_all()
     
 

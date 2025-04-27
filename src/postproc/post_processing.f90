@@ -7,7 +7,7 @@ module post_processing
   use utils, only: zeros
   use kernel_io
   use taper3d
-  use common_lib, only: get_dat_type, get_kernel_names
+  use common_lib, only: get_dat_type, get_kernel_names, mkdir
   use multigrid
   use shared_parameters
   use model_grid_data, only: read_grid_kernel_smooth, create_grid,&
@@ -34,8 +34,6 @@ contains
     logical, intent(in) :: is_read_database
     integer :: itype
 
-    ! call read_mesh_databases_minimum(is_read_database)
-
     call get_kernel_names()
 
     call create_grid()
@@ -47,8 +45,6 @@ contains
       ANISOTROPIC_KL = .true.
       ANISOTROPY = .true.
     endif
-
-    ! call system('mkdir -p '//trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name))
 
     call log%init('output_post_processing_'//trim(model_name)//'.log')
     call log%write('*******************************************', .false.)
@@ -92,15 +88,13 @@ contains
     call log%write(msg, .false.)
     call log%write('-------------------------------------------', .false.)
 
-    if (worldrank == 0) then
-      if (is_joint) then
-        this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(simu_type)
-      else
-        this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
-      endif
-      call system('mkdir -p '//trim(this%kernel_path))
+    if (is_joint) then
+      this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)//'_'//trim(simu_type)
+    else
+      this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
     endif
-    call bcast_all_ch_array(this%kernel_path, 1, MAX_STRING_LEN)
+      ! call system('mkdir -p '//trim(this%kernel_path))
+    call mkdir(this%kernel_path)
     call synchronize_all()
 
     this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT, nkernel)
@@ -220,6 +214,7 @@ contains
       fname = trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(model_name)//'.h5'
       call write_grid(fname, HESS_PREFIX, this%hess_smooth)
     endif
+    call synchronize_all()
     
   end subroutine sum_precond
 

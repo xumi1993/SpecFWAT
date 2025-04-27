@@ -16,7 +16,7 @@ module preproc_fwd
   use rf_data, only: RFData
   use telecc_data, only: TeleCCData
   use noise_data, only: NoiseData
-  use common_lib, only: get_dat_type
+  use common_lib, only: get_dat_type, mkdir
 
   implicit none
 
@@ -48,7 +48,8 @@ contains
     endif
     if (is_init_log_loc) then
       if (single_run) then
-        if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
+        ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%out_fwd_path(this%ievt)))
+        call mkdir(trim(fpar%acqui%out_fwd_path(this%ievt)))
         call log%init(trim(fpar%acqui%out_fwd_path(this%ievt))//'/output_fwd_measure_adj.log')
       else
         call log%init('output_fwd_measure_adj_'//trim(dat_type)//'_'//trim(model_name)//'.log')
@@ -161,13 +162,19 @@ contains
     call log%write('Creating directory for event '//trim(evtid), .true.)
 
     ! create directory for forward simulation
-    if (worldrank == 0) then
-      call system('mkdir -p '//trim(path))
-      call system('mkdir -p '//trim(path)//'/'//trim(OUTPUT_PATH))
-      if (this%run_mode > 1) call system('mkdir -p '//trim(path)//'/'//trim(ADJOINT_PATH))
-      if (this%run_mode > 2) call system('mkdir -p '//trim(path)//'/'//trim(EKERNEL_PATH))
-      if (run_mode >= FORWARD_MEASADJ) call system('mkdir -p misfits')
-    endif
+    ! if (worldrank == 0) then
+      ! call system('mkdir -p '//trim(path))
+      ! call system('mkdir -p '//trim(path)//'/'//trim(OUTPUT_PATH))
+      ! if (this%run_mode > 1) call system('mkdir -p '//trim(path)//'/'//trim(ADJOINT_PATH))
+      ! if (this%run_mode > 2) call system('mkdir -p '//trim(path)//'/'//trim(EKERNEL_PATH))
+      ! if (run_mode >= FORWARD_MEASADJ) call system('mkdir -p misfits')
+    ! endif
+    call mkdir(trim(path))
+    call mkdir(trim(path)//'/'//trim(OUTPUT_PATH))
+    if (run_mode > FORWARD_ONLY) call mkdir(trim(path)//'/'//trim(ADJOINT_PATH))
+    if (run_mode > FORWARD_MEASADJ) call mkdir(trim(path)//'/'//trim(EKERNEL_PATH))
+    if (run_mode >= FORWARD_MEASADJ) call mkdir('misfits')
+    call synchronize_all()
 
     ! assign local path
     OUTPUT_FILES=trim(path)//'/OUTPUT_FILES'
