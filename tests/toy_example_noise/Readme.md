@@ -24,6 +24,7 @@ Run `01_run_this_test.sh` for the inversion. The inversion will run for 9 iterat
 Run `plot_model.ipynb` to plot the final model.
 
 ![image](https://github.com/user-attachments/assets/c1718a80-4c93-466c-85b1-dd7b040163ef)
+
 ![image](https://github.com/user-attachments/assets/5ca41223-63b9-4e46-a0c9-45b3a2052255)
 
 ![image](https://github.com/user-attachments/assets/a5c949bf-1a1a-42b3-b377-6e766ed17e5d)
