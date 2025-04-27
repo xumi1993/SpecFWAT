@@ -58,7 +58,6 @@ OUTPUT:
   IS_OUTPUT_ADJ_SRC: False # Output adjoint sources
   IS_OUTPUT_EVENT_KERNEL: True # Output kernels
   IS_OUTPUT_SUM_KERNEL: True # Output sum of kernels
-  IS_OUTPUT_HESS_INV: False # Output inverse Hessian when precond_type = 1
   IS_OUTPUT_INV_GRID: False # Output inverse grid
 
 MODEL_GRID:

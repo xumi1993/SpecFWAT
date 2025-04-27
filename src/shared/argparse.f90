@@ -86,9 +86,9 @@ contains
       call get_command_argument(i, argv(i))
     enddo
 
-    if (argc > max_num_args) then
+    if (argc /= max_num_args) then
       if (worldrank == 0) print *, trim(usage)
-      call exit_MPI(0, 'ERROR: Too more arguments')
+      call exit_MPI(0, 'ERROR: Too more or too less arguments')
     endif
 
     ! parse arguments
@@ -118,7 +118,7 @@ contains
       call get_command_argument(i, argv(i))
     enddo
 
-    if (argc > max_num_args) then
+    if (argc /= max_num_args) then
       if (worldrank == 0) print *, trim(usage)
       call exit_MPI(0, 'ERROR: Too more arguments')
     endif
@@ -145,15 +145,11 @@ contains
     usage = 'Usage: fwat_mesh_databases -s <simu_type>'
 
     argc = command_argument_count()
-    if (argc /= 2) then
-      if (worldrank == 0) print *, trim(usage)
-      call exit_MPI(0, 'ERROR: Known arguments')
-    endif
     do i = 1, argc
       call get_command_argument(i, argv(i))
     enddo
 
-    if (argc > max_num_args) then
+    if (argc /= max_num_args) then
       if (worldrank == 0) print *, trim(usage)
       call exit_MPI(0, 'ERROR: Too more arguments')
     endif

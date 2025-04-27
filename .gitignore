@@ -55,6 +55,7 @@ optimize/
 tests/toy_example_tele/fwat_data/
 model_initial/
 fwat_data/
+figures/
 
 *_ADJOINT
 *_ADJOINT_FILTERED
