@@ -19,8 +19,10 @@ program fwat_mesh_databases
   call read_parameter_file(.true.)
   if ( fpar%update%MODEL_TYPE > 1) then
     ANISOTROPY = .true.
+    ANISOTROPIC_KL = .true. 
   else
     ANISOTROPY = .false.
+    ANISOTROPIC_KL = .false.
   end if
 
   ! select simulation type

@@ -90,7 +90,7 @@ contains
 
   call crm_ext_deallocate_arrays()
   if (is_get_model) then
-    call create_regions_mesh()
+    call create_regions_mesh_fwat()
   else
     call create_regions_mesh_coord()
   endif

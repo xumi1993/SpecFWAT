@@ -660,7 +660,7 @@
       call model_external_values_aniso(xmesh,ymesh,zmesh,rho,vp,vs,&
                                         c11,c12,c13,c14,c15,c16, &
                                         c22,c23,c24,c25,c26,c33, &
-                                        c34,c35,c36,c44,c45,c46,c55,c56,c66,
+                                        c34,c35,c36,c44,c45,c46,c55,c56,c66,&
                                         iflag_aniso,idomain_id)
     else
       call model_external_values(xmesh,ymesh,zmesh,ispec,rho,vp,vs,qkappa_atten,qmu_atten,iflag_aniso,idomain_id)

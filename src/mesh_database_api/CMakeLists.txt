@@ -5,7 +5,11 @@ target_link_libraries(mesh_subs_objs PRIVATE shared_objs
                       cuda_objs meshfem3D_objs shared_fwat_objs
 )
 
-file(GLOB SOURCES_Fortran "generate_databases_subs.f90")
+file(GLOB SOURCES_Fortran
+  "generate_databases_subs.f90"
+  "get_model_fwat.f90"
+  "create_regions_mesh_fwat.f90"
+)
 add_library(databases_subs_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(databases_subs_objs PRIVATE shared_objs
                       cuda_objs generate_databases_objs shared_fwat_objs

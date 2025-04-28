@@ -45,7 +45,7 @@ module aniso
     real(kind=CUSTOM_REAL) :: c34, c35, c36, c44, c45, c46
     real(kind=CUSTOM_REAL) :: c55, c56, c66
     contains
-    procedure :: hti2aniso, glob2cart, init_iso => initialize_iso, output
+    procedure :: hti2aniso, glob2cart, init_iso => initialize_iso, output => output_cijkl
     procedure, private :: to_cijkl
   end type
 
@@ -165,7 +165,7 @@ contains
     this%c66 = d66
   end subroutine glob2cart
 
-  subroutine output(this, c11, c12, c13, c14, c15, c16, &
+  subroutine output_cijkl(this, c11, c12, c13, c14, c15, c16, &
                     c22, c23, c24, c25, c26, c33, &
                     c34, c35, c36, c44, c45, c46, &
                     c55, c56, c66)
@@ -200,6 +200,6 @@ contains
     c56 = this%c56
     c66 = this%c66
 
-  end subroutine output
+  end subroutine output_cijkl
 
 end module aniso
