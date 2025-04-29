@@ -39,6 +39,7 @@
   use hdf5_interface
   use utils
   use projection_on_FD_grid_fwat
+  use input_params, only: fpar => fwat_par_global
 
   implicit none
 
@@ -83,12 +84,13 @@
   ! needs local_path for mesh files
   BROADCAST_AFTER_READ = .true.
   call read_parameter_file(BROADCAST_AFTER_READ)
+  call fpar%read('DATA/fwat_params.yml')
 
   ! parse command line arguments
   if (command_argument_count() ==0) then
     if (myrank == 0) then
-      print *,'USAGE:  mpirun -np NPROC bin/xcombine_vol_data_on_regular_grid grid.txt &
-               data_filename input_dir output_dir model_name is_replace_zero'
+      print *,'USAGE:  mpirun -np NPROC bin/xcombine_vol_data_on_regular_grid &
+               data_filename input_dir output_dir model_name [is_replace_zero]'
       stop 'Please check command line arguments'
     endif
   endif
@@ -98,34 +100,25 @@
   !   call get_command_argument(i,arg(i))
   ! enddo
 
-  call get_command_argument(1,grid_file)
-  call get_command_argument(2,data_filename)
-  call get_command_argument(3,indir)
-  call get_command_argument(4,outdir)
-  call get_command_argument(5,model_name)
-  if (command_argument_count() == 6) then
-    call get_command_argument(6,replace_zero)
-  elseif (command_argument_count() == 5) then
+  call get_command_argument(1,data_filename)
+  call get_command_argument(2,indir)
+  call get_command_argument(3,outdir)
+  call get_command_argument(4,model_name)
+  if (command_argument_count() == 5) then
+    call get_command_argument(5,replace_zero)
+  elseif (command_argument_count() == 4) then
     replace_zero = 'true'
   endif
 
-  ! read points to be interpolated
-  if (myrank == 0) then
-    open(11,file=grid_file,iostat=ios)
-    read(11,*,iostat=ios) ox_fd_proj, oy_fd_proj, oz_fd_proj
-    read(11,*,iostat=ios) hx_fd_proj, hy_fd_proj, hz_fd_proj
-    read(11,*,iostat=ios) nx_fd_proj, ny_fd_proj, nz_fd_proj
-    close(11)
-  endif
-  call bcast_all_singlecr(ox_fd_proj)
-  call bcast_all_singlecr(oy_fd_proj)
-  call bcast_all_singlecr(oz_fd_proj)
-  call bcast_all_singlecr(hx_fd_proj)
-  call bcast_all_singlecr(hy_fd_proj)
-  call bcast_all_singlecr(hz_fd_proj)
-  call bcast_all_singlei(nx_fd_proj)
-  call bcast_all_singlei(ny_fd_proj)
-  call bcast_all_singlei(nz_fd_proj)
+    hx_fd_proj = fpar%grid%regular_grid_interval(1)
+    hy_fd_proj = fpar%grid%regular_grid_interval(2)
+    hz_fd_proj = fpar%grid%regular_grid_interval(3)
+    ox_fd_proj = fpar%grid%regular_grid_min_coord(1)
+    oy_fd_proj = fpar%grid%regular_grid_min_coord(2)
+    oz_fd_proj = fpar%grid%regular_grid_min_coord(3)
+    nx_fd_proj = fpar%grid%regular_grid_size(1)
+    ny_fd_proj = fpar%grid%regular_grid_size(2)
+    nz_fd_proj = fpar%grid%regular_grid_size(3)
 
   if (myrank==0) print *, 'Reading GLL mesh...'
   ! Get dimensions of current model, stored in proc******_external_mesh.bin

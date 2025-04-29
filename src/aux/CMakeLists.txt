@@ -1,4 +1,4 @@
-set(PROJECT_SOURCES "${PROJECT_SOURCE_DIR}/src/grid/projection_on_FD_grid_mod_fwat.f90")
+set(PROJECT_SOURCES "projection_on_FD_grid_mod_fwat.f90")
 add_library(project_lib OBJECT ${PROJECT_SOURCES})
 target_link_libraries(project_lib PRIVATE specfem3D_objs shared_objs shared_fwat_objs)
 

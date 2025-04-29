@@ -4,7 +4,6 @@ module model_grid_data
   use fwat_mpi
   use input_params, only: fpar => fwat_par_global
   use specfem_par
-  use projection_on_FD_grid_fwat
   use hdf5_interface
   use utils
   use external_model
@@ -17,27 +16,29 @@ contains
   subroutine create_grid()
     integer :: i
     character(len=MAX_STRING_LEN) :: msg
+    real(kind=cr) :: hx, hy, hz, ox, oy, oz
+    integer :: nx, ny, nz
 
-    hx_fd_proj = fpar%grid%regular_grid_interval(1)
-    hy_fd_proj = fpar%grid%regular_grid_interval(2)
-    hz_fd_proj = fpar%grid%regular_grid_interval(3)
-    ox_fd_proj = fpar%grid%regular_grid_min_coord(1)
-    oy_fd_proj = fpar%grid%regular_grid_min_coord(2)
-    oz_fd_proj = fpar%grid%regular_grid_min_coord(3)
-    nx_fd_proj = fpar%grid%regular_grid_size(1)
-    ny_fd_proj = fpar%grid%regular_grid_size(2)
-    nz_fd_proj = fpar%grid%regular_grid_size(3)
+    hx = fpar%grid%regular_grid_interval(1)
+    hy = fpar%grid%regular_grid_interval(2)
+    hz = fpar%grid%regular_grid_interval(3)
+    ox = fpar%grid%regular_grid_min_coord(1)
+    oy = fpar%grid%regular_grid_min_coord(2)
+    oz = fpar%grid%regular_grid_min_coord(3)
+    nx = fpar%grid%regular_grid_size(1)
+    ny = fpar%grid%regular_grid_size(2)
+    nz = fpar%grid%regular_grid_size(3)
 
-    allocate(MEXT_V%x(nx_fd_proj), MEXT_V%y(ny_fd_proj), MEXT_V%z(nz_fd_proj))
-    MEXT_V%x = [(ox_fd_proj + (i-1)*hx_fd_proj, i=1,nx_fd_proj)]
-    MEXT_V%y = [(oy_fd_proj + (i-1)*hy_fd_proj, i=1,ny_fd_proj)]
-    MEXT_V%z = [(oz_fd_proj + (i-1)*hz_fd_proj, i=1,nz_fd_proj)]
-    MEXT_V%nx = nx_fd_proj
-    MEXT_V%ny = ny_fd_proj
-    MEXT_V%nz = nz_fd_proj
-    MEXT_V%dx = hx_fd_proj
-    MEXT_V%dy = hy_fd_proj
-    MEXT_V%dz = hz_fd_proj
+    allocate(MEXT_V%x(nx), MEXT_V%y(ny), MEXT_V%z(nz))
+    MEXT_V%x = [(ox + (i-1)*hx, i=1,nx)]
+    MEXT_V%y = [(oy + (i-1)*hy, i=1,ny)]
+    MEXT_V%z = [(oz + (i-1)*hz, i=1,nz)]
+    MEXT_V%nx = nx
+    MEXT_V%ny = ny
+    MEXT_V%nz = nz
+    MEXT_V%dx = hx
+    MEXT_V%dy = hy
+    MEXT_V%dz = hz
 
     call synchronize_all()
   end subroutine create_grid
