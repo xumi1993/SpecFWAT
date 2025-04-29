@@ -45,8 +45,8 @@ module aniso
     real(kind=CUSTOM_REAL) :: c34, c35, c36, c44, c45, c46
     real(kind=CUSTOM_REAL) :: c55, c56, c66
     contains
-    procedure :: hti2aniso, glob2cart, init_iso => initialize_iso, output => output_cijkl
-    procedure, private :: to_cijkl
+    procedure :: hti2aniso, glob2cart, to_cijkl, init_iso => initialize_iso, output => output_cijkl
+    ! procedure, private :: to_cijkl
   end type
 
 contains
@@ -92,7 +92,6 @@ contains
   subroutine hti2aniso(this, L, Gc, Gs)
     class(AnisoStruct), intent(inout) :: this
     real(kind=CUSTOM_REAL), intent(in) :: Gc, Gs, L
-    real(kind=CUSTOM_REAL) :: AL, AN, C1p, C1sh, C1sv, C3, Hs, S1p, S1sh, S1sv
 
     ! This subroutine sets the HTI parameters based on the input values
     this%AL = L

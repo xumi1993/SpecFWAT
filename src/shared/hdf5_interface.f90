@@ -1,6 +1,7 @@
 !> hdf5_interface
 module hdf5_interface
   use H5LT
+  use hdf5
   implicit none
 
   public :: hdf5_file
@@ -43,6 +44,9 @@ module hdf5_interface
 
     !> delete HDF5 group/dataset
     procedure :: delete => hdf_delete
+
+    !> get keys from HDF5 file
+    procedure :: get_keys => hdf_get_keys
 
     !> add group or dataset integer/real 0-3d
     generic   :: add => hdf_add_group,&
@@ -230,6 +234,34 @@ contains
     call h5ldelete_f(self%lid, name, ierr)
 
   end subroutine hdf_delete
+  !=============================================================================
+  subroutine hdf_get_keys(self, keys)
+    class(hdf5_file), intent(in) :: self
+    character(len=256), dimension(:), allocatable, intent(out) :: keys
+    character(len=256) :: key_name
+    type(h5g_info_t) :: group_info
+    integer :: ierr, nkeys
+    integer(kind=HSIZE_T) :: i
+
+    call h5gget_info_f(self%lid, group_info, ierr)
+
+    if (group_info%nlinks > 0) then
+      allocate(keys(group_info%nlinks))
+      do i = 0, group_info%nlinks - 1
+        call h5lget_name_by_idx_f(self%lid, ".", H5_INDEX_NAME_F, H5_ITER_NATIVE_F, i, key_name, ierr)
+        if (ierr /= 0) then
+          print *, "Error getting link name at index ", i
+          stop
+        end if
+        keys(i + 1) = trim(key_name)
+      end do
+    else
+      print *, "No links found in group ", self%lid
+      return
+    endif
+
+  end subroutine hdf_get_keys
+
   !=============================================================================
   subroutine hdf_add_group(self, gname)
 

@@ -263,11 +263,11 @@
 
   end subroutine model_external_values
 
-  subroutine model_external_values_aniso(xmesh,ymesh,zmesh,vp,vs,rho,&
+  subroutine model_external_values_aniso(xmesh,ymesh,zmesh,rho,vp,vs,&
                                           c11,c12,c13,c14,c15,c16, &
                                           c22,c23,c24,c25,c26,c33, &
                                           c34,c35,c36,c44,c45,c46,c55,c56,c66,&
-                                          iflag_aniso,idomain_id )
+                                          iflag_aniso )
     use external_model
     use utils, only: interp3, interp3_nearest_simple
     use aniso, only: AnisoStruct
@@ -275,7 +275,7 @@
     double precision, intent(in) :: xmesh,ymesh,zmesh
     real(kind=CUSTOM_REAL) :: xsem, ysem, zsem
     ! density, Vp and Vs
-    real(kind=CUSTOM_REAL), intent(out) :: vp,vs,rho
+    real(kind=CUSTOM_REAL), intent(in) :: vp,vs,rho
     real(kind=CUSTOM_REAL) :: AL, Gc, Gs
 
     ! anisotropy parameters
@@ -285,8 +285,6 @@
     ! anisotropy flag
     integer, intent(out) :: iflag_aniso
 
-    ! acoustic/elastic/.. domain flag ( 1 = acoustic / 2 = elastic / ... )
-    integer, intent(out) :: idomain_id
     type(AnisoStruct) :: anistruct
 
     xsem = xmesh
@@ -297,16 +295,10 @@
     if (xsem < MEXT_V%x(1) .or. xsem > MEXT_V%x(MEXT_V%nx) .or. &
       ysem < MEXT_V%y(1) .or. ysem > MEXT_V%y(MEXT_V%ny) .or. &
       zsem < MEXT_V%z(1) .or. zsem > MEXT_V%z(MEXT_V%nz)) then
-      rho = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%rho, xsem, ysem, zsem)
-      vp = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vp, xsem, ysem, zsem)
-      vs = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vs, xsem, ysem, zsem)
       AL = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
       Gc = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
       Gs = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
     else
-      rho = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%rho, xsem, ysem, zsem)
-      vp = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vp, xsem, ysem, zsem)
-      vs = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%vs, xsem, ysem, zsem)
       AL = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
       Gc = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
       Gs = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
@@ -323,8 +315,6 @@
                           c34,c35,c36,c44,c45,c46,c55,c56,c66)
 
     iflag_aniso = 1
-    idomain_id = IDOMAIN_ELASTIC
-
 
   end subroutine model_external_values_aniso
 

@@ -124,9 +124,11 @@ contains
           call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
           this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
         enddo
-        if (is_output_sum_kernel) then
-          call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
-        endif
+      enddo
+    endif
+    if (is_output_sum_kernel) then
+      do iker = 1, nkernel
+        call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
       enddo
     endif
     max_loc = maxval(this%ker_data)

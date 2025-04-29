@@ -26,7 +26,7 @@ module preproc_fwd
     integer :: ievt=0, run_mode
     real(kind=dp) :: obj_func
     contains
-    procedure :: init, calc_or_read_fk_wavefield, prepare_for_event, destroy, simulation
+    procedure :: init, prepare_for_event, destroy, simulation
     procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj, run_simulation,&
                           postproc_adjoint
   end type PrepareFWD
@@ -128,30 +128,6 @@ contains
     endif
   end subroutine initialize_kernel_matrice
 
-  subroutine calc_or_read_fk_wavefield(this)
-    class(PrepareFWD), intent(inout) :: this
-    character(len=MAX_STRING_LEN) :: evtid
-    integer :: iev
-
-    if (simu_type /= SIMU_TYPE_TELE) return
-
-    if (.not. fpar%sim%SAVE_FK) then
-      call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
-      call synchronize_all()
-      return
-    endif
-
-    evtid = fpar%acqui%evtid_names(this%ievt)
-    if (.not. check_fk_files(evtid)) then
-      call log%write('Calculating FK wavefield for event '//trim(evtid), .true.)
-      call couple_with_injection_prepare_boundary_fwat(evtid)
-    else
-      call log%write('Read FK wavefield for event '//trim(evtid), .true.)
-    endif
-    call synchronize_all()
-
-  end subroutine calc_or_read_fk_wavefield
-
   subroutine prepare_for_event(this)
     class(PrepareFWD), intent(inout) :: this
     character(len=MAX_STRING_LEN) :: evtid
@@ -162,13 +138,6 @@ contains
     call log%write('Creating directory for event '//trim(evtid), .true.)
 
     ! create directory for forward simulation
-    ! if (worldrank == 0) then
-      ! call system('mkdir -p '//trim(path))
-      ! call system('mkdir -p '//trim(path)//'/'//trim(OUTPUT_PATH))
-      ! if (this%run_mode > 1) call system('mkdir -p '//trim(path)//'/'//trim(ADJOINT_PATH))
-      ! if (this%run_mode > 2) call system('mkdir -p '//trim(path)//'/'//trim(EKERNEL_PATH))
-      ! if (run_mode >= FORWARD_MEASADJ) call system('mkdir -p misfits')
-    ! endif
     call mkdir(trim(path))
     call mkdir(trim(path)//'/'//trim(OUTPUT_PATH))
     if (run_mode > FORWARD_ONLY) call mkdir(trim(path)//'/'//trim(ADJOINT_PATH))
@@ -214,20 +183,21 @@ contains
   end subroutine prepare_for_event
 
   subroutine semd2sac(this)
+    ! This subroutine saves the simulation results to sac files
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
     type(RFData) :: rd
     type(NoiseData) :: nd
 
     select case (dat_type)
-    case ('tele') 
-      call td%semd2sac(this%ievt)
-    case ('telecc')
-      call td%semd2sac(this%ievt)
-    case ('rf')
-      call rd%semd2sac(this%ievt)
-    case ('noise')
-      call nd%semd2sac(this%ievt)
+      case ('tele') 
+        call td%semd2sac(this%ievt)
+      case ('telecc')
+        call td%semd2sac(this%ievt)
+      case ('rf')
+        call rd%semd2sac(this%ievt)
+      case ('noise')
+        call nd%semd2sac(this%ievt)
     end select
 
   end subroutine semd2sac
@@ -270,8 +240,10 @@ contains
 
     call log%write('This is forward simulations ...', .true.)
     
+    ! run forward simulation
     call this%run_simulation(1)
 
+    ! preprocess data
     if (this%run_mode == FORWARD_ONLY) then
       ! save simulation results
       call log%write('Writing synthetic data ...', .true.)
@@ -282,6 +254,7 @@ contains
       call this%measure_adj()
     endif
 
+    ! run adjoint simulation
     if (this%run_mode == FORWARD_ADJOINT) then
       ! save adjoint source
       call log%write('This is adjoint simulations...', .true.)

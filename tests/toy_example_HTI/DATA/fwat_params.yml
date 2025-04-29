@@ -78,7 +78,7 @@ POSTPROC:
 
 MODEL_UPDATE:
   INIT_MODEL_PATH: initial_model.h5
-  MODEL_TYPE: 1 # 1: vp,vs,rho; 2: L,N,Gc,Gs
+  MODEL_TYPE: 2 # 1: vp,vs,rho; 2: L,Gc,Gs
   OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS 
   ITER_START: 0
   LBFGS_M_STORE: 5

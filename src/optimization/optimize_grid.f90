@@ -18,7 +18,7 @@ module optimize_grid
   integer, private :: ier
 
   type :: OptGridFlow
-    real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_tmp, gradient, direction, hess
+    real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_iso, model_tmp, gradient, direction, hess
     integer :: iter_current, iter_prev, iter_next
     real(kind=cr) :: angle
     character(len=MAX_STRING_LEN) :: output_model_path, model_fname, current_model_name
@@ -53,8 +53,12 @@ contains
     if (this%iter_current == 0) then
       call this%interp_initial_model()
       call write_grid_model(trim(OPT_DIR)//'/model_M00.h5', this%model)
+      if (fpar%update%model_type > 1) then
+        call write_grid_model_iso(trim(OPT_DIR)//'/model_M00.h5', this%model_iso)
+      endif
     else
       call read_model_grid(this%iter_current, this%model)
+      call read_model_grid_iso(this%iter_current, this%model_iso)
     endif
     if (this%iter_current < fpar%update%ITER_START) then
       call log%write('ERROR: Iteration '//trim(this%current_model_name)//&
@@ -70,36 +74,34 @@ contains
     class(OptGridFlow), intent(inout) :: this
     real(kind=cr), dimension(:), allocatable :: x, y, z
     real(kind=cr), dimension(:,:,:), allocatable :: rm, gm
-    integer :: ipar, i, j, k, nx, ny, nz
     type(hdf5_file) :: h5file
+    integer :: ipar
+    character(len=256), dimension(:), allocatable :: keys
 
     if(worldrank == 0) then
-      this%model = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
-      
+      this%model = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)      
       call h5file%open(fpar%update%INIT_MODEL_PATH, status='old', action='read')
+      call h5file%get_keys(keys)
+
       call h5file%get('/x', x)
       call h5file%get('/y', y)
       call h5file%get('/z', z)
-      nx = size(x)
-      ny = size(y)
-      nz = size(z)
+
       do ipar = 1, nkernel
         call h5file%get('/'//trim(parameter_names(ipar)), gm)
         gm = transpose_3(gm)
-        do i = 1, MEXT_V%nx
-          do j = 1, MEXT_V%ny
-            do k = 1, MEXT_V%nz
-              if (MEXT_V%x(i) < x(1) .or. MEXT_V%x(i) > x(nx) .or. &
-                  MEXT_V%y(j) < y(1) .or. MEXT_V%y(j) > y(ny) .or. &
-                  MEXT_V%z(k) < z(1) .or. MEXT_V%z(k) > z(nz)) then
-                this%model(i,j,k,ipar) = interp3_nearest_simple(x, y, z, gm, MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
-              else
-                this%model(i,j,k,ipar) = interp3(x, y, z, gm, MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
-              endif
-            enddo
-          enddo
-        enddo
+        call model_interpolation(x, y, z, gm, rm)
+        this%model(:,:,:,ipar) = rm
       enddo
+      if (fpar%update%model_type > 1) then
+        this%model_iso = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, 3)
+        do ipar = 1, 3
+          call h5file%get('/'//trim(MODEL_ISO(ipar)), gm)
+          gm = transpose_3(gm)
+          call model_interpolation(x, y, z, gm, rm)
+          this%model_iso(:,:,:,ipar) = rm
+        enddo
+      endif
       call h5file%close(finalize=.true.)
     endif
 
@@ -157,7 +159,9 @@ contains
         this%model = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
-        this%model = this%model + step_len*this%direction
+        this%model(:,:,:,2) = this%model(:,:,:,2) + step_len*this%direction(:,:,:,2)*this%model(:,:,:,1)
+        this%model(:,:,:,3) = this%model(:,:,:,3) + step_len*this%direction(:,:,:,3)*this%model(:,:,:,1)
+        this%model(:,:,:,1) = this%model(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -175,7 +179,10 @@ contains
         this%model_tmp = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
-        this%model_tmp = this%model + step_len*this%direction
+        ! this%model_tmp = this%model + step_len*this%direction
+        this%model_tmp(:,:,:,2) = this%model_tmp(:,:,:,2) + step_len*this%direction(:,:,:,2)*this%model_tmp(:,:,:,1)
+        this%model_tmp(:,:,:,3) = this%model_tmp(:,:,:,3) + step_len*this%direction(:,:,:,3)*this%model_tmp(:,:,:,1)
+        this%model_tmp(:,:,:,1) = this%model_tmp(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -323,6 +330,9 @@ contains
       call log%write(msg, .true.)
       call this%model_update_tmp()
       call write_grid_model(this%model_fname, this%model_tmp)
+      if (fpar%update%model_type > 1) then
+        call write_grid_model_iso(this%model_fname, this%model_iso)
+      endif
       call synchronize_all()
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle

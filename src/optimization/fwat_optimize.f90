@@ -39,6 +39,11 @@ program fwat_optimize
   call write_grid_model(fop%model_fname, fop%model)
   call write_grid_model(fop%output_model_path, fop%model)
 
+  if (fpar%update%MODEL_TYPE > 1) then
+    call write_grid_model_iso(fop%model_fname, fop%model_iso)
+    call write_grid_model_iso(fop%output_model_path, fop%model_iso)
+  end if
+
   call synchronize_all()
   call log%write('*******************************************', .false.)
   call log%write('************ OPTIMIZATION DONE ************', .false.)

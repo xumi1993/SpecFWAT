@@ -35,6 +35,28 @@ contains
 
   end subroutine read_model
 
+  subroutine read_model_grid_iso(iter, model_data)
+    integer, intent(in) :: iter
+    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    integer :: imod
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: model_data
+    real(kind=cr), dimension(:,:,:), allocatable :: gm
+    type(hdf5_file) :: h5file
+
+    if (worldrank == 0) then
+      allocate(model_data(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz,3))
+      write(this_model, '(A1,I2.2)') 'M', iter
+      fprname = trim(OPT_DIR)//'/model_'//trim(this_model)//'.h5'
+      call h5file%open(fprname, status='old', action='read')
+      do imod = 1, 3
+        call h5file%get('/'//trim(MODEL_ISO(imod)), gm)
+        model_data(:,:,:,imod) = transpose_3(gm)
+      end do
+      call h5file%close(finalize=.true.)
+    endif
+
+  end subroutine read_model_grid_iso
+
   subroutine read_model_grid(iter, model_data)
     integer, intent(in) :: iter
     character(len=MAX_STRING_LEN) :: path, this_model, fprname
@@ -206,4 +228,32 @@ contains
     endif
 
   end subroutine Parallel_ComputeInnerProduct
+
+  subroutine model_interpolation(x, y, z, model_data, model)
+    ! It is a placeholder for future implementation of model interpolation
+    real(kind=cr), dimension(:), allocatable, intent(in) :: x, y, z
+    real(kind=cr), dimension(:,:,:), allocatable, intent(in) :: model_data
+    real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: model
+    integer :: i, j, k, nx, ny, nz
+    
+    nx = size(x)
+    ny = size(y)
+    nz = size(z)
+
+    allocate(model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz))
+    do i = 1, MEXT_V%nx
+      do j = 1, MEXT_V%ny
+        do k = 1, MEXT_V%nz
+          if (MEXT_V%x(i) < x(1) .or. MEXT_V%x(i) > x(nx) .or. &
+              MEXT_V%y(j) < y(1) .or. MEXT_V%y(j) > y(ny) .or. &
+              MEXT_V%z(k) < z(1) .or. MEXT_V%z(k) > z(nz)) then
+            model(i,j,k) = interp3_nearest_simple(x, y, z, model_data, MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
+          else
+            model(i,j,k) = interp3(x, y, z, model_data, MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
+          endif
+        enddo
+      enddo
+    enddo
+
+  end subroutine model_interpolation
 end module opt_io

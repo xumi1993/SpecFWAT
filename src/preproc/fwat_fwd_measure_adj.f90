@@ -44,9 +44,6 @@ endif
 do while (ffwd%ievt <= nsim)
   ! prepare simulation
   call ffwd%prepare_for_event()
-
-  ! prepare fk wavefield
-  ! call ffwd%calc_or_read_fk_wavefield()
   
   ! run forward simulation
   call ffwd%simulation()

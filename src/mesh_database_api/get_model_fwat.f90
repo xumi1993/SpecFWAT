@@ -242,7 +242,7 @@
           imaterial_def = mat_ext_mesh(2,ispec)
 
           ! assigns material properties
-          call get_model_values(imaterial_id,imaterial_def, &
+          call get_model_values_fwat(imaterial_id,imaterial_def, &
                                 xmesh,ymesh,zmesh,ispec, &
                                 rho,vp,vs,qkappa_atten,qmu_atten,idomain_id, &
                                 rho_s,kappa_s,rho_f,kappa_f,eta_f,kappa_fr,mu_fr, &
@@ -527,6 +527,7 @@
                               c34,c35,c36,c44,c45,c46,c55,c56,c66, &
                               ANISOTROPY)
 
+  use constants, only: myrank
   use generate_databases_par, only: IMODEL,IMODEL_DEFAULT,IMODEL_GLL,IMODEL_1D_PREM,IMODEL_1D_CASCADIA,IMODEL_1D_SOCAL, &
     IMODEL_SALTON_TROUGH,IMODEL_TOMO,IMODEL_USER_EXTERNAL,IMODEL_IPATI,IMODEL_IPATI_WATER, &
     IMODEL_1D_PREM_PB,IMODEL_GLL, IMODEL_SEP,IMODEL_COUPLED, &
@@ -656,14 +657,14 @@
 
     ! user model from external routine
     ! adds/gets velocity model as specified in model_external_values.f90
+    call model_external_values(xmesh,ymesh,zmesh,ispec,rho,vp,vs,qkappa_atten,qmu_atten,iflag_aniso,idomain_id)
+
     if ( ANISOTROPY ) then
       call model_external_values_aniso(xmesh,ymesh,zmesh,rho,vp,vs,&
                                         c11,c12,c13,c14,c15,c16, &
                                         c22,c23,c24,c25,c26,c33, &
                                         c34,c35,c36,c44,c45,c46,c55,c56,c66,&
-                                        iflag_aniso,idomain_id)
-    else
-      call model_external_values(xmesh,ymesh,zmesh,ispec,rho,vp,vs,qkappa_atten,qmu_atten,iflag_aniso,idomain_id)
+                                        iflag_aniso)
     endif
 
   case (IMODEL_COUPLED)
@@ -676,7 +677,8 @@
   end select
 
   ! adds anisotropic default model
-  if (IMODEL /= IMODEL_TOMO .and. ANISOTROPY) then
+  if (IMODEL /= IMODEL_TOMO .and. IMODEL /= IMODEL_USER_EXTERNAL .and. ANISOTROPY) then
+  ! if (IMODEL /= IMODEL_TOMO .and. ANISOTROPY) then
     call model_aniso(iflag_aniso,rho,vp,vs, &
                      c11,c12,c13,c14,c15,c16, &
                      c22,c23,c24,c25,c26,c33, &
