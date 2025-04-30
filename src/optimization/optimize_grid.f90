@@ -159,9 +159,10 @@ contains
         this%model = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
-        this%model(:,:,:,2) = this%model(:,:,:,2) + step_len*this%direction(:,:,:,2)*this%model(:,:,:,1)
-        this%model(:,:,:,3) = this%model(:,:,:,3) + step_len*this%direction(:,:,:,3)*this%model(:,:,:,1)
-        this%model(:,:,:,1) = this%model(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
+        this%model = this%model + step_len*this%direction
+        ! this%model(:,:,:,1) = this%model(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
+        ! this%model(:,:,:,2) = this%model(:,:,:,2) + step_len*this%direction(:,:,:,2)
+        ! this%model(:,:,:,3) = this%model(:,:,:,3) + step_len*this%direction(:,:,:,3)
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -179,10 +180,10 @@ contains
         this%model_tmp = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
-        ! this%model_tmp = this%model + step_len*this%direction
-        this%model_tmp(:,:,:,2) = this%model_tmp(:,:,:,2) + step_len*this%direction(:,:,:,2)*this%model_tmp(:,:,:,1)
-        this%model_tmp(:,:,:,3) = this%model_tmp(:,:,:,3) + step_len*this%direction(:,:,:,3)*this%model_tmp(:,:,:,1)
-        this%model_tmp(:,:,:,1) = this%model_tmp(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
+        this%model_tmp = this%model + step_len*this%direction
+        ! this%model_tmp(:,:,:,1) = this%model_tmp(:,:,:,2) + step_len*this%direction(:,:,:,2)*this%model_tmp(:,:,:,1)
+        ! this%model_tmp(:,:,:,3) = this%model_tmp(:,:,:,3) + step_len*this%direction(:,:,:,3)*this%model_tmp(:,:,:,1)
+        ! this%model_tmp(:,:,:,1) = this%model_tmp(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
       else
         call exit_MPI(0, 'Unknown model type')
       endif

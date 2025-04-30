@@ -89,17 +89,17 @@ contains
     this%Es = 0._CUSTOM_REAL
   end subroutine initialize_iso
 
-  subroutine hti2aniso(this, L, Gc, Gs)
+  subroutine hti2aniso(this, Gc, Gs)
     class(AnisoStruct), intent(inout) :: this
-    real(kind=CUSTOM_REAL), intent(in) :: Gc, Gs, L
+    real(kind=CUSTOM_REAL), intent(in) :: Gc, Gs
 
     ! This subroutine sets the HTI parameters based on the input values
-    this%AL = L
-    this%AN = L
-    this%F = this%eta_aniso*(this%A - 2.*this%AL)
+    ! this%AL = L
+    ! this%AN = L
+    ! this%F = this%eta_aniso*(this%A - 2.*this%AL)
 
-    this%Gc = Gc
-    this%Gs = Gs
+    this%Gc = Gc*this%AL
+    this%Gs = Gs*this%AL
 
     call this%to_cijkl()
     call this%glob2cart()

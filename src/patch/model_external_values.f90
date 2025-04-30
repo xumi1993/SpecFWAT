@@ -125,7 +125,7 @@
     allocate(MEXT_V%y(MEXT_V%ny))
     allocate(MEXT_V%z(MEXT_V%nz))
     if (parameter_type == 2) then
-      allocate(MEXT_V%L(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      ! allocate(MEXT_V%L(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
       allocate(MEXT_V%Gc(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
       allocate(MEXT_V%Gs(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
     endif 
@@ -134,7 +134,7 @@
   call bcast_all_cr(MEXT_V%vs, size(MEXT_V%vs))
   call bcast_all_cr(MEXT_V%rho, size(MEXT_V%rho))    
   if (parameter_type == 2) then
-    call bcast_all_cr(MEXT_V%L, size(MEXT_V%L))
+    ! call bcast_all_cr(MEXT_V%L, size(MEXT_V%L))
     call bcast_all_cr(MEXT_V%Gc, size(MEXT_V%Gc))
     call bcast_all_cr(MEXT_V%Gs, size(MEXT_V%Gs))
   endif
@@ -179,10 +179,10 @@
   MEXT_V%vs = transpose_3(MEXT_V%vs)
   MEXT_V%rho = transpose_3(MEXT_V%rho)    
   if (parameter_type == 2) then
-    call h5read(fname, '/L', MEXT_V%L)
+    ! call h5read(fname, '/L', MEXT_V%L)
     call h5read(fname, '/Gc', MEXT_V%Gc)
     call h5read(fname, '/Gs', MEXT_V%Gs)
-    MEXT_V%L = transpose_3(MEXT_V%L)
+    ! MEXT_V%L = transpose_3(MEXT_V%L)
     MEXT_V%Gc = transpose_3(MEXT_V%Gc)
     MEXT_V%Gs = transpose_3(MEXT_V%Gs)
   endif
@@ -295,18 +295,18 @@
     if (xsem < MEXT_V%x(1) .or. xsem > MEXT_V%x(MEXT_V%nx) .or. &
       ysem < MEXT_V%y(1) .or. ysem > MEXT_V%y(MEXT_V%ny) .or. &
       zsem < MEXT_V%z(1) .or. zsem > MEXT_V%z(MEXT_V%nz)) then
-      AL = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
+      ! AL = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
       Gc = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
       Gs = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
     else
-      AL = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
+      ! AL = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
       Gc = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
       Gs = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
     endif
 
     call anistruct%init_iso(vp, vs, rho)
     if (parameter_type == 2) then
-      call anistruct%hti2aniso(AL, Gc, Gs)
+      call anistruct%hti2aniso(Gc, Gs)
     else
       call exit_mpi(0, 'Error: anisotropic model not available')
     endif
