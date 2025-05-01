@@ -197,43 +197,86 @@ contains
     endif
   end subroutine read_grid_model
   
-  ! subroutine gll2grid(data, grid_data, is_replace_zero)
-  !   real(kind=cr), dimension(:,:,:,:), intent(in) :: data
-  !   real(kind=cr), dimension(:,:,:,:), allocatable :: dat
-  !   real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
-  !   logical, intent(in) :: is_replace_zero
-  !   integer :: i, j, k, ier
-  !   type(profd)  :: projection_fd
+  subroutine gll2grid(data, grid_data)
+    real(kind=cr), dimension(:,:,:,:), intent(in) :: data
+    real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
+    real(kind=cr), dimension(:), allocatable :: tmp, tmp_weight, dat_sum, weight_sum
+    real(kind=cr) :: wx, wy, wz, wt
+    integer :: i, j, k, ier, ispec, idx, idy, idz, n, m, iglob
 
-  !   dat = data
+    tmp = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
+    tmp_weight = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
+    dat_sum = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
+    weight_sum = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
 
-  !   call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
-  !   call zwgljd(yigll,wygll,NGLLY,GAUSSALPHA,GAUSSBETA)
-  !   call zwgljd(zigll,wzgll,NGLLZ,GAUSSALPHA,GAUSSBETA)
- 
-  !   call compute_interpolation_coeff_FD_SEM(projection_fd, worldrank)
-  !   call Project_model_SEM2FD_grid(dat, grid_data, projection_fd, worldrank)
-    
-  !   if (is_replace_zero .and. worldrank == 0) then
-  !     do i=1,projection_fd%nx
-  !       do j=1,projection_fd%ny
-  !         do k=1,projection_fd%nz
-  !           if (grid_data(i,j,k) == 0) then
-  !             if (MEXT_V%z(k)>=0) then
-  !               call find_nearestZ_nonzero(grid_data,i,j,k,&
-  !                     projection_fd%nx,projection_fd%ny,projection_fd%nz)
-  !             else
-  !               call find_nearestXY_nonzero(grid_data,i,j,k,&
-  !                     projection_fd%nx,projection_fd%ny,projection_fd%nz)
-  !             endif
-  !           endif
-  !         enddo
-  !       enddo
-  !     enddo
-  !   endif
-  !   call synchronize_all()
+    do ispec = 1, NSPEC_FWAT
+      do i = 1, NGLLX
+        do j = 1, NGLLY
+          do k = 1, NGLLZ
+            iglob = ibool_fwat(i, j, k, ispec)
+            call locate_bissection(dble(MEXT_V%x), MEXT_V%nx, dble(xstore_fwat(iglob)), idx)
+            if (idx == -1) call exit_mpi(worldrank, 'ERROR GLL2GRID: x is out of boundary')
+            wx = (xstore_fwat(iglob) - MEXT_V%x(idx)) / (MEXT_V%x(idx+1) - MEXT_V%x(idx))
+            call locate_bissection(dble(MEXT_V%y), MEXT_V%ny, dble(ystore_fwat(iglob)), idy)
+            if (idy == -1) call exit_mpi(worldrank, 'ERROR GLL2GRID: y is out of boundary')
+            wy = (ystore_fwat(iglob) - MEXT_V%y(idy)) / (MEXT_V%y(idy+1) - MEXT_V%y(idy))
+            call locate_bissection(dble(MEXT_V%z), MEXT_V%nz, dble(zstore_fwat(iglob)), idz)
+            if (idz == -1) call exit_mpi(worldrank, 'ERROR GLL2GRID: z is out of boundary')
+            wz = (zstore_fwat(iglob) - MEXT_V%z(idz)) / (MEXT_V%z(idz+1) - MEXT_V%z(idz))
+            do n = 1, 8
+              select case(n)
+                case (1)
+                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * (idy-1) + idx
+                  wt = (1.0_cr - wx) * (1.0_cr - wy) * (1.0_cr - wz)
+                case (2)
+                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * idy + idx
+                  wt = (1.0_cr - wx) * wy * (1.0_cr - wz)
+                case (3)
+                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * idy + idx + 1
+                  wt = wx * wy * (1.0_cr - wz)
+                case (4)
+                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * (idy-1) + idx + 1
+                  wt = wx * (1.0_cr - wy) * (1.0_cr - wz)
+                case (5)
+                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * (idy-1) + idx
+                  wt = (1.0_cr - wx) * (1.0_cr - wy) * wz
+                case (6)
+                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * idy + idx
+                  wt = (1.0_cr - wx) * wy * wz
+                case (7)
+                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * idy + idx + 1
+                  wt = wx * wy * wz
+                case (8)
+                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * (idy-1) + idx + 1
+                  wt = wx * (1.0_cr - wy) * wz
+              end select
+              tmp(m) = tmp(m) + wt * data(i, j, k, ispec)
+              tmp_weight(m) = tmp_weight(m) + wt
+            enddo
+          enddo
+        enddo
+      enddo
+    enddo
+    call synchronize_all()
+    call sum_all_1Darray_cr(tmp, dat_sum, MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
+    call sum_all_1Darray_cr(tmp_weight, weight_sum, MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
 
-  ! end subroutine gll2grid
+    if (worldrank == 0) then
+      ! Normalize the grid data by the weights
+      do i = 1, MEXT_V%nx * MEXT_V%ny * MEXT_V%nz
+        if (weight_sum(i) > 0.0_cr) then
+          dat_sum(i) = dat_sum(i) / weight_sum(i)
+        else
+          dat_sum(i) = 0.0_cr
+        end if
+      end do
+
+      ! Reshape the grid data to 3D
+      grid_data = reshape(dat_sum, [MEXT_V%nx, MEXT_V%ny, MEXT_V%nz])
+    endif
+    call synchronize_all()
+
+  end subroutine gll2grid
 
 
 
