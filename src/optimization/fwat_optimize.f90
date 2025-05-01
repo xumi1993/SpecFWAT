@@ -27,13 +27,18 @@ program fwat_optimize
     call fop%get_SD_direction()
   elseif (fpar%update%OPT_METHOD == 2) then
     call fop%get_lbfgs_direction()
+    if (fop%angle > 90) then
+      call log%write('Stop optimization here...')
+      call finalize_MPI()
+      stop
+    endif
   else
     call exit_MPI(0, 'Unknown optimization method')
   endif
 
-  ! if (fpar%update%DO_LS) then
-  !   call fop%run_linesearch()
-  ! endif
+  if (fpar%update%DO_LS) then
+    call fop%run_linesearch()
+  endif
   call fop%model_update()
 
   call write_grid_model(fop%model_fname, fop%model)

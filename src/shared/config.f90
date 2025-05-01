@@ -97,7 +97,7 @@ module config
   integer :: nkernel, parameter_type
   character(len=MAX_STRING_LEN) :: kernel_type
   character(len=MAX_STRING_LEN), dimension(:), allocatable :: kernel_names, parameter_names
-  character(len=MAX_STRING_LEN) :: model_prev, model_next, model_start
+  character(len=MAX_STRING_LEN) :: model_prev, model_next, model_start, model_current
   real(kind=cr) :: step_len
 
 contains

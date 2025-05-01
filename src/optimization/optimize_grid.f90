@@ -21,7 +21,7 @@ module optimize_grid
     real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_iso, model_tmp, gradient, direction, hess
     integer :: iter_current, iter_prev, iter_next
     real(kind=cr) :: angle
-    character(len=MAX_STRING_LEN) :: output_model_path, model_fname, current_model_name
+    character(len=MAX_STRING_LEN) :: output_model_path, model_fname
     contains 
       procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, run_linesearch
       procedure, private :: get_model_idx, model_update_tmp, interp_initial_model, read_hess_inv
@@ -61,9 +61,9 @@ contains
       call read_model_grid_iso(this%iter_current, this%model_iso)
     endif
     if (this%iter_current < fpar%update%ITER_START) then
-      call log%write('ERROR: Iteration '//trim(this%current_model_name)//&
+      call log%write('ERROR: Iteration '//trim(model_current)//&
                      ' is less than ITER_START', .true.)
-      call exit_MPI(0, 'ERROR: Iteration '//trim(this%current_model_name)//&
+      call exit_MPI(0, 'ERROR: Iteration '//trim(model_current)//&
                     ' is less than ITER_START')
     endif
     call read_gradient_grid(this%iter_current, this%gradient)
@@ -112,7 +112,7 @@ contains
     integer :: i
     
     if(worldrank == 0) then
-      call read_grid(trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(this%current_model_name)//'.h5', &
+      call read_grid(trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(model_current)//'.h5', &
                       HESS_PREFIX, hess_loc)
       this%hess = zeros_dp(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
       do i = 1, nkernel
@@ -128,7 +128,9 @@ contains
     ! get model index
     read(model_name(2:3),'(I2.2)', iostat=ier) this%iter_current
     if (ier /= 0) call exit_MPI(0, 'Error reading model name of '//trim(model_name))
-    this%current_model_name = trim(model_name)
+    if (this%iter_current < fpar%update%ITER_START) &
+      call exit_MPI(0, 'ERROR: Iteration '//trim(model_name)//' is less than ITER_START')
+    model_current = trim(model_name)
     model_name = trim(model_name)//'_ls'
 
     ! get model prev and next
@@ -151,7 +153,7 @@ contains
 
     if (worldrank == 0) then
       if (is_output_direction) then
-        call write_grid_model(trim(OPT_DIR)//'/direction_'//trim(this%current_model_name)//'.h5', this%direction)
+        call write_grid_model(trim(OPT_DIR)//'/direction_'//trim(model_current)//'.h5', this%direction)
       endif
       if (fpar%update%model_type == 1) then
       ! update model
@@ -336,14 +338,16 @@ contains
       call synchronize_all()
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
-
+        ! setup simulation type
         simu_type = INV_TYPE_NAMES(itype)
+        call fpar%select_simu_type()
 
+        ! generate mesh and database for this simu_type
         call meshfem3D_fwat(fpar%sim%Mesh_Par_file)
         call generate_databases_fwat(.true.)
-
+        
+        ! Forward simulation and measure misfits
         call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
-
         total_misfit(itype) = fpar%postproc%JOINT_WEIGHT(itype)*total_misfit(itype)/misfit_start(itype)
         misfit_prev(itype) = fpar%postproc%JOINT_WEIGHT(itype)*misfit_prev(itype)/misfit_start(itype)
       enddo
@@ -362,6 +366,7 @@ contains
         endif
         step_len = step_len * fpar%update%MAX_SHRINK
       endif
+      call synchronize_all()
     enddo
 
   end subroutine run_linesearch

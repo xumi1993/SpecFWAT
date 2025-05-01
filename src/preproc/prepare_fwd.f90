@@ -231,7 +231,7 @@ contains
       this%obj_func = sum(nd%total_misfit)
       call nd%finalize()
     end select
-    
+    call bcast_all_singledp(this%obj_func)
   end subroutine measure_adj
 
   subroutine simulation(this)

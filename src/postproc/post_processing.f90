@@ -166,7 +166,8 @@ contains
           do j = 1, NGLLY
             do k = 1, NGLLZ
               iglob = ibool_fwat(i,j,k,ispec)
-              this%ker_data(i,j,k,ispec,:) = this%ker_data(i,j,k,ispec,:) * set_z_precond(zstore_fwat(iglob))
+              this%ker_data(i,j,k,ispec,:) = this%ker_data(i,j,k,ispec,:) * &
+                  set_z_precond(zstore_fwat(iglob))
             enddo
           enddo
         enddo

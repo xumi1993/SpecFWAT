@@ -45,7 +45,7 @@ contains
       misfit_start = misfit_start + misfit_loc
 
       if (model_prev /= 'none') then
-        call read_model_misfit(model_prev, ievt, misfit_loc)
+        call read_model_misfit(model_current, ievt, misfit_loc)
         misfit_prev = misfit_prev + misfit_loc
       else
         misfit_prev = misfit_start
