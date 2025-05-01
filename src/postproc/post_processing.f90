@@ -155,7 +155,7 @@ contains
         call read_event_kernel(ievt, 'hess_kernel', ker)
         total_hess = total_hess + abs(ker)
       enddo
-      call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
+      if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
       call invert_hess(total_hess)
       ! call write_kernel(this%kernel_path, 'hess_inv_kernel', total_hess)
       do iker = 1, nkernel
@@ -196,7 +196,7 @@ contains
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)
         total_hess = total_hess + abs(ker)
       enddo
-      call write_kernel(this%kernel_path, trim(hess_name)//'_kernel', total_hess)
+      if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_kernel', total_hess)
       call invert_hess(total_hess)
       call inv%init()
       call inv%sem2inv(total_hess, gk)
