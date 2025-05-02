@@ -23,7 +23,7 @@ module optimize_grid
     real(kind=cr) :: angle
     character(len=MAX_STRING_LEN) :: output_model_path, model_fname
     contains 
-      procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, run_linesearch
+      procedure :: init => init_optimize, model_update, get_SD_direction, get_lbfgs_direction, get_CG_direction, run_linesearch
       procedure, private :: get_model_idx, model_update_tmp, interp_initial_model, read_hess_inv
   end type OptGridFlow
 
@@ -301,6 +301,58 @@ contains
     call synchronize_all()
     call bcast_all_singlecr(this%angle)
   end subroutine get_lbfgs_direction
+
+  subroutine get_CG_direction(this)
+    class(OptGridFlow), intent(inout) :: this
+    real(kind=cr) :: max_dir_loc, max_dir, alpha
+    real(kind=cr), dimension(:,:,:,:), allocatable :: gradient0, gradient1, r_vector
+    real(kind=cr), dimension(:), allocatable :: norm0, norm1, ratio
+    integer :: i
+
+    ! get direction
+    if (this%iter_current == fpar%update%ITER_START) then
+      call this%get_SD_direction()
+      return
+    endif
+
+    call log%write('Starting conjugate gradient direction', .true.)
+    if (worldrank == 0) then
+      ! read gradient
+      gradinet1 = this%gradient
+      call read_gradient_grid(this%iter_prev, gradient0)
+
+      ! compute powell ratio
+      norm0 = zeros(nkernel)
+      norm1 = zeros(nkernel)
+      ratio = zeros(nkernel)
+      do i = 1, nkernel
+        norm0(i) = sum(gradient0(:,:,:,i)*gradient0(:,:,:,i))
+        norm1(i) = sum(gradient0(:,:,:,i)*gradient1(:,:,:,i))
+        ratio(i) = norm1(i) / norm0(i)
+      enddo
+      if (all(ratio > 0.2)) then
+        call log%write('Powell ratio: ( > 0.2 then restart with steepest descent)', .true.)
+        this%direction = -this%gradient * this%hess
+        max_dir = maxval(abs(this%direction))
+        this%direction = this%direction / max_dir
+      else
+        ! difference kernel/gradient
+        ! length ( ( gamma_n - gamma_(n-1))^T * lambda_n )
+        r_vector = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+        do i = 1, nkernel
+          norm1(i) = sum((gradient1(:,:,:,i)-gradient0(:,:,:,i))*gradient1(:,:,:,i))
+        enddo
+        alpha = sum(norm1) / sum(norm0)
+        write(msg, '(a,f0.6)') 'Alpha: ', alpha
+        call log%write(msg, .true.)
+        r_vector = - gradient1 - alpha * gradient0
+        this%direction = this%hess * r_vector
+        max_dir = maxval(abs(this%direction))
+        this%direction = this%direction / max_dir
+      endif
+    endif
+    call synchronize_all()
+  end subroutine get_CG_direction
 
   subroutine alpha_scaling(model_inout)
     real(kind=cr), dimension(:,:,:,:), intent(inout) :: model_inout

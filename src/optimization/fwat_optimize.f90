@@ -32,6 +32,8 @@ program fwat_optimize
       call finalize_MPI()
       stop
     endif
+  elseif (fpar%update%OPT_METHOD == 3) then
+    call fop%get_CG_direction()
   else
     call exit_MPI(0, 'Unknown optimization method')
   endif
