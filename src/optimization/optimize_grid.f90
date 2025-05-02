@@ -339,10 +339,12 @@ contains
         ! difference kernel/gradient
         ! length ( ( gamma_n - gamma_(n-1))^T * lambda_n )
         r_vector = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+        ! PR-CG
         do i = 1, nkernel
           norm1(i) = sum((gradient1(:,:,:,i)-gradient0(:,:,:,i))*gradient1(:,:,:,i))
         enddo
         alpha = sum(norm1) / sum(norm0)
+        if (alpha < 0.0_cr) alpha = 0.0_cr
       endif
       ! compute direction
       write(msg, '(a,f0.6)') 'Alpha: ', alpha
