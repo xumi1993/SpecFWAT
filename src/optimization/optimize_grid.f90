@@ -318,7 +318,7 @@ contains
     call log%write('Starting conjugate gradient direction', .true.)
     if (worldrank == 0) then
       ! read gradient
-      gradinet1 = this%gradient
+      gradient1 = this%gradient
       call read_gradient_grid(this%iter_prev, gradient0)
 
       ! compute powell ratio
@@ -330,11 +330,11 @@ contains
         norm1(i) = sum(gradient0(:,:,:,i)*gradient1(:,:,:,i))
         ratio(i) = norm1(i) / norm0(i)
       enddo
+
+      ! check the ratio
       if (all(ratio > 0.2)) then
         call log%write('Powell ratio: ( > 0.2 then restart with steepest descent)', .true.)
-        this%direction = -this%gradient * this%hess
-        max_dir = maxval(abs(this%direction))
-        this%direction = this%direction / max_dir
+        alpha = 0.0_cr
       else
         ! difference kernel/gradient
         ! length ( ( gamma_n - gamma_(n-1))^T * lambda_n )
@@ -343,13 +343,14 @@ contains
           norm1(i) = sum((gradient1(:,:,:,i)-gradient0(:,:,:,i))*gradient1(:,:,:,i))
         enddo
         alpha = sum(norm1) / sum(norm0)
-        write(msg, '(a,f0.6)') 'Alpha: ', alpha
-        call log%write(msg, .true.)
-        r_vector = - gradient1 - alpha * gradient0
-        this%direction = this%hess * r_vector
-        max_dir = maxval(abs(this%direction))
-        this%direction = this%direction / max_dir
       endif
+      ! compute direction
+      write(msg, '(a,f0.6)') 'Alpha: ', alpha
+      call log%write(msg, .true.)
+      r_vector = - gradient1 - alpha * gradient0
+      this%direction = this%hess * r_vector
+      max_dir = maxval(abs(this%direction))
+      this%direction = this%direction / max_dir
     endif
     call synchronize_all()
   end subroutine get_CG_direction
