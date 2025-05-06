@@ -234,16 +234,24 @@ contains
   end subroutine assemble_3d
 
   subroutine write_adj(this, adj_data, kcmp, irec)
+    use sacio
     class(SynData), intent(inout) :: this
     real(kind=dp), dimension(:), intent(in) :: adj_data
     character(len=*), intent(in) :: kcmp
     integer, intent(in) :: irec
     character(len=MAX_STRING_LEN) :: adj_file
+    type(sachead) :: header
+    integer :: ier
 
     adj_file = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
                '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                '.'//trim(fpar%sim%CH_CODE)//trim(kcmp)//'.adj'
     call dwascii(adj_file, adj_data, NSTEP, -dble(T0), dble(DT))
+    if (IS_OUTPUT_ADJ_SRC) then
+      adj_file = trim(adj_file)//'.sac'
+      call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+      call sacio_writesac(adj_file, header, adj_data, ier)
+    endif
   end subroutine write_adj
 
   ! subroutine rotate_to_rt(this, baz)

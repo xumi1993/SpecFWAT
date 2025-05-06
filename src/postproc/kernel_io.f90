@@ -149,10 +149,10 @@ contains
     call read_event_kernel(ievt, 'c44_kernel', c44_kl)
     call read_event_kernel(ievt, 'c55_kernel', c55_kl)
     call read_event_kernel(ievt, 'c45_kernel', c45_kl)
-    allocate(ker(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT,2),stat=ier)
-    ! ker(:,:,:,:,1) = c44_kl + c55_kl ! ker_L
-    ker(:,:,:,:,1) = c44_kl - c55_kl ! ker_Gc
-    ker(:,:,:,:,2) = c45_kl ! ker_Gs
+    allocate(ker(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT,3),stat=ier)
+    ker(:,:,:,:,1) = c44_kl + c55_kl ! ker_L
+    ker(:,:,:,:,2) = c44_kl - c55_kl ! ker_Gc
+    ker(:,:,:,:,3) = c45_kl ! ker_Gs
 
   end subroutine kernel_cijkl2hti
 

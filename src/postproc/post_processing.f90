@@ -9,6 +9,7 @@ module post_processing
   use taper3d
   use common_lib, only: get_dat_type, get_kernel_names, mkdir
   use multigrid
+  use zprecond
   use shared_parameters
   use model_grid_data, only: read_grid_kernel_smooth, create_grid,&
                               write_grid_kernel_smooth, write_grid
@@ -157,23 +158,12 @@ contains
       enddo
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
       call invert_hess(total_hess)
-      ! call write_kernel(this%kernel_path, 'hess_inv_kernel', total_hess)
-      do iker = 1, nkernel
-        this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
-      enddo
     else
-      do ispec = 1, NSPEC_FWAT
-        do i = 1, NGLLX
-          do j = 1, NGLLY
-            do k = 1, NGLLZ
-              iglob = ibool_fwat(i,j,k,ispec)
-              this%ker_data(i,j,k,ispec,:) = this%ker_data(i,j,k,ispec,:) * &
-                  set_z_precond(zstore_fwat(iglob))
-            enddo
-          enddo
-        enddo
-      enddo
+      call zprecond_gll(total_hess) 
     endif
+    do iker = 1, nkernel
+      this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
+    enddo
     call synchronize_all()
   end subroutine apply_precond
 
@@ -203,16 +193,7 @@ contains
       call inv%inv2grid(gk, gm)
       this%hess_smooth = gm/maxval(abs(gm))
     else
-      if (worldrank == 0) then
-        this%hess_smooth = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz)
-        do i = 1, MEXT_V%nx
-          do j = 1, MEXT_V%ny
-            do k = 1, MEXT_V%nz
-              this%hess_smooth(i,j,k) = set_z_precond(MEXT_V%z(k))
-            enddo
-          enddo
-        enddo
-      endif
+      call zprecond_grid(this%hess_smooth)
     endif
     call synchronize_all()
     if (worldrank == 0) then
@@ -226,14 +207,14 @@ contains
   function set_z_precond(z) result(precond)
     use utils, only: arange
     real(kind=cr) :: precond
-    real(kind=cr) :: z_max
+    real(kind=cr) :: z_max, min_z_pre=1.0_cr
     real(kind=cr), intent(in) :: z
     integer :: ndep
 
-    if (z > -THRESHOLD_HESS) then
-      precond = THRESHOLD_HESS
+    if (z >= 0) then
+      precond = min_z_pre
     else
-      precond = z
+      precond = z-min_z_pre
     endif
     if (tele_par%PRECOND_TYPE == Z_PRECOND) then
       precond = sqrt(precond**2)

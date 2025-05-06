@@ -10,7 +10,7 @@ module rf_data
   use decon_mod, only: deconit
   use fk_coupling
   use fwat_mpi
-  use utils, only: zeros_dp, zeros, interp1
+  use utils, only: zeros_dp, zeros
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION

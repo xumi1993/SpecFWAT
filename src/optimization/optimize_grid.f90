@@ -33,6 +33,14 @@ contains
   
     this%model_fname = trim(TOMOGRAPHY_PATH)//'/tomography_model.h5'
 
+    if ( fpar%update%MODEL_TYPE > 1) then
+      ANISOTROPY = .true.
+      ANISOTROPIC_KL = .true. 
+    else
+      ANISOTROPY = .false.
+      ANISOTROPIC_KL = .false.
+    end if
+
     call create_grid()
 
     call log%init('output_optimize_'//trim(model_name)//'.log')
@@ -161,9 +169,6 @@ contains
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
         this%model = this%model + step_len*this%direction
-        ! this%model(:,:,:,1) = this%model(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
-        ! this%model(:,:,:,2) = this%model(:,:,:,2) + step_len*this%direction(:,:,:,2)
-        ! this%model(:,:,:,3) = this%model(:,:,:,3) + step_len*this%direction(:,:,:,3)
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -182,9 +187,6 @@ contains
         call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
         this%model_tmp = this%model + step_len*this%direction
-        ! this%model_tmp(:,:,:,1) = this%model_tmp(:,:,:,2) + step_len*this%direction(:,:,:,2)*this%model_tmp(:,:,:,1)
-        ! this%model_tmp(:,:,:,3) = this%model_tmp(:,:,:,3) + step_len*this%direction(:,:,:,3)*this%model_tmp(:,:,:,1)
-        ! this%model_tmp(:,:,:,1) = this%model_tmp(:,:,:,1) * (1.0_cr + step_len*this%direction(:,:,:,1))
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -332,20 +334,20 @@ contains
       enddo
 
       ! check the ratio
-      if (all(ratio > 0.2)) then
-        call log%write('Powell ratio: ( > 0.2 then restart with steepest descent)', .true.)
-        alpha = 0.0_cr
-      else
+      ! if (all(ratio > 0.2)) then
+        ! call log%write('Powell ratio: ( > 0.2 then restart with steepest descent)', .true.)
+        ! alpha = 0.0_cr
+      ! else
         ! difference kernel/gradient
         ! length ( ( gamma_n - gamma_(n-1))^T * lambda_n )
-        r_vector = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      r_vector = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
         ! PR-CG
-        do i = 1, nkernel
-          norm1(i) = sum((gradient1(:,:,:,i)-gradient0(:,:,:,i))*gradient1(:,:,:,i))
-        enddo
-        alpha = sum(norm1) / sum(norm0)
-        if (alpha < 0.0_cr) alpha = 0.0_cr
-      endif
+      do i = 1, nkernel
+        norm1(i) = sum((gradient1(:,:,:,i)-gradient0(:,:,:,i))*gradient1(:,:,:,i))
+      enddo
+      alpha = sum(norm1) / sum(norm0)
+        ! if (alpha < 0.0_cr) alpha = 0.0_cr
+      ! endif
       ! compute direction
       write(msg, '(a,f0.6)') 'Alpha: ', alpha
       call log%write(msg, .true.)

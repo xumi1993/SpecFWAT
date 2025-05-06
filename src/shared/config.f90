@@ -28,11 +28,11 @@ module fwat_constants
 
   ! Kernel types
   character(len=MAX_STRING_LEN), dimension(3), parameter :: KERNEL_ISO = ['alpha', 'beta ', 'rhop ']
-  character(len=MAX_STRING_LEN), dimension(2), parameter :: KERNEL_AZI_ANI = ['Gc', 'Gs']
+  character(len=MAX_STRING_LEN), dimension(3), parameter :: KERNEL_AZI_ANI = ['L ', 'Gc', 'Gs']
 
   ! model types
   character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
-  character(len=MAX_STRING_LEN), dimension(2), parameter :: MODEL_AZI_ANI = ['Gc', 'Gs']
+  character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_AZI_ANI = ['L ', 'Gc', 'Gs']
 
   real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3, RHO_SCALING_FAC = 0.33
   integer, parameter :: NUM_INV_TYPE = 2

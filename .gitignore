@@ -66,3 +66,4 @@ tests/*/*kernel*.h5
 tests/*/*test.ipynb
 
 check.ipynb
+combine_ker.sh

@@ -112,7 +112,7 @@ contains
     if(noderank /= 0) n = 0
     CALL MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
     size = n * real_size
-    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, my_node_mpi_comm_world, c_window_ptr, win, ierr)
     if (noderank /= 0) then
       call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
     endif
@@ -134,7 +134,7 @@ contains
     if(noderank /= 0) n = 0
     CALL MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
     size = n * real_size
-    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, my_node_mpi_comm_world, c_window_ptr, win, ierr)
     if (noderank /= 0) then
       call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
     endif
@@ -156,7 +156,7 @@ contains
     if(noderank /= 0) n = 0
     CALL MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
     size = n * real_size
-    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, my_node_mpi_comm_world, c_window_ptr, win, ierr)
     if (noderank /= 0) then
       call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
     endif
@@ -177,7 +177,7 @@ contains
     if(noderank /= 0) n = 0
     call MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
     size = n * real_size
-    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, my_node_mpi_comm_world, c_window_ptr, win, ierr)
     if (noderank /= 0) then
       call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
     endif
@@ -198,7 +198,7 @@ contains
     if(noderank /= 0) n = 0
     CALL MPI_Type_size(MPI_DOUBLE_PRECISION, real_size, ierr)
     size = n * real_size
-    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    call MPI_Win_allocate_shared(size, real_size, MPI_INFO_NULL, my_node_mpi_comm_world, c_window_ptr, win, ierr)
     if (noderank /= 0) then
       call MPI_Win_shared_query(win, 0, size, real_size, c_window_ptr, ierr)
     endif
@@ -219,7 +219,7 @@ contains
     if(noderank /= 0) n = 0
     CALL MPI_Type_size(MPI_CHARACTER, char_size, ierr)
     size = n * char_size
-    call MPI_Win_allocate_shared(size, char_size, MPI_INFO_NULL, MPI_COMM_WORLD, c_window_ptr, win, ierr)
+    call MPI_Win_allocate_shared(size, char_size, MPI_INFO_NULL, my_node_mpi_comm_world, c_window_ptr, win, ierr)
     if (noderank /= 0) then
       call MPI_Win_shared_query(win, 0, size, char_size, c_window_ptr, ierr)
     endif

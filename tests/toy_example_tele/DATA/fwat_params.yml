@@ -18,14 +18,14 @@ TELE:
   TELE_TYPE: 1 # 1: teleseismic data, 2: receiver function, 3: teleseismic Cross-convolution
   MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   SAVE_FK: True
-  COMPRESS_LEVEL: 4
+  COMPRESS_LEVEL: 1
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code
   NSTEP: 3000 # Number of time steps
   DT: 0.025 # Time step for the teleseismic data
-  SHORT_P: [1] # Short period of filters
-  LONG_P: [20] # Long period of filters
-  TIME_WIN: [-5, 35] # Time window for the teleseismic data
+  SHORT_P: [2] # Short period of filters
+  LONG_P: [40] # Long period of filters
+  TIME_WIN: [-10, 30] # Time window for the teleseismic data
   PRECOND_TYPE: 2 # 2: abs(Z); 3: root squared z
   RF:
     F0: [1.0] # Gaussian width for the RF
@@ -55,7 +55,7 @@ MEASURE_ADJ:
 
 OUTPUT:
   IS_OUTPUT_PREPROC: True # Output preprocessed data
-  IS_OUTPUT_ADJ_SRC: False # Output adjoint sources
+  IS_OUTPUT_ADJ_SRC: True # Output adjoint sources
   IS_OUTPUT_EVENT_KERNEL: True # Output kernels
   IS_OUTPUT_SUM_KERNEL: True # Output sum of kernels
   IS_OUTPUT_INV_GRID: False # Output inverse grid
@@ -69,8 +69,8 @@ MODEL_GRID:
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
   JOINT_WEIGHT: [0.5, 1.0]
-  NINV: [19, 9, 9]
-  N_INVERSION_GRID: 5
+  NINV: [25, 12, 12]
+  N_INVERSION_GRID: 10
   TAPER_H_SUPPRESS: 5000
   TAPER_H_BUFFER: 10000
   TAPER_V_SUPPRESS: 0
@@ -82,7 +82,7 @@ MODEL_UPDATE:
   INIT_MODEL_PATH: initial_model.h5
   MODEL_TYPE: 1 # 1: vp,vs,rho; 2: L,N,Gc,Gs
   OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS 
-  ITER_START: 0
+  ITER_START: 7
   LBFGS_M_STORE: 5
   MAX_SLEN: 0.02 # Maximum step length
   MAX_SHRINK: 0.618 # Maximum shrink factor

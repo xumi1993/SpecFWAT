@@ -14,7 +14,7 @@ contains
     integer :: i, iarg, argc
     character(len=MAX_STRING_LEN) :: arg, usage
 
-    usage = 'Usage: fwat_fwd_measure_adj -m <model> -d <data_type> -r <run_mode> [-e <event_index>]'
+    usage = 'Usage: fwat_fwd_measure_adj -m <model> -s <simu_type> -r <run_mode> [-e <event_index>]'
 
     argc = command_argument_count()
     do i = 1, argc

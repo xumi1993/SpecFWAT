@@ -13,8 +13,6 @@ NOISE:
   USE_NEAR_OFFSET: False # Set the following to false if use only data > 1 average wavelength
   SUPPRESS_EGF: False # Set to .false. when the data are cross-correlation functions
   PRECOND_TYPE: 1 # 1: inner product of acceleration
-  SIGMA_H: 15000 # Smoothing parameter for the horizontal component
-  SIGMA_V: 15000 # Smoothing parameter for the vertical component
 
 TELE:
   TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function
@@ -26,9 +24,7 @@ TELE:
   SHORT_P: [1] # Short period of filters
   LONG_P: [20] # Long period of filters
   TIME_WIN: [-5, 25] # Time window for the teleseismic data
-  PRECOND_TYPE: 2 # 2: abs(Z); 3: root squared z
-  SIGMA_H: 5000 # Smoothing parameter for the horizontal component
-  SIGMA_V: 5000 # Smoothing parameter for the vertical component
+  PRECOND_TYPE: 3 # 2: abs(Z); 3: root squared z
   RF:
     F0: [1.5] # Gaussian width for the RF
     MAXIT: 200 # Maximum number of iterations
@@ -62,6 +58,7 @@ OUTPUT:
   IS_OUTPUT_SUM_KERNEL: True # Output sum of kernels
   IS_OUTPUT_HESS_INV: False # Output inverse Hessian when precond_type = 1
   IS_OUTPUT_INV_GRID: False # Output inverse grid
+  IS_OUTPUT_DIRECTION: True
 
 MODEL_GRID:
   REGULAR_GRID_MIN_COORD: [833950, -44274.0, -80000]
@@ -77,17 +74,18 @@ POSTPROC:
   TAPER_H_SUPPRESS: 5000
   TAPER_H_BUFFER: 10000
   TAPER_V_SUPPRESS: 0
-  TAPER_V_BUFFER: 10000
+  TAPER_V_BUFFER: 0
   USE_RHO_SCALING_NOISE: true
   IS_PRECOND: True
 
 MODEL_UPDATE:
+  INIT_MODEL_PATH: initial_model.h5
   MODEL_TYPE: 1 # 1: vp,vs,rho; 2: L,N,Gc,Gs
-  OPT_METHOD: 1 # Optimization method, 1: SD; 2: LBFGS 
+  OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS 
   ITER_START: 0
   LBFGS_M_STORE: 5
   MAX_SLEN: 0.02 # Maximum step length
   MAX_SHRINK: 0.618 # Maximum shrink factor
   MAX_SUB_ITER: 6
-  DO_LS: True # Do line search
+  DO_LS: False # Do line search
   VPVS_RATIO_RANGE: [1.3, 2.5] # Min and max limitation of Vp/Vs ratio

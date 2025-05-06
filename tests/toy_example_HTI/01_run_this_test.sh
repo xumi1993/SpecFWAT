@@ -5,7 +5,7 @@ NPROC=`grep ^NPROC DATA/Par_file | grep -v -E '^[[:space:]]*#' | cut -d = -f 2 |
 
 # Run Inversion
 
-for it in `seq 7 9`; do
+for it in `seq 0 5`; do
     MODEL=`printf "M%02d" $it`
     if [ $it -eq 0 ]; then
         cp initial_model.h5 DATA/tomo_files/tomography_model.h5

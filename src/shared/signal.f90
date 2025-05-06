@@ -188,6 +188,37 @@ contains
 
   end subroutine myconvolution_dp
 
+  subroutine mycorrelation_dp(sig1,sig2,corr,part)
+
+    integer, intent(in) :: part
+    integer :: n1, n2
+    real(kind=dp), dimension(:), intent(in) :: sig1
+    real(kind=dp), dimension(:), intent(in) :: sig2
+    real(kind=dp), dimension(:), allocatable, intent(out) :: corr
+    real(kind=dp), dimension(:), allocatable :: flipsig2
+    integer :: i
+
+    n1 = size(sig1)
+    n2 = size(sig2)
+    allocate(flipsig2(n2))
+    flipsig2 = 0._dp
+
+    !*** Choose size of corr
+    if (part == 0) then !(middle)
+      allocate(corr(n2))
+    else if (part == 1) then !(full)
+      allocate(corr(n1+n2-1))
+    endif
+
+    !*** Flip second signal
+    do i=1,n2
+      flipsig2(i) = sig2(n2-i+1)
+    enddo
+
+    !*** Use regular convolution
+    call myconvolution_dp(sig1,flipsig2,corr,part)
+
+  end subroutine mycorrelation_dp
 
   ! Convolution routine
   subroutine myconvolution(sig1,sig2,conv,part)
