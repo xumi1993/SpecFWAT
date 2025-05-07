@@ -232,6 +232,7 @@ contains
       call nd%finalize()
     end select
     call bcast_all_singledp(this%obj_func)
+    call synchronize_all()
   end subroutine measure_adj
 
   subroutine simulation(this)

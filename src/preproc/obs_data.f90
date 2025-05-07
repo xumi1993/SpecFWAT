@@ -189,9 +189,10 @@ contains
         enddo
       enddo
     endif
+    call synchronize_all()
 
     call sync_from_main_rank_cr_1d(this%baz, this%nsta)
-    call sync_from_main_rank_cr_1d(this%tarr, this%nsta)
+    if (simu_type == SIMU_TYPE_TELE) call sync_from_main_rank_cr_1d(this%tarr, this%nsta)
     call sync_from_main_rank_cr_1d(this%tbeg, this%nsta)
     call sync_from_main_rank_dp_3d(this%data, this%npts, ncomp, this%nsta)
     call synchronize_all()
