@@ -57,7 +57,7 @@
       real(kind=CUSTOM_REAL) :: dx, dy, dz
       integer nx, ny, nz
     end type model_external_variables
-  type (model_external_variables) MEXT_V
+  type (model_external_variables) MEXT_V, ext_grid
 
   end module external_model
 

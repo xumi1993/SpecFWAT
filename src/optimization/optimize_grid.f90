@@ -53,7 +53,7 @@ contains
     if (.not. fpar%postproc%IS_PRECOND) then
       call this%read_hess_inv()
     else
-      this%hess = ones(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      this%hess = ones(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
     endif
 
     this%output_model_path = trim(OPT_DIR)//'/model_'//trim(model_next)//'.h5'
@@ -87,7 +87,7 @@ contains
     character(len=256), dimension(:), allocatable :: keys
 
     if(worldrank == 0) then
-      this%model = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)      
+      this%model = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)      
       call h5file%open(fpar%update%INIT_MODEL_PATH, status='old', action='read')
 
       call h5file%get('/x', x)
@@ -101,7 +101,7 @@ contains
         this%model(:,:,:,ipar) = rm
       enddo
       if (fpar%update%model_type > 1) then
-        this%model_iso = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, 3)
+        this%model_iso = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, 3)
         do ipar = 1, 3
           call h5file%get('/'//trim(MODEL_ISO(ipar)), gm)
           gm = transpose_3(gm)
@@ -122,7 +122,7 @@ contains
     if(worldrank == 0) then
       call read_grid(trim(OPT_DIR)//'/'//trim(HESS_PREFIX)//'_'//trim(model_current)//'.h5', &
                       HESS_PREFIX, hess_loc)
-      this%hess = zeros_dp(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      this%hess = zeros_dp(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
       do i = 1, nkernel
         this%hess(:,:,:,i) = hess_loc
       enddo
@@ -181,7 +181,7 @@ contains
     integer :: ipar
 
     if (worldrank == 0) then
-      this%model_tmp = zeros(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz, nkernel)
+      this%model_tmp = zeros(ext_grid%nx,ext_grid%ny,ext_grid%nz, nkernel)
       if (fpar%update%model_type == 1) then
         this%model_tmp = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model_tmp)
@@ -340,7 +340,7 @@ contains
       ! else
         ! difference kernel/gradient
         ! length ( ( gamma_n - gamma_(n-1))^T * lambda_n )
-      r_vector = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      r_vector = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
         ! PR-CG
       do i = 1, nkernel
         norm1(i) = sum((gradient1(:,:,:,i)-gradient0(:,:,:,i))*gradient1(:,:,:,i))

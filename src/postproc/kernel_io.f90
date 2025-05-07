@@ -50,7 +50,8 @@ contains
     use meshfem3D_subs, only: meshfem3D_fwat
     use generate_databases_subs, only: generate_databases_fwat
     use create_regions_mesh_ext_par, only: xstore_unique, ystore_unique, zstore_unique
-    use generate_databases_par, only: ibool, NSPEC_AB
+    use generate_databases_par, only: NSPEC_AB, NGLOB_AB, ibool
+    ! use specfem_par
     real(kind=cr) :: x_min,x_max
     real(kind=cr) :: y_min,y_max
     real(kind=cr) :: z_min,z_max
@@ -58,59 +59,59 @@ contains
 
     call meshfem3D_fwat(fpar%sim%MESH_PAR_FILE)
     call generate_databases_fwat(.false.)
+    ! call initialize_simulation_fwat()
+    ! call read_mesh_databases_fwat()
+
     NSPEC_FWAT = NSPEC_AB
+    NGLOB_FWAT = NGLOB_AB
     xstore_fwat = xstore_unique
     ystore_fwat = ystore_unique
     zstore_fwat = zstore_unique
     ibool_fwat = ibool
   
-    x_min = minval(xstore_fwat)
-    x_max = maxval(xstore_fwat)
-
-    y_min = minval(ystore_fwat)
-    y_max = maxval(ystore_fwat)
-
-    z_min = minval(zstore_fwat)
-    z_max = maxval(zstore_fwat)
-
-    ! min and max dimensions of the model
-    call min_all_all_cr(x_min,x_min_glob)
-    call max_all_all_cr(x_max,x_max_glob)
-
-    call min_all_all_cr(y_min,y_min_glob)
-    call max_all_all_cr(y_max,y_max_glob)
-
-    call min_all_all_cr(z_min,z_min_glob)
-    call max_all_all_cr(z_max,z_max_glob)
+    call check_mesh_distances(worldrank,NSPEC_FWAT,NGLOB_AB,ibool,xstore_unique,ystore_unique,zstore_unique, &
+                              x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
+                              elemsize_min_glob,elemsize_max_glob, &
+                              distance_min_glob,distance_max_glob)
+    call bcast_all_singlecr(x_min_glob)
+    call bcast_all_singlecr(x_max_glob)
+    call bcast_all_singlecr(y_min_glob)
+    call bcast_all_singlecr(y_max_glob)
+    call bcast_all_singlecr(z_min_glob)
+    call bcast_all_singlecr(z_max_glob)
+    call bcast_all_singlecr(elemsize_min_glob)
+    call bcast_all_singlecr(elemsize_max_glob)
+    call bcast_all_singlecr(distance_min_glob)
+    call bcast_all_singlecr(distance_max_glob)
 
     if (worldrank == 0) then
-      if (MEXT_V%x(1) > x_min_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min x: ',MEXT_V%x(1), &
+      if (ext_grid%x(1) > x_min_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min x: ',ext_grid%x(1), &
               ' value of grid larger than x_min_glob:', x_min_glob
         call exit_MPI(0, trim(msg))
       endif
-      if (MEXT_V%x(MEXT_V%nx) < x_max_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max x: ',MEXT_V%x(MEXT_V%nx),&
+      if (ext_grid%x(ext_grid%nx) < x_max_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max x: ',ext_grid%x(ext_grid%nx),&
              ' value of grid smaller than x_max_glob:', x_max_glob
         call exit_MPI(0, trim(msg))
       endif
-      if (MEXT_V%y(1) > y_min_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min y: ',MEXT_V%y(1), &
+      if (ext_grid%y(1) > y_min_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min y: ',ext_grid%y(1), &
               ' value of grid larger than y_min_glob:', y_min_glob
         call exit_MPI(0, trim(msg))
       endif
-      if (MEXT_V%y(MEXT_V%ny) < y_max_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max y: ',MEXT_V%y(MEXT_V%ny), &
+      if (ext_grid%y(ext_grid%ny) < y_max_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max y: ',ext_grid%y(ext_grid%ny), &
               ' value of grid smaller than y_max_glob:', y_max_glob
         call exit_MPI(0, trim(msg))
       endif
-      if (MEXT_V%z(1) > z_min_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min z: ',MEXT_V%z(1), &
+      if (ext_grid%z(1) > z_min_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min z: ',ext_grid%z(1), &
               ' value of grid larger than z_min_glob:', z_min_glob
         call exit_MPI(0, trim(msg))
       endif
-      if (MEXT_V%z(MEXT_V%nz) < z_max_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max z: ',MEXT_V%z(MEXT_V%nz), &
+      if (ext_grid%z(ext_grid%nz) < z_max_glob) then
+        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max z: ',ext_grid%z(ext_grid%nz), &
               ' value of grid smaller than z_max_glob:', z_max_glob
         call exit_MPI(0, trim(msg))
       endif

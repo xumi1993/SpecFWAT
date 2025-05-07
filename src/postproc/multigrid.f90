@@ -37,35 +37,35 @@ contains
     this%yinv = zeros(this%ninvy, nset)
     this%zinv = zeros(this%ninvz, nset)
 
-    dinvx = (MEXT_V%x(MEXT_V%nx) - MEXT_V%x(1))/ real(fpar%postproc%ninv(1), kind=cr)
+    dinvx = (ext_grid%x(ext_grid%nx) - ext_grid%x(1))/ real(fpar%postproc%ninv(1), kind=cr)
     xadd = dinvx / real(nset, kind=cr)
-    x_beg = MEXT_V%x(1) - xadd
-    x_end = MEXT_V%x(MEXT_V%nx) + xadd
+    x_beg = ext_grid%x(1) - xadd
+    x_end = ext_grid%x(ext_grid%nx) + xadd
 
-    dinvy = (MEXT_V%y(MEXT_V%ny) - MEXT_V%y(1))/ real(fpar%postproc%ninv(2), kind=cr)
+    dinvy = (ext_grid%y(ext_grid%ny) - ext_grid%y(1))/ real(fpar%postproc%ninv(2), kind=cr)
     yadd = dinvy / real(nset, kind=cr)
-    y_beg = MEXT_V%y(1) - yadd
-    y_end = MEXT_V%y(MEXT_V%ny) + yadd
+    y_beg = ext_grid%y(1) - yadd
+    y_end = ext_grid%y(ext_grid%ny) + yadd
 
-    dinvz = (MEXT_V%z(MEXT_V%nz) - MEXT_V%z(1))/ real(fpar%postproc%ninv(3), kind=cr)
+    dinvz = (ext_grid%z(ext_grid%nz) - ext_grid%z(1))/ real(fpar%postproc%ninv(3), kind=cr)
     zadd = dinvz / real(nset, kind=cr)
-    z_beg = MEXT_V%z(1) - zadd
-    z_end = MEXT_V%z(MEXT_V%nz) + zadd
+    z_beg = ext_grid%z(1) - zadd
+    z_end = ext_grid%z(ext_grid%nz) + zadd
 
     x_inv_1d = zeros(this%ninvx)
     y_inv_1d = zeros(this%ninvy)
     z_inv_1d = zeros(this%ninvz)
 
     do i = 1, fpar%postproc%ninv(1)
-      x_inv_1d(i) = MEXT_V%x(1) + (i-1) * dinvx
+      x_inv_1d(i) = ext_grid%x(1) + (i-1) * dinvx
     end do
 
     do i = 1, fpar%postproc%ninv(2)
-      y_inv_1d(i) = MEXT_V%y(1) + (i-1) * dinvy
+      y_inv_1d(i) = ext_grid%y(1) + (i-1) * dinvy
     end do
 
     do i = 1, fpar%postproc%ninv(3)
-      z_inv_1d(i) = MEXT_V%z(1) + (i-1) * dinvz
+      z_inv_1d(i) = ext_grid%z(1) + (i-1) * dinvz
     end do
 
     do i = 1, nset
@@ -173,21 +173,21 @@ contains
     real(kind=cr) :: wx, wy, wz, wt, val
 
     ngrid = this%ninvx * this%ninvy * this%ninvz * fpar%postproc%n_inversion_grid
-    data_grid = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz)
+    data_grid = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz)
 
     do igrid = 1, fpar%postproc%n_inversion_grid
-      do i = 1, MEXT_V%nx
-        do j = 1, MEXT_V%ny
-          do k = 1, MEXT_V%nz
-            call locate_bissection(dble(this%xinv(:, igrid)), this%ninvx, dble(MEXT_V%x(i)), idx)
+      do i = 1, ext_grid%nx
+        do j = 1, ext_grid%ny
+          do k = 1, ext_grid%nz
+            call locate_bissection(dble(this%xinv(:, igrid)), this%ninvx, dble(ext_grid%x(i)), idx)
             if (idx == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: x is out of boundary')
-            wx = (MEXT_V%x(i) - this%xinv(idx, igrid)) / (this%xinv(idx+1, igrid) - this%xinv(idx, igrid))
-            call locate_bissection(dble(this%yinv(:, igrid)), this%ninvy, dble(MEXT_V%y(j)), idy)
+            wx = (ext_grid%x(i) - this%xinv(idx, igrid)) / (this%xinv(idx+1, igrid) - this%xinv(idx, igrid))
+            call locate_bissection(dble(this%yinv(:, igrid)), this%ninvy, dble(ext_grid%y(j)), idy)
             if (idy == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: y is out of boundary')
-            wy = (MEXT_V%y(j) - this%yinv(idy, igrid)) / (this%yinv(idy+1, igrid) - this%yinv(idy, igrid))
-            call locate_bissection(dble(this%zinv(:, igrid)), this%ninvz, dble(MEXT_V%z(k)), idz)
+            wy = (ext_grid%y(j) - this%yinv(idy, igrid)) / (this%yinv(idy+1, igrid) - this%yinv(idy, igrid))
+            call locate_bissection(dble(this%zinv(:, igrid)), this%ninvz, dble(ext_grid%z(k)), idz)
             if (idz == -1) call exit_mpi(worldrank, 'ERROR MULTIGRID: z is out of boundary')
-            wz = (MEXT_V%z(k) - this%zinv(idz, igrid)) / (this%zinv(idz+1, igrid) - this%zinv(idz, igrid))
+            wz = (ext_grid%z(k) - this%zinv(idz, igrid)) / (this%zinv(idz+1, igrid) - this%zinv(idz, igrid))
             val = 0.0_cr
             do n = 1, 8
               select case (n)

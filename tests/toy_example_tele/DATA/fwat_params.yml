@@ -63,13 +63,13 @@ OUTPUT:
 
 MODEL_GRID:
   REGULAR_GRID_MIN_COORD: [833950, -44274.0, -80000]
-  REGULAR_GRID_INTERVAL: [2000, 2000, 1000]
-  REGULAR_GRID_SIZE: [104, 48, 81]
+  REGULAR_GRID_INTERVAL: [1000, 1000, 1000]
+  REGULAR_GRID_SIZE: [207, 95, 81]
 
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
   JOINT_WEIGHT: [0.5, 1.0]
-  NINV: [25, 12, 12]
+  NINV: [30, 14, 14]
   N_INVERSION_GRID: 10
   TAPER_H_SUPPRESS: 5000
   TAPER_H_BUFFER: 10000
@@ -82,7 +82,7 @@ MODEL_UPDATE:
   INIT_MODEL_PATH: initial_model.h5
   MODEL_TYPE: 1 # 1: vp,vs,rho; 2: L,N,Gc,Gs
   OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS 
-  ITER_START: 7
+  ITER_START: 0
   LBFGS_M_STORE: 5
   MAX_SLEN: 0.02 # Maximum step length
   MAX_SHRINK: 0.618 # Maximum shrink factor

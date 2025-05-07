@@ -44,7 +44,7 @@ contains
     type(hdf5_file) :: h5file
 
     if (worldrank == 0) then
-      allocate(model_data(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz,3))
+      allocate(model_data(ext_grid%nx,ext_grid%ny,ext_grid%nz,3))
       write(this_model, '(A1,I2.2)') 'M', iter
       fprname = trim(OPT_DIR)//'/model_'//trim(this_model)//'.h5'
       call h5file%open(fprname, status='old', action='read')
@@ -66,7 +66,7 @@ contains
     type(hdf5_file) :: h5file
 
     if (worldrank == 0) then
-      allocate(model_data(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz,nkernel))
+      allocate(model_data(ext_grid%nx,ext_grid%ny,ext_grid%nz,nkernel))
       write(this_model, '(A1,I2.2)') 'M', iter
       fprname = trim(OPT_DIR)//'/model_'//trim(this_model)//'.h5'
       call h5file%open(fprname, status='old', action='read')
@@ -111,7 +111,7 @@ contains
     type(hdf5_file) :: h5file
 
     if (worldrank == 0) then
-      allocate(gradient_data(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz,nkernel))
+      allocate(gradient_data(ext_grid%nx,ext_grid%ny,ext_grid%nz,nkernel))
       write(this_model, '(A1,I2.2)') 'M', iter
       fprname = trim(OPT_DIR)//'/gradient_'//trim(this_model)//'.h5'
       call h5file%open(fprname, status='old', action='read')
@@ -240,16 +240,16 @@ contains
     ny = size(y)
     nz = size(z)
 
-    allocate(model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz))
-    do i = 1, MEXT_V%nx
-      do j = 1, MEXT_V%ny
-        do k = 1, MEXT_V%nz
-          if (MEXT_V%x(i) < x(1) .or. MEXT_V%x(i) > x(nx) .or. &
-              MEXT_V%y(j) < y(1) .or. MEXT_V%y(j) > y(ny) .or. &
-              MEXT_V%z(k) < z(1) .or. MEXT_V%z(k) > z(nz)) then
-            model(i,j,k) = interp3_nearest_simple(x, y, z, model_data, MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
+    allocate(model(ext_grid%nx, ext_grid%ny, ext_grid%nz))
+    do i = 1, ext_grid%nx
+      do j = 1, ext_grid%ny
+        do k = 1, ext_grid%nz
+          if (ext_grid%x(i) < x(1) .or. ext_grid%x(i) > x(nx) .or. &
+              ext_grid%y(j) < y(1) .or. ext_grid%y(j) > y(ny) .or. &
+              ext_grid%z(k) < z(1) .or. ext_grid%z(k) > z(nz)) then
+            model(i,j,k) = interp3_nearest_simple(x, y, z, model_data, ext_grid%x(i), ext_grid%y(j), ext_grid%z(k))
           else
-            model(i,j,k) = interp3(x, y, z, model_data, MEXT_V%x(i), MEXT_V%y(j), MEXT_V%z(k))
+            model(i,j,k) = interp3(x, y, z, model_data, ext_grid%x(i), ext_grid%y(j), ext_grid%z(k))
           endif
         enddo
       enddo

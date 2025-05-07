@@ -42,6 +42,7 @@ program fwat_post_proc
 
       if (fpar%postproc%SMOOTH_TYPE == 1) then
         call fpp%multigrid_smooth()
+        ! call fpp%pde_smooth()
 
         call fpp%taper_kernel_grid()
 

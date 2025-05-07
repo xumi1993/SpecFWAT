@@ -12,7 +12,7 @@ module post_processing
   use zprecond
   use shared_parameters
   use model_grid_data, only: read_grid_kernel_smooth, create_grid,&
-                              write_grid_kernel_smooth, write_grid
+                              write_grid_kernel_smooth, write_grid, gll2grid, gll2grid_simple
 
   implicit none
   character(len=MAX_STRING_LEN), private :: msg
@@ -99,7 +99,7 @@ contains
     call synchronize_all()
 
     this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT, nkernel)
-    call prepare_shm_array_cr_4d(this%ker_data_smooth, MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel, this%ks_win)
+    call prepare_shm_array_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel, this%ks_win)
   end subroutine init_for_type
   
   subroutine sum_kernel(this)
@@ -247,7 +247,7 @@ contains
       endif
     end do
     call synchronize_all()
-  end subroutine
+  end subroutine multigrid_smooth
 
   subroutine write_gradient_grid(this)
     class(PostFlow), intent(inout) :: this
@@ -271,26 +271,33 @@ contains
     type(taper_cls) :: tap
     integer :: iker, i, j, k
     real(kind=cr) :: dh, val
+    real(kind=cr), dimension(:,:,:), allocatable :: taper
     call log%write('This is tapering kernels...', .true.)
 
-    ! dh = (distance_max_glob+distance_min_glob)/2.0_cr
-    call tap%create(MEXT_V%x(1), MEXT_V%x(MEXT_V%nx),&
-                    MEXT_V%y(1), MEXT_V%y(MEXT_V%ny),&
-                    MEXT_V%z(1), MEXT_V%z(MEXT_V%nz), &
-                    fpar%grid%regular_grid_interval(1),&
-                    fpar%grid%regular_grid_interval(2),&
-                    fpar%grid%regular_grid_interval(3),&
+    dh = (distance_max_glob+distance_min_glob)/2.0_cr
+    
+    if (worldrank == 0) then
+      call tap%create(x_min_glob, x_max_glob,&
+                    y_min_glob, y_max_glob,&
+                    z_min_glob, z_max_glob, &
+                    dh, dh, dh, &
                     fpar%postproc%TAPER_H_SUPPRESS, &
                     fpar%postproc%TAPER_H_BUFFER, &
                     fpar%postproc%TAPER_V_SUPPRESS, &
                     fpar%postproc%TAPER_V_BUFFER)
-    
-    if (worldrank == 0) then
+      taper = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz)
+      do i = 1, ext_grid%nx
+        do j = 1, ext_grid%ny
+          do k = 1, ext_grid%nz
+            taper(i,j,k) = tap%Interp(ext_grid%x(i), ext_grid%y(j), ext_grid%z(k))
+          enddo
+        enddo
+      enddo
       do iker = 1, nkernel
-        this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,iker) * tap%taper
+        this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,iker) * taper
       enddo
     endif
-    call sync_from_main_rank_cr_4d(this%ker_data_smooth, MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+    call sync_from_main_rank_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
     call synchronize_all()
 
   end subroutine taper_kernel_grid
@@ -401,15 +408,15 @@ contains
     call log%write('This is taking sum of kernels for joint inversion...', .true.)
 
     if (worldrank == 0) then
-      total_kernel = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel)
+      total_kernel = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
         type_name = INV_TYPE_NAMES(itype)
         call calc_kernel0_weight_grid(itype, norm_val)
         fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(type_name)//'.h5'
         call read_grid_kernel_smooth(fname, kernel)
-        ! mean_val = sum(kernel) / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel)
-        ! std_val = sqrt(sum((kernel - mean_val)**2) / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel))
+        ! mean_val = sum(kernel) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
+        ! std_val = sqrt(sum((kernel - mean_val)**2) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
         std_val = maxval(abs(kernel))
         total_kernel = total_kernel + fpar%postproc%JOINT_WEIGHT(itype)*kernel/norm_val
         write(msg, '(a,F18.6)') 'Max gradient of '//trim(type_name), &
@@ -432,8 +439,8 @@ contains
     fname = trim(OPT_DIR)//'/gradient_M00_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
     max_global = maxval( abs(kernel_data))
-    ! mean_val = sum(kernel_data) / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel)
-    ! max_global = sqrt(sum(kernel_data - mean_val)**2 / (MEXT_V%nx * MEXT_V%ny * MEXT_V%nz * nkernel))
+    ! mean_val = sum(kernel_data) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
+    ! max_global = sqrt(sum(kernel_data - mean_val)**2 / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
 
   end subroutine calc_kernel0_weight_grid
 

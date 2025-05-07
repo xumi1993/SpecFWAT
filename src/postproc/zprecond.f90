@@ -12,13 +12,13 @@ contains
     integer :: iz
     real(kind=cr), dimension(:), allocatable, intent(out) :: zl
 
-    zl = zeros(MEXT_V%nz)
+    zl = zeros(ext_grid%nz)
 
-    do iz = 1, MEXT_V%nz
-      if (MEXT_V%z(iz) > 0.0) then
+    do iz = 1, ext_grid%nz
+      if (ext_grid%z(iz) > 0.0) then
         zl(iz) = 1.e-8
       else
-        zl(iz) = MEXT_V%z(iz)+1.e-8
+        zl(iz) = ext_grid%z(iz)+1.e-8
       end if
       
       select case (fpar%sim%PRECOND_TYPE)
@@ -47,7 +47,7 @@ contains
     do ispec = 1, NSPEC_FWAT
       do ix = 1, NGLLX; do iy = 1, NGLLY; do iz = 1, NGLLZ
         iglob = ibool_fwat(ix, iy, iz, ispec)
-        zz = interp1(dble(MEXT_V%z), zl_dp, dble(zstore_fwat(iglob)))
+        zz = interp1(dble(ext_grid%z), zl_dp, dble(zstore_fwat(iglob)))
         hess(ix, iy, iz, ispec) = sngl(zz)
       enddo; enddo; enddo
     enddo
@@ -78,9 +78,9 @@ contains
     if (worldrank == 0) then
       call get_1d_precond(zl)
 
-      hess = zeros(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz)
-      do ix = 1, MEXT_V%nx
-        do iy = 1, MEXT_V%ny
+      hess = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz)
+      do ix = 1, ext_grid%nx
+        do iy = 1, ext_grid%ny
           hess(ix, iy, :) = zl
         enddo
       enddo

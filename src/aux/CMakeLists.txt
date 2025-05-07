@@ -1,6 +1,6 @@
-set(PROJECT_SOURCES "projection_on_FD_grid_mod_fwat.f90")
-add_library(project_lib OBJECT ${PROJECT_SOURCES})
-target_link_libraries(project_lib PRIVATE specfem3D_objs shared_objs shared_fwat_objs)
+# set(PROJECT_SOURCES "projection_on_FD_grid_mod_fwat.f90")
+# add_library(project_lib OBJECT ${PROJECT_SOURCES})
+# target_link_libraries(project_lib PRIVATE specfem3D_objs shared_objs shared_fwat_objs)
 
 set(APP_SOURCES
     "decompose_h5_gll.f90"
@@ -18,7 +18,7 @@ foreach(execsourcefile ${APP_SOURCES})
     set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
     set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
     target_link_libraries(${EXEC_NAME} PRIVATE specfem3D_objs shared_objs
-                                        cuda_objs fortran-yaml project_lib
+                                        cuda_objs fortran-yaml
                                         config_objs hdf5_interface_objs utils_objs
                                         shared_fwat_objs
                                         ${MPI_LIBRARIES} ${YAML_CPP_LIBRARIES})

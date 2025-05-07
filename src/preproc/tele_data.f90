@@ -330,7 +330,7 @@ contains
     call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
                      fpar%sim%nstep,NITER,stf_dp)
     stf = real(stf_dp)
-    ! f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 2
+    ! f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 4
     ! call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
     call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
                      1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)

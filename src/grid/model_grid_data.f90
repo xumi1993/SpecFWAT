@@ -8,6 +8,8 @@ module model_grid_data
   use utils
   use external_model
   use common_lib, only: get_kernel_names
+  use projection_on_FD_grid_fwat
+
 
   implicit none
 
@@ -29,16 +31,26 @@ contains
     ny = fpar%grid%regular_grid_size(2)
     nz = fpar%grid%regular_grid_size(3)
 
-    allocate(MEXT_V%x(nx), MEXT_V%y(ny), MEXT_V%z(nz))
-    MEXT_V%x = [(ox + (i-1)*hx, i=1,nx)]
-    MEXT_V%y = [(oy + (i-1)*hy, i=1,ny)]
-    MEXT_V%z = [(oz + (i-1)*hz, i=1,nz)]
-    MEXT_V%nx = nx
-    MEXT_V%ny = ny
-    MEXT_V%nz = nz
-    MEXT_V%dx = hx
-    MEXT_V%dy = hy
-    MEXT_V%dz = hz
+    allocate(ext_grid%x(nx), ext_grid%y(ny), ext_grid%z(nz))
+    ext_grid%x = [(ox + (i-1)*hx, i=1,nx)]
+    ext_grid%y = [(oy + (i-1)*hy, i=1,ny)]
+    ext_grid%z = [(oz + (i-1)*hz, i=1,nz)]
+    ext_grid%nx = nx
+    ext_grid%ny = ny
+    ext_grid%nz = nz
+    ext_grid%dx = hx
+    ext_grid%dy = hy
+    ext_grid%dz = hz
+
+    hx_fd_proj = hx
+    hy_fd_proj = hy
+    hz_fd_proj = hz
+    ox_fd_proj = ox
+    oy_fd_proj = oy
+    oz_fd_proj = oz
+    nx_fd_proj = nx
+    ny_fd_proj = ny
+    nz_fd_proj = nz
 
     call synchronize_all()
   end subroutine create_grid
@@ -65,7 +77,7 @@ contains
   !   real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: grid_model
   !   integer :: ier, i
     
-  !   allocate(grid_model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel), stat=ier)
+  !   allocate(grid_model(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel), stat=ier)
   !   grid_model = 0.0_cr
 
   !   call database2model(gll_data)
@@ -84,9 +96,9 @@ contains
     
     if (worldrank == 0) then
       call h5file%open(filename, status='new', action='write')
-      call h5file%add('/x', MEXT_V%x)
-      call h5file%add('/y', MEXT_V%y)
-      call h5file%add('/z', MEXT_V%z)
+      call h5file%add('/x', ext_grid%x)
+      call h5file%add('/y', ext_grid%y)
+      call h5file%add('/z', ext_grid%z)
       do iker = 1, nkernel
         call h5file%add('/'//trim(parameter_names(iker)), transpose_3(grid_model(:,:,:,iker)))
       end do
@@ -119,9 +131,9 @@ contains
     
     if (worldrank == 0) then
       call h5file%open(filename, status='new', action='write')
-      call h5file%add('/x', MEXT_V%x)
-      call h5file%add('/y', MEXT_V%y)
-      call h5file%add('/z', MEXT_V%z)
+      call h5file%add('/x', ext_grid%x)
+      call h5file%add('/y', ext_grid%y)
+      call h5file%add('/z', ext_grid%z)
       do iker = 1, nkernel
         call h5file%add('/'//trim(kernel_names(iker))//'_kernel_smooth',transpose_3(grid_kernel(:,:,:,iker)))
       end do
@@ -137,9 +149,9 @@ contains
     
     if (worldrank == 0) then
       call h5file%open(filename, status='new', action='write')
-      call h5file%add('/x', MEXT_V%x)
-      call h5file%add('/y', MEXT_V%y)
-      call h5file%add('/z', MEXT_V%z)
+      call h5file%add('/x', ext_grid%x)
+      call h5file%add('/y', ext_grid%y)
+      call h5file%add('/z', ext_grid%z)
       call h5file%add('/'//trim(key_name), transpose_3(grid_data(:,:,:)))
       call h5file%close(finalize=.true.)
     endif
@@ -169,7 +181,7 @@ contains
 
     type(hdf5_file) :: h5file
     if (worldrank == 0) then
-      allocate(grid_model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel))
+      allocate(grid_model(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel))
       call h5file%open(filename, status='old', action='read')
       do iker = 1, nkernel
         call h5file%get('/'//trim(kernel_names(iker))//'_kernel_smooth', gm)
@@ -187,7 +199,7 @@ contains
 
     type(hdf5_file) :: h5file
     if (worldrank == 0) then
-      allocate(grid_model(MEXT_V%nx, MEXT_V%ny, MEXT_V%nz, nkernel))
+      allocate(grid_model(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel))
       call h5file%open(filename, status='old', action='read')
       do iker = 1, nkernel
         call h5file%get('/'//trim(parameter_names(iker)), gm)
@@ -197,57 +209,57 @@ contains
     endif
   end subroutine read_grid_model
   
-  subroutine gll2grid(data, grid_data)
+  subroutine gll2grid_simple(data, grid_data)
     real(kind=cr), dimension(:,:,:,:), intent(in) :: data
     real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
     real(kind=cr), dimension(:), allocatable :: tmp, tmp_weight, dat_sum, weight_sum
     real(kind=cr) :: wx, wy, wz, wt
     integer :: i, j, k, ier, ispec, idx, idy, idz, n, m, iglob
 
-    tmp = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
-    tmp_weight = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
-    dat_sum = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
-    weight_sum = zeros(MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
+    tmp = zeros(ext_grid%nx * ext_grid%ny * ext_grid%nz)
+    tmp_weight = zeros(ext_grid%nx * ext_grid%ny * ext_grid%nz)
+    dat_sum = zeros(ext_grid%nx * ext_grid%ny * ext_grid%nz)
+    weight_sum = zeros(ext_grid%nx * ext_grid%ny * ext_grid%nz)
 
     do ispec = 1, NSPEC_FWAT
       do i = 1, NGLLX
         do j = 1, NGLLY
           do k = 1, NGLLZ
             iglob = ibool_fwat(i, j, k, ispec)
-            call locate_bissection(dble(MEXT_V%x), MEXT_V%nx, dble(xstore_fwat(iglob)), idx)
+            call locate_bissection(dble(ext_grid%x), ext_grid%nx, dble(xstore_fwat(iglob)), idx)
             if (idx == -1) call exit_mpi(worldrank, 'ERROR GLL2GRID: x is out of boundary')
-            wx = (xstore_fwat(iglob) - MEXT_V%x(idx)) / (MEXT_V%x(idx+1) - MEXT_V%x(idx))
-            call locate_bissection(dble(MEXT_V%y), MEXT_V%ny, dble(ystore_fwat(iglob)), idy)
+            wx = (xstore_fwat(iglob) - ext_grid%x(idx)) / (ext_grid%x(idx+1) - ext_grid%x(idx))
+            call locate_bissection(dble(ext_grid%y), ext_grid%ny, dble(ystore_fwat(iglob)), idy)
             if (idy == -1) call exit_mpi(worldrank, 'ERROR GLL2GRID: y is out of boundary')
-            wy = (ystore_fwat(iglob) - MEXT_V%y(idy)) / (MEXT_V%y(idy+1) - MEXT_V%y(idy))
-            call locate_bissection(dble(MEXT_V%z), MEXT_V%nz, dble(zstore_fwat(iglob)), idz)
+            wy = (ystore_fwat(iglob) - ext_grid%y(idy)) / (ext_grid%y(idy+1) - ext_grid%y(idy))
+            call locate_bissection(dble(ext_grid%z), ext_grid%nz, dble(zstore_fwat(iglob)), idz)
             if (idz == -1) call exit_mpi(worldrank, 'ERROR GLL2GRID: z is out of boundary')
-            wz = (zstore_fwat(iglob) - MEXT_V%z(idz)) / (MEXT_V%z(idz+1) - MEXT_V%z(idz))
+            wz = (zstore_fwat(iglob) - ext_grid%z(idz)) / (ext_grid%z(idz+1) - ext_grid%z(idz))
             do n = 1, 8
               select case(n)
                 case (1)
-                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * (idy-1) + idx
+                  m = ext_grid%nx * ext_grid%ny * (idz-1) + ext_grid%nx * (idy-1) + idx
                   wt = (1.0_cr - wx) * (1.0_cr - wy) * (1.0_cr - wz)
                 case (2)
-                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * idy + idx
+                  m = ext_grid%nx * ext_grid%ny * (idz-1) + ext_grid%nx * idy + idx
                   wt = (1.0_cr - wx) * wy * (1.0_cr - wz)
                 case (3)
-                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * idy + idx + 1
+                  m = ext_grid%nx * ext_grid%ny * (idz-1) + ext_grid%nx * idy + idx + 1
                   wt = wx * wy * (1.0_cr - wz)
                 case (4)
-                  m = MEXT_V%nx * MEXT_V%ny * (idz-1) + MEXT_V%nz * (idy-1) + idx + 1
+                  m = ext_grid%nx * ext_grid%ny * (idz-1) + ext_grid%nx * (idy-1) + idx + 1
                   wt = wx * (1.0_cr - wy) * (1.0_cr - wz)
                 case (5)
-                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * (idy-1) + idx
+                  m = ext_grid%nx * ext_grid%ny * idz + ext_grid%nx * (idy-1) + idx
                   wt = (1.0_cr - wx) * (1.0_cr - wy) * wz
                 case (6)
-                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * idy + idx
+                  m = ext_grid%nx * ext_grid%ny * idz + ext_grid%nx * idy + idx
                   wt = (1.0_cr - wx) * wy * wz
                 case (7)
-                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * idy + idx + 1
+                  m = ext_grid%nx * ext_grid%ny * idz + ext_grid%nx * idy + idx + 1
                   wt = wx * wy * wz
                 case (8)
-                  m = MEXT_V%nx * MEXT_V%ny * idz + MEXT_V%nz * (idy-1) + idx + 1
+                  m = ext_grid%nx * ext_grid%ny * idz + ext_grid%nx * (idy-1) + idx + 1
                   wt = wx * (1.0_cr - wy) * wz
               end select
               tmp(m) = tmp(m) + wt * data(i, j, k, ispec)
@@ -258,12 +270,12 @@ contains
       enddo
     enddo
     call synchronize_all()
-    call sum_all_1Darray_cr(tmp, dat_sum, MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
-    call sum_all_1Darray_cr(tmp_weight, weight_sum, MEXT_V%nx * MEXT_V%ny * MEXT_V%nz)
+    call sum_all_1Darray_cr(tmp, dat_sum, ext_grid%nx * ext_grid%ny * ext_grid%nz)
+    call sum_all_1Darray_cr(tmp_weight, weight_sum, ext_grid%nx * ext_grid%ny * ext_grid%nz)
 
     if (worldrank == 0) then
       ! Normalize the grid data by the weights
-      do i = 1, MEXT_V%nx * MEXT_V%ny * MEXT_V%nz
+      do i = 1, ext_grid%nx * ext_grid%ny * ext_grid%nz
         if (weight_sum(i) > 0.0_cr) then
           dat_sum(i) = dat_sum(i) / weight_sum(i)
         else
@@ -272,12 +284,39 @@ contains
       end do
 
       ! Reshape the grid data to 3D
-      grid_data = reshape(dat_sum, [MEXT_V%nx, MEXT_V%ny, MEXT_V%nz])
+      grid_data = reshape(dat_sum, [ext_grid%nx, ext_grid%ny, ext_grid%nz])
     endif
     call synchronize_all()
 
+  end subroutine gll2grid_simple
+
+  subroutine gll2grid(data, grid_data)
+    use shared_parameters
+
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(in) :: data
+    real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
+    real(kind=cr), dimension(:,:,:), allocatable :: model_on_FD_grid
+    type(profd)  :: projection_fd
+    integer :: ier
+
+    ! Get regular grid properties, and precomputes all interpolation coefficients
+    call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
+    call zwgljd(yigll,wygll,NGLLY,GAUSSALPHA,GAUSSBETA)
+    call zwgljd(zigll,wzgll,NGLLZ,GAUSSALPHA,GAUSSBETA)
+
+    call compute_interpolation_coeff_FD_SEM(projection_fd, worldrank)
+
+    ! put data from SEM mesh to a regular grid
+    call Project_model_SEM2FD_grid(data, grid_data, projection_fd, worldrank)
+    ! if (worldrank == 0) then
+    !   grid_data = model_on_FD_grid
+    ! else
+    !   allocate(grid_data(ext_grid%nx, ext_grid%ny, ext_grid%nz))
+    ! end if
+    ! call bcast_all_cr(grid_data, ext_grid%nx * ext_grid%ny * ext_grid%nz)
+  
+    call synchronize_all()
+  
   end subroutine gll2grid
-
-
 
 end module model_grid_data

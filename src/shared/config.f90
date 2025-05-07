@@ -88,7 +88,7 @@ module config
   real(kind=cr) :: x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
                    elemsize_min_glob,elemsize_max_glob, &
                    distance_min_glob,distance_max_glob
-  integer :: NSPEC_FWAT
+  integer :: NSPEC_FWAT, NGLOB_FWAT
   real(kind=cr), dimension(:), allocatable :: xstore_fwat, ystore_fwat, zstore_fwat
   integer, dimension(:,:,:,:), allocatable :: ibool_fwat
 
