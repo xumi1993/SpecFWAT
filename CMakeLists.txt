@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-set(project_version 0.1.1)
+set(project_version 0.2.0)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
