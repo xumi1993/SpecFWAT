@@ -73,13 +73,13 @@ contains
     write(msg, '(a,I4,I4,I4)') 'Multi-grid smoothing: ', fpar%postproc%ninv(1), &
                                 fpar%postproc%ninv(2), fpar%postproc%ninv(3)
     call log%write(msg, .false.)
-    if (is_joint) then
+    if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then
       write(msg, '(a)') 'Preconditioned L-BFGS'
     else
       write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_PRECOND
     endif
     call log%write(msg, .false.)
-    if (is_joint) then
+    if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then
       write(msg, '(a,I3)') 'Precondition type: ', tele_par%PRECOND_TYPE
     else
       write(msg, '(a,I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE

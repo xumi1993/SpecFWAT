@@ -1485,4 +1485,13 @@ end function
     endif
 
   end subroutine locate_bissection
+
+  function inner_product(a, b, dx, dy, dz) result(res)
+    real(kind = RPRE), dimension(:,:,:,:), intent(in) :: a, b
+    real(kind = RPRE), intent(in) :: dx, dy, dz
+    real(kind = RPRE) :: res
+
+    res = sum(a * b) * dx * dy * dz
+
+  end function inner_product
 end module

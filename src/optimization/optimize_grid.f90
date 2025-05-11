@@ -6,7 +6,7 @@ module optimize_grid
   use kernel_io, only: read_mesh_databases_minimum
   use logger, only: log
   use line_search
-  use utils, only: zeros, ones
+  use utils, only: zeros, ones, inner_product
   use model_grid_data
   use shared_input_parameters, only: TOMOGRAPHY_PATH
   use hdf5_interface
@@ -246,10 +246,11 @@ contains
         model_diff = model1-model0
 
         ! call Parallel_ComputeInnerProduct(gradient_diff, model_diff, p_sum)
-        p_sum = sum(gradient_diff*model_diff)
+        ! p_sum = sum(gradient_diff*model_diff)
+        p_sum = inner_product(gradient_diff, model_diff, ext_grid%dx, ext_grid%dy, ext_grid%dz)
         p(istore) = 1.0_cr / p_sum
-        ! call Parallel_ComputeInnerProduct(model_diff, q_vector, a_sum)
-        a_sum = sum(model_diff*q_vector)
+        ! a_sum = sum(model_diff*q_vector)
+        a_sum = inner_product(model_diff, q_vector, ext_grid%dx, ext_grid%dy, ext_grid%dz)
         a(istore) = p(istore)*a_sum
         q_vector = q_vector - a(istore)*gradient_diff
       enddo
@@ -262,8 +263,10 @@ contains
       gradient_diff = gradient1 - gradient0
       model_diff = model1 - model0
 
-      p_k_up_sum = sum(gradient_diff*model_diff)
-      p_k_down_sum = sum(gradient_diff*gradient_diff)
+      ! p_k_up_sum = sum(gradient_diff*model_diff)
+      p_k_up_sum = inner_product(gradient_diff, model_diff, ext_grid%dx, ext_grid%dy, ext_grid%dz)
+      ! p_k_down_sum = sum(gradient_diff*gradient_diff)
+      p_k_down_sum = inner_product(gradient_diff, gradient_diff, ext_grid%dx, ext_grid%dy, ext_grid%dz)
       p_k = p_k_up_sum / p_k_down_sum
       r_vector=p_k * this%hess * q_vector
 
@@ -278,7 +281,8 @@ contains
         model_diff = model1-model0
 
         ! call Parallel_ComputeInnerProduct(gradient_diff, r_vector, b_sum)
-        b_sum = sum(gradient_diff*r_vector)
+        ! b_sum = sum(gradient_diff*r_vector)
+        b_sum = inner_product(gradient_diff, r_vector, ext_grid%dx, ext_grid%dy, ext_grid%dz)
         b = p(istore)*b_sum
         r_vector = r_vector + (a(istore)-b)*model_diff
       enddo
