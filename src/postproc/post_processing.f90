@@ -150,17 +150,24 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
 
     call log%write('This is applying preconditioned kernels...', .true.)
-    if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+    if (fpar%sim%PRECOND_TYPE <= DEFAULT_PRECOND) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, 'hess_kernel', ker)
-        total_hess = total_hess + abs(ker)
+        if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+          total_hess = total_hess + abs(ker)
+        else
+          total_hess = total_hess + ker
+        endif
       enddo
+      if (fpar%sim%PRECOND_TYPE == 0) total_hess = abs(total_hess)
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
       call invert_hess(total_hess)
+      if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
     else
       call zprecond_gll(total_hess) 
     endif
+
     do iker = 1, nkernel
       this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) * total_hess
     enddo
@@ -180,14 +187,20 @@ contains
     type(InvGrid) :: inv
 
     call log%write('This is saving preconditioned kernels...', .true.)
-    if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+    if (fpar%sim%PRECOND_TYPE <= 1) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)
-        total_hess = total_hess + abs(ker)
+        if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+          total_hess = total_hess + abs(ker)
+        else
+          total_hess = total_hess + ker
+        endif
       enddo
+      if (fpar%sim%PRECOND_TYPE == 0) total_hess = abs(total_hess)
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_kernel', total_hess)
       call invert_hess(total_hess)
+      if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_inv_kernel', total_hess)
       call inv%init()
       call inv%sem2inv(total_hess, gk)
       call inv%inv2grid(gk, gm)

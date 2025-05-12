@@ -184,6 +184,22 @@ contains
               sta(irec_local) = this%od%stnm(irec)
               net(irec_local) = this%od%netwk(irec)
             endif
+            if (IS_OUTPUT_ADJ_SRC) then
+              block
+                type(sachead) :: header
+                character(len=MAX_STRING_LEN) :: sacfile
+                
+                call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+                header%knetwk = trim(this%od%netwk(irec))
+                header%kstnm = trim(this%od%stnm(irec))
+                header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+                sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                      '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
+                      '.adj.sac.'//trim(this%band_name)
+                call sacio_writesac(sacfile, header, adj_syn_local(1:NSTEP), ier)
+              end block
+            end if
           end do
         end do
       end if
