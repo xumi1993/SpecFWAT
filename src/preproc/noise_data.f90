@@ -163,7 +163,7 @@ contains
             seismo_dat = seismo_dat / maxval(abs(seismo_dat(nb:ne))) * maxval(abs(seismo_syn(nb:ne)))
             if (is_output_preproc) then
               call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'syn', seismo_syn)
-              call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'dat', seismo_dat)
+              call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'obs', seismo_dat)
             end if
             call measure_adj_fwat(seismo_dat, seismo_syn, tstart(irec_local), tend(irec_local),&
                                   dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)),&
@@ -309,6 +309,7 @@ contains
     end if
     call synchronize_all()
     call sync_from_main_rank_cr_1d(this%od%baz, this%od%nsta)
+    call sync_from_main_rank_cr_1d(this%od%dist, this%od%nsta)
 
   end subroutine calc_distaz
 
