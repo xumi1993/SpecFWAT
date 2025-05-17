@@ -337,8 +337,8 @@ contains
     integer, parameter :: rank_fk=3
     type(hdf5_file) :: h5file
 
-    chunk_dims = (/NDIM, 1000, 128/)
     dims = shape(Veloc_FK)
+    chunk_dims = (/NDIM, int(dims(2)/16), 128/)
 
     out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
     ! if (worldrank == 0) call system('mkdir -p '//trim(out_dir))

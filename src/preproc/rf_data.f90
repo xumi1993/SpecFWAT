@@ -131,6 +131,10 @@ module rf_data
     
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, 2, this%nrec_loc)
+      allocate(sta(this%nrec_loc))
+      allocate(net(this%nrec_loc))
+      tstart = zeros_dp(this%nrec_loc)
+      tend = zeros_dp(this%nrec_loc)
     endif
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
@@ -141,10 +145,6 @@ module rf_data
         am_chi = zeros_dp(this%nrec_loc, 1)
         T_pmax_dat = zeros_dp(this%nrec_loc, 1)
         T_pmax_syn = zeros_dp(this%nrec_loc, 1)
-        tstart = zeros_dp(this%nrec_loc)
-        tend = zeros_dp(this%nrec_loc)
-        allocate(sta(this%nrec_loc))
-        allocate(net(this%nrec_loc))
         do irec_local = 1, this%nrec_loc
           irec = select_global_id_for_rec(irec_local)
           synz = this%data(:, 1, irec)
@@ -185,27 +185,27 @@ module rf_data
     call synchronize_all()
 
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
-    if (IS_OUTPUT_ADJ_SRC) then
-      call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-      if (this%nrec_loc > 0) then
-        do irec_local = 1, this%nrec_loc
-          irec = select_global_id_for_rec(irec_local)
-          header%kstnm = this%od%stnm(irec)
-          header%knetwk = this%od%netwk(irec)
-          do icomp = 1, 2
-            if (icomp == 1) then
-              header%kcmpnm = 'Z'
-            else
-              header%kcmpnm = 'R'
-            end if
-            call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
-                                trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                                '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
-                                header, adj_src(:, icomp, irec_local), ier)
-          enddo
-        enddo
-      endif
-    endif
+    ! if (IS_OUTPUT_ADJ_SRC) then
+    !   call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+    !   if (this%nrec_loc > 0) then
+    !     do irec_local = 1, this%nrec_loc
+    !       irec = select_global_id_for_rec(irec_local)
+    !       header%kstnm = this%od%stnm(irec)
+    !       header%knetwk = this%od%netwk(irec)
+    !       do icomp = 1, 2
+    !         if (icomp == 1) then
+    !           header%kcmpnm = 'Z'
+    !         else
+    !           header%kcmpnm = 'R'
+    !         end if
+    !         call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
+    !                             trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+    !                             '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
+    !                             header, adj_src(:, icomp, irec_local), ier)
+    !       enddo
+    !     enddo
+    !   endif
+    ! endif
     call synchronize_all()
 
     call this%get_comp_name_adj()
@@ -298,6 +298,10 @@ module rf_data
             call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/syn.'//&
                                 trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                                 '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), header, rfi, ier)
+            call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/obs.'//&
+                                trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                                '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), &
+                                header, this%od%data(:, igaus, irec), ier)
           endif
         enddo
       enddo
