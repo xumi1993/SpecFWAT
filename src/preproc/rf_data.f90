@@ -230,7 +230,7 @@ module rf_data
     integer :: irec, igaus
 
     call prepare_shm_array_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec, this%syn_win)
-    if (worldrank == 0) then
+    if (noderank == 0) then
       do igaus = 1, fpar%sim%rf%NGAUSS
         do irec = 1, this%nrec
           call interpolate_syn_dp(this%od%data(:, igaus, irec), dble(this%od%tbeg(irec)),&
@@ -241,7 +241,6 @@ module rf_data
       enddo
     endif
     call synchronize_all()
-    call sync_from_main_rank_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
 
   end subroutine interp_data
 
@@ -301,7 +300,7 @@ module rf_data
             call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/obs.'//&
                                 trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                                 '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), &
-                                header, this%od%data(:, igaus, irec), ier)
+                                header, this%rf_dat(:, igaus, irec), ier)
           endif
         enddo
       enddo
