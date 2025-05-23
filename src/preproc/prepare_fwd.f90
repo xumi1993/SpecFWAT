@@ -313,7 +313,8 @@ contains
     
     call synchronize_all()
     call log%write('This is saving kernels ...', .true.)
-    call save_adjoint_kernels() 
+    call save_adjoint_kernels()
+    call synchronize_all()
 
   end subroutine postproc_adjoint
 
