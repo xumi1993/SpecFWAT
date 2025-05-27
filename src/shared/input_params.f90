@@ -36,7 +36,7 @@ module input_params
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE, TELE_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
-    real(kind=cr) :: DT
+    real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING, SAVE_FK
     type(rf_params) :: rf
@@ -242,6 +242,10 @@ contains
         this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
         this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
         this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+        this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
 
         ! read parameters for teleseismic FWI
@@ -274,6 +278,10 @@ contains
         this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
         this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
         compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
+        this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -335,9 +343,9 @@ contains
         if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
-        list => post%get_list('NINV', required=.true., error=io_err)
-        call read_static_int_list(list, this%postproc%ninv)
-        this%postproc%n_inversion_grid = post%get_integer('N_INVERSION_GRID', error=io_err, default=5)
+        ! list => post%get_list('NINV', required=.true., error=io_err)
+        ! call read_static_int_list(list, this%postproc%ninv)
+        ! this%postproc%n_inversion_grid = post%get_integer('N_INVERSION_GRID', error=io_err, default=5)
         this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)

@@ -5,8 +5,7 @@ implicit none
 contains
 subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   use constants
-  ! use postprocess_par, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
-    ! MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI
+  use config, only : distance_min_glob
   use specfem_par
   use specfem_par_elastic, only: ispec_is_elastic, &
       nspec_inner_elastic,nspec_outer_elastic,phase_ispec_inner_elastic
@@ -19,7 +18,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   integer ::  NARGS
   integer, parameter :: PRINT_INFO_PER_STEP = 1000
   logical, parameter :: ZERO_PML = .true.
-  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(in) :: dat_in
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), intent(in) :: dat_in
   real(kind=CUSTOM_REAL), intent(in) :: sigma_h, sigma_v
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(out) :: dat
   logical, intent(in) :: is_sph
@@ -48,11 +47,11 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   real(kind=CUSTOM_REAL) :: ch, cv, cmax
   real(kind=CUSTOM_REAL) :: min_val, max_val, min_val_glob, max_val_glob
   
-  real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
-  real(kind=CUSTOM_REAL) :: elemsize_min_glob,elemsize_max_glob
-  real(kind=CUSTOM_REAL) :: x_min_glob,x_max_glob
-  real(kind=CUSTOM_REAL) :: y_min_glob,y_max_glob
-  real(kind=CUSTOM_REAL) :: z_min_glob,z_max_glob
+  ! real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
+  ! real(kind=CUSTOM_REAL) :: elemsize_min_glob,elemsize_max_glob
+  ! real(kind=CUSTOM_REAL) :: x_min_glob,x_max_glob
+  ! real(kind=CUSTOM_REAL) :: y_min_glob,y_max_glob
+  ! real(kind=CUSTOM_REAL) :: z_min_glob,z_max_glob
 
   real(kind=CUSTOM_REAL) :: xl,yl,zl,rl,rxl,ryl,rzl,&
     xixl,xiyl,xizl,etaxl,etayl,etazl,gammaxl,gammayl,gammazl,jacobianl 
@@ -73,15 +72,6 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   else
     is_sph_int = 0
   endif
-
-  ! gets mesh dimensions
-  call check_mesh_distances(myrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
-                            x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
-                            elemsize_min_glob,elemsize_max_glob, &
-                            distance_min_glob,distance_max_glob)
-
-  ! outputs infos
- 
 
   !! broadcast distance_min_glob to other processors
   call bcast_all_singlecr(distance_min_glob)
@@ -379,16 +369,16 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
       call synchronize_all()
     enddo
   else 
-    call smooth_sph_pde_cuda(is_sph_int,NSPEC_AB,NGLOB_AB,NPROC,ntstep, &
-                             size(phase_ispec_inner_elastic,1),phase_ispec_inner_elastic, &
-                             nspec_outer_elastic,nspec_inner_elastic,xixstore, &
-                             xiystore,xizstore,etaxstore,etaystore,etazstore, &
-                             gammaxstore,gammaystore,gammazstore, &
-                             jacobianstore,rotate_r,wgllwgll_xy,wgllwgll_xz, &
-                             wgllwgll_yz,hprime_xxT,hprimewgll_xx,ibool, &
-                             is_CPML,cv,ch,num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
-                             my_neighbors_ext_mesh,nibool_interfaces_ext_mesh, &
-                             ibool_interfaces_ext_mesh,dat_bak,dat,rvol,dat_glob,ddat_glob)
+    call smooth_pde_cuda(is_sph_int,NSPEC_AB,NGLOB_AB,NPROC,ntstep, &
+                          size(phase_ispec_inner_elastic,1),phase_ispec_inner_elastic, &
+                          nspec_outer_elastic,nspec_inner_elastic,xixstore, &
+                          xiystore,xizstore,etaxstore,etaystore,etazstore, &
+                          gammaxstore,gammaystore,gammazstore, &
+                          jacobianstore,rotate_r,wgllwgll_xy,wgllwgll_xz, &
+                          wgllwgll_yz,hprime_xxT,hprimewgll_xx,ibool, &
+                          is_CPML,cv,ch,num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
+                          my_neighbors_ext_mesh,nibool_interfaces_ext_mesh, &
+                          ibool_interfaces_ext_mesh,dat_bak,dat,rvol,dat_glob,ddat_glob)
   endif
   call synchronize_all()
   call cpu_time(t2)

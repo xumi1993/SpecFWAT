@@ -5,7 +5,7 @@ module preproc_fwd
                          PRINT_SOURCE_TIME_FUNCTION, SAVE_FORWARD, SAVE_MESH_FILES, SIMULATION_TYPE, LOCAL_PATH,&
                          ANISOTROPIC_KL, NSPEC_ADJOINT, FKMODEL_FILE, prname, COUPLE_WITH_INJECTION_TECHNIQUE,&
                          USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH, &
-                         ATTENUATION
+                         ATTENUATION, ANISOTROPY
   use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz, COMPUTE_AND_STORE_STRAIN
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
@@ -57,7 +57,7 @@ contains
     endif
     call log%write('*******************************************', .false.)
 
-    LOCAL_PATH = local_path_fwat
+    call setup_parameters_for_init()
 
     call force_ftz()
 
@@ -88,6 +88,33 @@ contains
     if(this%run_mode == FORWARD_ADJOINT) call this%initialize_kernel_matrice()
 
   end subroutine init
+
+  subroutine setup_parameters_for_init()
+    ! MX: change SIMULATION_TYPE to 3 for adjoint simulations
+    SAVE_MESH_FILES=.false.
+    PRINT_SOURCE_TIME_FUNCTION=.false.
+    MOVIE_VOLUME=.false.
+    local_path_backup = LOCAL_PATH
+    LOCAL_PATH = local_path_fwat
+    output_files_backup = OUTPUT_FILES
+    APPROXIMATE_HESS_KL=.false.
+    if (run_mode < FORWARD_ADJOINT) then
+      SIMULATION_TYPE = 1
+      SAVE_FORWARD = .false.
+    else
+      SIMULATION_TYPE = 3
+      SAVE_FORWARD = .true.
+      if (fpar%sim%PRECOND_TYPE == 1) APPROXIMATE_HESS_KL=.true.
+    endif
+    if (fpar%update%MODEL_TYPE > 1) then
+      ANISOTROPIC_KL = .true.
+      ANISOTROPY = .true.
+    else
+      ANISOTROPIC_KL = .false.
+      ANISOTROPY = .false.
+    endif
+
+  end subroutine setup_parameters_for_init
 
   subroutine destroy(this)
     class(PrepareFWD), intent(inout) :: this

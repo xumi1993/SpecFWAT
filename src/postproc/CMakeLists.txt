@@ -2,12 +2,9 @@
 file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 if (USE_CUDA)
-  set(SOURCES_Fortran
-    ${SOURCES_Fortran}
-    "smooth_sem_pde.cu"
-  )
+  file (GLOB SOURCES_CUDA "*.cu")
 endif()
-add_library(postproc_objs OBJECT ${SOURCES_Fortran})
+add_library(postproc_objs OBJECT ${SOURCES_Fortran} ${SOURCES_CUDA})
 target_link_libraries(postproc_objs PRIVATE shared_objs shared_fwat_objs
                       cuda_objs grid_objs mesh_subs_objs databases_subs_objs)
 

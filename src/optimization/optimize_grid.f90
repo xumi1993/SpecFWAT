@@ -3,7 +3,6 @@ module optimize_grid
   use fwat_mpi
   use input_params, fpar => fwat_par_global
   use opt_io
-  use kernel_io, only: read_mesh_databases_minimum
   use logger, only: log
   use line_search
   use utils, only: zeros, ones, inner_product

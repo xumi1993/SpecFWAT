@@ -308,12 +308,6 @@ contains
 
     ! put data from SEM mesh to a regular grid
     call Project_model_SEM2FD_grid(data, grid_data, projection_fd, worldrank)
-    ! if (worldrank == 0) then
-    !   grid_data = model_on_FD_grid
-    ! else
-    !   allocate(grid_data(ext_grid%nx, ext_grid%ny, ext_grid%nz))
-    ! end if
-    ! call bcast_all_cr(grid_data, ext_grid%nx * ext_grid%ny * ext_grid%nz)
   
     call synchronize_all()
   

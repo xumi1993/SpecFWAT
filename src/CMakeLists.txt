@@ -177,6 +177,8 @@ add_subdirectory(fortran-yaml)
 add_subdirectory(grid)
 # add mesh_database_api library
 add_subdirectory(mesh_database_api)
+# add specfem_interface library
+add_subdirectory(specfem_interface)
 
 # ==============================================================================
 # ------------------------ Add FWAT executables --------------------------------

@@ -18,12 +18,6 @@ program fwat_post_proc
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
 
-  if (count(fpar%postproc%INV_TYPE) > 1) then
-    is_joint = .true.
-  else
-    is_joint = .false.
-  endif
-
   call fpp%init(.true.)
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then
@@ -41,8 +35,8 @@ program fwat_post_proc
       endif
 
       if (fpar%postproc%SMOOTH_TYPE == 1) then
-        call fpp%multigrid_smooth()
-        ! call fpp%pde_smooth()
+        ! call fpp%multigrid_smooth()
+        call fpp%pde_smooth()
 
         call fpp%taper_kernel_grid()
 
