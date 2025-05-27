@@ -65,7 +65,6 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: buffer_recv_vector_ext_mesh_smooth
   logical :: BROADCAST_AFTER_READ
  
-  call init_mpi()
   call world_size(sizeprocs)
   call world_rank(myrank)
 
