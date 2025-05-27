@@ -1,198 +1,114 @@
 module smooth_mod
-  use specfem_par
-  use specfem_par_elastic, only: &
-      !ispec_is_elastic, &
-      nspec_inner_elastic,nspec_outer_elastic,phase_ispec_inner_elastic
-  use config
 
 implicit none
 
 contains
-
-subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
-
-  use constants, only: m1, m2, CUSTOM_REAL,NGLLX,NGLLY,NGLLZ, MAX_STRING_LEN,IIN,IOUT
-
-  !use specfem_par_acoustic, only: ispec_is_acoustic
-  !use specfem_par_poroelastic, only: ispec_is_poroelastic
+subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
+  use constants
+  ! use postprocess_par, only: CUSTOM_REAL,NGLLX,NGLLY,NGLLZ,NDIM,NGLLSQUARE, &
+    ! MAX_STRING_LEN,IIN,IOUT,GAUSSALPHA,GAUSSBETA,PI,TWO_PI
+  use specfem_par
+  use specfem_par_elastic, only: ispec_is_elastic, &
+      nspec_inner_elastic,nspec_outer_elastic,phase_ispec_inner_elastic
+  use specfem_par_acoustic, only: ispec_is_acoustic
+  use specfem_par_poroelastic, only: ispec_is_poroelastic
   use pml_par, only: is_CPML
+  ! use wavefield_discontinuity_par,only: IS_WAVEFIELD_DISCONTINUITY
 
-  ! integer, parameter :: NARGS = 7
-  integer, parameter :: PRINT_INFO_PER_STEP = 1000000
-  real(kind=CUSTOM_REAL), parameter :: CFL_CONST = 9.0
-
-  real(kind=CUSTOM_REAL), dimension(:,:,:,:), intent(in) :: dat_in
+  implicit none 
+  integer ::  NARGS
+  integer, parameter :: PRINT_INFO_PER_STEP = 1000
+  logical, parameter :: ZERO_PML = .true.
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(in) :: dat_in
+  real(kind=CUSTOM_REAL), intent(in) :: sigma_h, sigma_v
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(out) :: dat
-  !! spherical coordinate !!
-  !real(kind=CUSTOM_REAL), dimension(:,:,:,:,:),allocatable :: rotate_r
-  !!!!!!!!!!!!!!!!!!!!!!!!!!
+  logical, intent(in) :: is_sph
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: dat_bak
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:,:),allocatable :: rotate_r
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: &
-    stemp1,stemp2,stemp3, &
-    snewtemp1,snewtemp2,snewtemp3, &
-    dat_elem
+    dx_elem,dy_elem,dz_elem, stemp1,stemp2,stemp3, snewtemp1,snewtemp2,snewtemp3
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: dat_glob, ddat_glob
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: rvol
   real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: rvol_local
-  integer :: i,j,k,l,iglob,ier,ispec,ispec_p,iphase,ispec_irreg
+  integer :: i,j,k,l,iglob,ier,ispec,ispec_p,iphase,ispec_irreg, is_sph_int
 
-  ! character(len=MAX_STRING_LEN) :: arg(NARGS)
+  ! character(len=MAX_STRING_LEN) :: arg(7)
   ! character(len=MAX_STRING_LEN) :: input_dir, output_dir
   !character(len=MAX_STRING_LEN) :: prname_lp
   ! character(len=MAX_STRING_LEN*2) :: ks_file
   ! character(len=MAX_STRING_LEN*2) :: local_data_file
 
+
   !character(len=MAX_STRING_LEN) :: kernel_names(MAX_KERNEL_NAMES)
   !character(len=MAX_STRING_LEN) :: kernel_names_comma_delimited
-  ! character(len=MAX_STRING_LEN) :: kernel_name
+  character(len=MAX_STRING_LEN) :: kernel_name
   integer :: num_elements
   real t1,t2,tnow,tlast
 
-  real(kind=CUSTOM_REAL), intent(in) :: sigma_h, sigma_v
   real(kind=CUSTOM_REAL) :: ch, cv, cmax
   real(kind=CUSTOM_REAL) :: min_val, max_val, min_val_glob, max_val_glob
+  
+  real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
+  real(kind=CUSTOM_REAL) :: elemsize_min_glob,elemsize_max_glob
+  real(kind=CUSTOM_REAL) :: x_min_glob,x_max_glob
+  real(kind=CUSTOM_REAL) :: y_min_glob,y_max_glob
+  real(kind=CUSTOM_REAL) :: z_min_glob,z_max_glob
 
-  ! real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob
-  ! real(kind=CUSTOM_REAL) :: elemsize_min_glob,elemsize_max_glob
-  ! real(kind=CUSTOM_REAL) :: x_min_glob,x_max_glob
-  ! real(kind=CUSTOM_REAL) :: y_min_glob,y_max_glob
-  ! real(kind=CUSTOM_REAL) :: z_min_glob,z_max_glob
-
-  real(kind=CUSTOM_REAL) :: &
-    xixl,xiyl,xizl,etaxl,etayl,etazl,gammaxl,gammayl,gammazl,jacobianl, &
-    stemp1l, stemp2l, stemp3l, ddxl, ddyl, ddzl
+  real(kind=CUSTOM_REAL) :: xl,yl,zl,rl,rxl,ryl,rzl,&
+    xixl,xiyl,xizl,etaxl,etayl,etazl,gammaxl,gammayl,gammazl,jacobianl 
+  real(kind=CUSTOM_REAL) :: fac1,fac2,fac3
   integer :: ntstep, istep
   double precision :: weight
   !real(kind=CUSTOM_REAL), dimension(MAX_KERNEL_NAMES) :: max_old,max_new,max_old_all,max_new_all
   !real(kind=CUSTOM_REAL), dimension(MAX_KERNEL_NAMES) :: min_old,min_new,min_old_all,min_new_all
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: buffer_send_vector_ext_mesh_smooth
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: buffer_recv_vector_ext_mesh_smooth
-  ! logical :: USE_GPU, SET_ZERO_IN_PML
-  logical :: SET_ZERO_IN_PML
-
-  ! initializes MPI
-  ! call init_mpi()
+  logical :: BROADCAST_AFTER_READ
+ 
+  call init_mpi()
   call world_size(sizeprocs)
   call world_rank(myrank)
 
-  ! if (myrank == 0) print *,"Running XSMOOTH_SEM"
-  ! call synchronize_all()
-  ! call cpu_time(t1)
-
-  ! ! parse command line arguments
-  ! if ((command_argument_count() /= NARGS) .and. &
-  !     (command_argument_count() /= (NARGS - 1)) .and. &
-  !     (command_argument_count() /= (NARGS - 2))) then
-  !   if (myrank == 0) then
-  !       print *,'USAGE:  mpirun -np NPROC bin/xsmooth_sem SIGMA_H SIGMA_V '
-  !       print *,'KERNEL_NAME INPUT_DIR OUPUT_DIR GPU_MODE [SET_ZERO_IN_PML]'
-  !     stop 'Please check command line arguments'
-  !   endif
-  ! endif
-  ! call synchronize_all()
-
-  ! if (command_argument_count() == NARGS) then
-  !   do i = 1, NARGS
-  !     call get_command_argument(i,arg(i), status=ier)
-  !   enddo
-  ! else if (command_argument_count() == (NARGS - 1)) then
-  !   do i = 1, NARGS-1
-  !     call get_command_argument(i,arg(i), status=ier)
-  !   enddo
-  !   arg(NARGS) = 'TRUE' ! SET_ZERO_IN_PML = .true. by default
-  ! else if (command_argument_count() == (NARGS - 2)) then
-  !   do i = 1, NARGS-2
-  !     call get_command_argument(i,arg(i), status=ier)
-  !   enddo
-  !   arg(NARGS-1) = 'FALSE' ! USE_GPU = .false. by default
-  !   arg(NARGS) = 'TRUE' ! SET_ZERO_IN_PML = .true. by default
-  ! else
-  !   if (myrank == 0) then
-  !     stop 'Please check command line arguments'
-  !   endif
-  ! endif
-
-  ! read(arg(1),*) sigma_h
-  ! read(arg(2),*) sigma_v
-  ! kernel_name = arg(3)
-  ! input_dir= arg(4)
-  ! output_dir = arg(5)
-  ! read(arg(6),*) USE_GPU
-  ! read(arg(7),*) SET_ZERO_IN_PML
-
-  !call parse_kernel_names(kernel_names_comma_delimited,kernel_names,nker)
-  ! call synchronize_all()
-  ! ! user output
-  ! if (myrank == 0) then
-  !   print *,'command line arguments:'
-  !   print *,'  smoothing sigma_h , sigma_v                : ',sigma_h,sigma_v
-  !   print *,'  input dir : ',trim(input_dir)
-  !   print *,'  output dir: ',trim(output_dir)
-  !   print *,"  GPU_MODE: ", USE_GPU
-  !   print *,"  SET_ZERO_IN_PML: ", SET_ZERO_IN_PML
-  !   print *
-  ! endif
-
-  ! if (USE_GPU) then
-  !   if (myrank == 0) stop 'GPU mode not available yet'
-  ! endif
-
-  ! call initialize_simulation()
-
-  ! reads in external mesh
-  ! call read_mesh_databases()
+  if (is_sph) then
+    is_sph_int = 1
+  else
+    is_sph_int = 0
+  endif
 
   ! gets mesh dimensions
-  ! call check_mesh_distances(myrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
-  !                           x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
-  !                           elemsize_min_glob,elemsize_max_glob, &
-  !                           distance_min_glob,distance_max_glob)
+  call check_mesh_distances(myrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
+                            x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
+                            elemsize_min_glob,elemsize_max_glob, &
+                            distance_min_glob,distance_max_glob)
 
   ! outputs infos
-  ! if (myrank == 0) then
-  !   print *,'mesh dimensions:'
-  !   print *,'  Xmin and Xmax of the model = ',x_min_glob,x_max_glob
-  !   print *,'  Ymin and Ymax of the model = ',y_min_glob,y_max_glob
-  !   print *,'  Zmin and Zmax of the model = ',z_min_glob,z_max_glob
-  !   print *
-  !   print *,'  Max GLL point distance = ',distance_max_glob
-  !   print *,'  Min GLL point distance = ',distance_min_glob
-  !   print *,'  Max/min ratio = ',distance_max_glob/distance_min_glob
-  !   print *
-  !   print *,'  Max element size = ',elemsize_max_glob
-  !   print *,'  Min element size = ',elemsize_min_glob
-  !   print *,'  Max/min ratio = ',elemsize_max_glob/elemsize_min_glob
-  !   print *
-  ! endif
+ 
 
   !! broadcast distance_min_glob to other processors
-  ! check before broadcast
-  !if (myrank == 1) print *, 'distance_min_glob = ', distance_min_glob, 'myrank=', myrank
-  ! call bcast_all_singlecr(distance_min_glob)
-  ! check after broadcast
-  !if (myrank == 1) print *, 'distance_min_glob = ', distance_min_glob, 'myrank=', myrank
-  !! spherical coordinate !!
-  !allocate(rotate_r(NDIM,NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
-  !if (ier /= 0) call exit_MPI_without_rank('error allocating array 1013')
-  !
-  !do ispec = 1, NSPEC_AB
-  !  do k=1,NGLLZ;do j=1,NGLLY;do i=1,NGLLX
-  !    iglob = ibool(i,j,k,ispec)
-  !    xl = xstore(iglob)
-  !    yl = ystore(iglob)
-  !    zl = zstore(iglob)
-  !    rl = sqrt(xl*xl+yl*yl+zl*zl)
-  !    rotate_r(1,i,j,k,ispec) = xl / rl
-  !    rotate_r(2,i,j,k,ispec) = yl / rl
-  !    rotate_r(3,i,j,k,ispec) = zl / rl
-  !  enddo;enddo;enddo
-  !enddo
-  !!!!!!!!!!!!!!!!!!!!!!!!!
+  call bcast_all_singlecr(distance_min_glob)
+  
+  allocate(rotate_r(NDIM,NGLLX,NGLLY,NGLLZ,NSPEC_AB),stat=ier)
+  if (ier /= 0) call exit_MPI_without_rank('error allocating array 1013')
 
-  ! deallocate(xstore,ystore,zstore,kappastore,mustore)
-  !deallocate(ispec_is_acoustic, ispec_is_elastic, ispec_is_poroelastic)
+  do ispec = 1, NSPEC_AB
+    do k=1,NGLLZ;do j=1,NGLLY;do i=1,NGLLX
+      iglob = ibool(i,j,k,ispec)
+      xl = xstore(iglob)
+      yl = ystore(iglob)
+      zl = zstore(iglob)
+      rl = sqrt(xl*xl+yl*yl+zl*zl)
+      rotate_r(1,i,j,k,ispec) = xl / rl
+      rotate_r(2,i,j,k,ispec) = yl / rl
+      rotate_r(3,i,j,k,ispec) = zl / rl
+    enddo;enddo;enddo
+  enddo
+
+  deallocate(xstore,ystore,zstore,kappastore,mustore)
+  deallocate(ispec_is_acoustic, ispec_is_elastic, ispec_is_poroelastic)
 
   !! determine ch, cv, ntstep
-  cmax = distance_min_glob ** 2 / CFL_CONST
+  !cmax = distance_min_glob ** 2 / 6.0
+  cmax = distance_min_glob ** 2 / 9.0
   if (sigma_v >= sigma_h) then
     cv = cmax
     ch = cv * (sigma_h ** 2) / (sigma_v ** 2)
@@ -201,9 +117,8 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
     cv = ch * (sigma_v ** 2) / (sigma_h ** 2)
   endif
   ntstep = int(ceiling((max(sigma_h,sigma_v)**2)/(2.0*cmax)))
-
-  ! if (myrank == 0) print *, 'cv=', cv, 'ch=', ch, 'ntstep=', ntstep
-  ! print *, jacobian_regular, xix_regular
+  
+  if (myrank == 0) print *, 'cv=', cv, 'ch=', ch, 'ntstep=', ntstep
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -225,19 +140,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
     enddo
   enddo
 
-  ! define a 3D extension in order to be able to force vectorization in the compute_forces routines
-  do k = 1,NGLLZ
-    do j = 1,NGLLY
-      do i = 1,NGLLX
-        wgllwgll_yz_3D(i,j,k) = wgllwgll_yz(j,k)
-        wgllwgll_xz_3D(i,j,k) = wgllwgll_xz(i,k)
-        wgllwgll_xy_3D(i,j,k) = wgllwgll_xy(i,j)
-      enddo
-    enddo
-  enddo
-
-  allocate(dat(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
-  dat = dat_in
+  allocate(dat(NGLLX,NGLLY,NGLLZ,NSPEC_AB),dat_bak(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
   allocate(dat_glob(NGLOB_AB))
   allocate(ddat_glob(NGLOB_AB))
   allocate(buffer_send_vector_ext_mesh_smooth( &
@@ -245,7 +148,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
   allocate(buffer_recv_vector_ext_mesh_smooth( &
               max_nibool_interfaces_ext_mesh,num_interfaces_ext_mesh),stat=ier)
    ! prepare assemble array
-  allocate(rvol(NGLOB_AB))
+  allocate(rvol(NGLOB_AB)) 
   rvol(:) = 0.0
   allocate(rvol_local(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
   do ispec = 1, NSPEC_AB
@@ -284,8 +187,16 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
   ! read(IIN) dat
   ! close(IIN)
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! project
+  ! back up original
+  dat(:,:,:,:) = dat_in(:,:,:,:)
+  if (ZERO_PML) then
+    dat_bak(:,:,:,:) = 0._CUSTOM_REAL
+  else
+    dat_bak(:,:,:,:) = dat_in(:,:,:,:) 
+  endif
+
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   ! project
   dat_glob(:) = 0.0
   do ispec = 1, NSPEC_AB
     do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
@@ -293,87 +204,60 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
       dat_glob(iglob) = dat_glob(iglob) + dat(i,j,k,ispec) * rvol_local(i,j,k,ispec)
     enddo;enddo;enddo
   enddo
-
   call assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
-                                dat_glob,buffer_send_vector_ext_mesh_smooth, &
-                                buffer_recv_vector_ext_mesh_smooth, &
-                                num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
-                                nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
-                                my_neighbors_ext_mesh, &
-                                request_send_vector_ext_mesh,request_recv_vector_ext_mesh)
+          dat_glob, buffer_send_vector_ext_mesh_smooth, &
+          buffer_recv_vector_ext_mesh_smooth, &
+          num_interfaces_ext_mesh, max_nibool_interfaces_ext_mesh, &
+          nibool_interfaces_ext_mesh, ibool_interfaces_ext_mesh, &
+          my_neighbors_ext_mesh, &
+          request_send_vector_ext_mesh,request_recv_vector_ext_mesh)
   call assemble_MPI_w_ord_smooth(NPROC,NGLOB_AB, &
-                                 dat_glob,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh, &
-                                 max_nibool_interfaces_ext_mesh, &
-                                 nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
-                                 request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
-                                 my_neighbors_ext_mesh,myrank)
-
+          dat_glob, buffer_recv_vector_ext_mesh_smooth, num_interfaces_ext_mesh, &
+          max_nibool_interfaces_ext_mesh, &
+          nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
+          request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
+          my_neighbors_ext_mesh,myrank)
   ! if (myrank == 0) print *, 'Before smoothing: '
 
   dat_glob(:) = dat_glob(:) * rvol(:)
-
   min_val = minval(dat_glob)
   max_val = maxval(dat_glob)
   call min_all_cr(min_val, min_val_glob)
   call max_all_cr(max_val, max_val_glob)
-  ! print *, myrank, 'minval:', min_val, 'maxval:', max_val
   ! if (myrank == 0) then
-  !   ! print *, '  '//trim(kernel_name)
+  !   print *, '  '//trim(kernel_name)
   !   print *, '    minval:', min_val_glob
   !   print *, '    maxval:', max_val_glob
   !   if (myrank == 0) call cpu_time(tlast)
   ! endif
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !! broadcast glob array back to local array
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   !! broadcast glob array back to local array
   do ispec = 1, NSPEC_AB
-    do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
+    do k=1,NGLLZ;do j=1,NGLLY;do i=1,NGLLX
       iglob = ibool(i,j,k,ispec)
       dat(i,j,k,ispec) = dat_glob(iglob)
     enddo;enddo;enddo
   enddo
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  do istep = 1, ntstep
-    ! if (myrank == 0) print *, istep
-    ddat_glob(:) = 0.0
-    do iphase = 1,2
-      if (iphase == 1) then
-        num_elements = nspec_outer_elastic
-      else
-        num_elements = nspec_inner_elastic
-      endif
-      do ispec_p = 1,num_elements
-        ispec = phase_ispec_inner_elastic(ispec_p,iphase)
-        do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
-          dat_elem(i,j,k) = dat(i,j,k,ispec)
-        enddo; enddo; enddo
-        select case (NGLLX)
-        case (5)
-          call mxm5_single(hprime_xx,m1,dat_elem,stemp1,m2)
-          call mxm5_3dmat_single(dat_elem,m1,hprime_xxT,m1, &
-                                 stemp2,NGLLX)
-          call mxm5_single(dat_elem,m2,hprime_xxT,stemp3,m1)
-        case default
-          !! derivative along xi, eta, zeta
-          do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
-            stemp1l = 0._CUSTOM_REAL
-            stemp2l = 0._CUSTOM_REAL
-            stemp3l = 0._CUSTOM_REAL
-            ! we can merge the loops because NGLLX == NGLLY == NGLLZ
-            do l = 1,NGLLX
-              stemp1l = stemp1l + dat_elem(l,j,k)*hprime_xx(i,l)
-              stemp2l = stemp2l + dat_elem(i,l,k)*hprime_yy(j,l)
-              stemp3l = stemp3l + dat_elem(i,j,l)*hprime_zz(k,l)
-            enddo
-            stemp1(i,j,k) = stemp1l
-            stemp2(i,j,k) = stemp2l
-            stemp3(i,j,k) = stemp3l
-          enddo;enddo;enddo
-        end select
+   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-        ispec_irreg = irregular_element_number(ispec)
-        if (ispec_irreg /= 0) then
-          do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
+  if(.not. GPU_MODE) then 
+    do istep = 1, ntstep
+      ddat_glob(:) = 0.0
+      do iphase = 1,2
+        if (iphase == 1) then
+          num_elements = nspec_outer_elastic
+        else
+          num_elements = nspec_inner_elastic
+        endif
+        do ispec_p = 1,num_elements
+          ispec = phase_ispec_inner_elastic(ispec_p,iphase)
+          call get_gradient_element(dat(:,:,:,ispec), &
+            dx_elem, dy_elem, dz_elem, &
+            xixstore(:,:,:,ispec), xiystore(:,:,:,ispec), xizstore(:,:,:,ispec), &
+            etaxstore(:,:,:,ispec), etaystore(:,:,:,ispec), etazstore(:,:,:,ispec), &
+            gammaxstore(:,:,:,ispec), gammaystore(:,:,:,ispec), gammazstore(:,:,:,ispec))
+          ispec_irreg = irregular_element_number(ispec)
+          do k=1,NGLLZ;do j=1,NGLLY;do i=1,NGLLX
             xixl = xixstore(i,j,k,ispec_irreg)
             xiyl = xiystore(i,j,k,ispec_irreg)
             xizl = xizstore(i,j,k,ispec_irreg)
@@ -384,158 +268,147 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
             gammayl = gammaystore(i,j,k,ispec_irreg)
             gammazl = gammazstore(i,j,k,ispec_irreg)
             jacobianl = jacobianstore(i,j,k,ispec_irreg)
-
-            ! derivatives along x, y, z
-            ddxl = xixl*stemp1(i,j,k) + etaxl*stemp2(i,j,k) + &
-                   gammaxl*stemp3(i,j,k)
-            ddyl = xiyl*stemp1(i,j,k) + etayl*stemp2(i,j,k) + &
-                   gammayl*stemp3(i,j,k)
-            ddzl = xizl*stemp1(i,j,k) + etazl*stemp2(i,j,k) + &
-                   gammazl*stemp3(i,j,k)
-            !! spherical coordinate
-            !rxl = rotate_r(1,i,j,k,ispec)
-            !ryl = rotate_r(2,i,j,k,ispec)
-            !rzl = rotate_r(3,i,j,k,ispec)
-            !stemp1(i,j,k) = ((cv-ch) * (rxl*xixl+ryl*xiyl+rzl*xizl) * &
-            !  (rxl*ddxl+ryl*ddyl+rzl*ddzl) +&
-            !  ch * (xixl*ddxl+xiyl*ddyl+xizl*ddzl)) * jacobianl
-            !stemp2(i,j,k) = ((cv-ch) * (rxl*etaxl+ryl*etayl+rzl*etazl) * &
-            !  (rxl*ddxl+ryl*ddyl+rzl*ddzl) +&
-            !  ch * (etaxl*ddxl+etayl*ddyl+etazl*dzl)) * jacobianl
-            !stemp3(i,j,k) = ((cv-ch) * (rxl*gammaxl+ryl*gammayl+rzl*gammazl)* &
-            !  (rxl*ddxl+ryl*ddyl+rzl*ddzl) +&
-            !  ch * (gammaxl*ddxl+gammayl*ddyl+gammazl*ddzl)) * jacobianl
-            !! Cartesian coordinate
-            stemp1(i,j,k) = ((cv-ch) * xizl * ddzl +&
-              ch * (xixl*ddxl+xiyl*ddyl+xizl*ddzl)) * jacobianl
-            stemp2(i,j,k) = ((cv-ch) * etazl * ddzl +&
-              ch * (etaxl*ddxl+etayl*ddyl+etazl*ddzl)) * jacobianl
-            stemp3(i,j,k) = ((cv-ch) * gammazl * ddzl +&
-              ch * (gammaxl*ddxl+gammayl*ddyl+gammazl*ddzl)) * jacobianl
+            if (is_sph) then
+              !! spherical coordinate
+              rxl = rotate_r(1,i,j,k,ispec)
+              ryl = rotate_r(2,i,j,k,ispec)
+              rzl = rotate_r(3,i,j,k,ispec)
+              stemp1(i,j,k) = ((cv-ch) * (rxl*xixl+ryl*xiyl+rzl*xizl) * &
+                (rxl*dx_elem(i,j,k)+ryl*dy_elem(i,j,k)+rzl*dz_elem(i,j,k)) +&
+                ch * (xixl*dx_elem(i,j,k)+xiyl*dy_elem(i,j,k)&
+                    +xizl*dz_elem(i,j,k))) * jacobianl
+              stemp2(i,j,k) = ((cv-ch) * (rxl*etaxl+ryl*etayl+rzl*etazl) * &
+                (rxl*dx_elem(i,j,k)+ryl*dy_elem(i,j,k)+rzl*dz_elem(i,j,k)) +&
+                ch * (etaxl*dx_elem(i,j,k)+etayl*dy_elem(i,j,k)&
+                    +etazl*dz_elem(i,j,k))) * jacobianl
+              stemp3(i,j,k) = ((cv-ch) * (rxl*gammaxl+ryl*gammayl+rzl*gammazl) * &
+                (rxl*dx_elem(i,j,k)+ryl*dy_elem(i,j,k)+rzl*dz_elem(i,j,k)) +&
+                ch * (gammaxl*dx_elem(i,j,k)+gammayl*dy_elem(i,j,k)&
+                    +gammazl*dz_elem(i,j,k))) * jacobianl  
+            else
+              !! Cartesian coordinate
+              stemp1(i,j,k) = ((cv-ch) * xizl * dz_elem(i,j,k) + &
+                ch * (xixl * dx_elem(i,j,k) + xiyl * dy_elem(i,j,k) + &
+                xizl * dz_elem(i,j,k))) * jacobianl
+              stemp2(i,j,k) = ((cv-ch) * etazl * dz_elem(i,j,k) + &
+                ch * (etaxl * dx_elem(i,j,k) + etayl * dy_elem(i,j,k) + &
+                etazl * dz_elem(i,j,k))) * jacobianl
+              stemp3(i,j,k) = ((cv-ch) * gammazl * dz_elem(i,j,k) + &
+                ch * (gammaxl * dx_elem(i,j,k) + gammayl * dy_elem(i,j,k) + &
+                gammazl * dz_elem(i,j,k))) * jacobianl
+            endif
           enddo;enddo;enddo
-        else
-          xixl = xix_regular
-          jacobianl = jacobian_regular
           do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
-            stemp1(i,j,k) = (&
-              ch * xixl*xixl*stemp1(i,j,k)) * jacobianl
-            stemp2(i,j,k) = (&
-              ch * xixl*xixl*stemp2(i,j,k)) * jacobianl
-            stemp3(i,j,k) = (&
-              cv * xixl*xixl*stemp3(i,j,k)) * jacobianl
-          enddo;enddo;enddo
-        endif
-
-        select case (NGLLX)
-        case (5)
-          call mxm5_single(hprimewgll_xxT,m1,stemp1,snewtemp1,m2)
-          call mxm5_3dmat_single(stemp2,m1,hprimewgll_xx,m1, &
-                                 snewtemp2,NGLLX)
-          call mxm5_single(stemp3,m2,hprimewgll_xx,snewtemp3,m1)
-        case default
-          do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
-            stemp1l = 0._CUSTOM_REAL
-            stemp2l = 0._CUSTOM_REAL
-            stemp3l = 0._CUSTOM_REAL
-            ! we can merge these loops because NGLLX = NGLLY = NGLLZ
-            do l = 1,NGLLX
-              stemp1l = stemp1l + stemp1(l,j,k) * hprimewgll_xx(l,i)
-              stemp2l = stemp2l + stemp2(i,l,k) * hprimewgll_yy(l,j)
-              stemp3l = stemp3l + stemp3(i,j,l) * hprimewgll_zz(l,k)
+            snewtemp1(i,j,k) = 0.0
+            snewtemp2(i,j,k) = 0.0
+            snewtemp3(i,j,k) = 0.0
+            do l = 1, NGLLX
+              fac1 = hprimewgll_xx(l,i)
+              snewtemp1(i,j,k) = snewtemp1(i,j,k) + stemp1(l,j,k) * fac1
+              fac2 = hprimewgll_yy(l,j)
+              snewtemp2(i,j,k) = snewtemp2(i,j,k) + stemp2(i,l,k) * fac2
+              fac3 = hprimewgll_zz(l,k)
+              snewtemp3(i,j,k) = snewtemp3(i,j,k) + stemp3(i,j,l) * fac3
             enddo
-            ! to be compatible with matrix versions from above
-            snewtemp1(i,j,k) = stemp1l
-            snewtemp2(i,j,k) = stemp2l
-            snewtemp3(i,j,k) = stemp3l
-          enddo;enddo;enddo
-        end select
+            fac1 = wgllwgll_yz(j,k)
+            fac2 = wgllwgll_xz(i,k)
+            fac3 = wgllwgll_xy(i,j)
+            iglob = ibool(i,j,k,ispec)
+            ddat_glob(iglob) = ddat_glob(iglob) - (fac1*snewtemp1(i,j,k)+&
+                            fac2 * snewtemp2(i,j,k) + fac3 * snewtemp3(i,j,k))
+          enddo;enddo;enddo 
+        enddo  ! ispec_p = 1, num_elements 
+        !! assemble MPI
+        if (iphase == 1) then
+          call assemble_MPI_send_smooth(NPROC,NGLOB_AB,&
+            ddat_glob,buffer_send_vector_ext_mesh_smooth,&
+            buffer_recv_vector_ext_mesh_smooth,&
+            num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
+            nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
+            my_neighbors_ext_mesh, &
+            request_send_vector_ext_mesh,request_recv_vector_ext_mesh)
+        else
+          call assemble_MPI_w_ord_smooth(NPROC,NGLOB_AB,&
+            ddat_glob,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh,&
+            max_nibool_interfaces_ext_mesh, &
+            nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
+            request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
+            my_neighbors_ext_mesh,myrank)
+        endif
+        !!!!!!!!!!!!!!!!!
+      enddo !iphase = 1,2
 
+      ddat_glob(:) = ddat_glob(:) * rvol(:)
+      !! update
+      dat_glob(:) = dat_glob(:) + ddat_glob(:)
+      !! info
+      ! if (mod(istep, PRINT_INFO_PER_STEP) == 0) then
+      !   if (myrank == 0) print *, 'Step:', istep
+      !   min_val = minval(dat_glob)
+      !   max_val = maxval(dat_glob)
+      !   call min_all_cr(min_val, min_val_glob)
+      !   call max_all_cr(max_val, max_val_glob)
+      !   if (myrank == 0) then
+      !     print *, '  '//trim(kernel_name)
+      !     print *, '    minval:', min_val_glob
+      !     print *, '    maxval:', max_val_glob
+      !     call cpu_time(tnow)
+      !     print *, 'time since last message:', tnow-tlast
+      !     call cpu_time(tlast)
+      !   endif
+      ! endif
+      !!!!!!!!!!!!!
+      !! broadcast glob array back to local array
+      do ispec = 1, NSPEC_AB
         do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
           iglob = ibool(i,j,k,ispec)
-          ddat_glob(iglob) = ddat_glob(iglob) - (&
-                          wgllwgll_yz_3D(i,j,k) * snewtemp1(i,j,k)+&
-                          wgllwgll_xz_3D(i,j,k) * snewtemp2(i,j,k)+&
-                          wgllwgll_xy_3D(i,j,k) * snewtemp3(i,j,k))
+          if ( is_CPML(ispec) ) then 
+            dat_glob(iglob) = dat_bak(i,j,k,ispec)
+          end if
         enddo;enddo;enddo
-      enddo  ! ispec_p = 1, num_elements
+      enddo
 
-      !! assemble MPI
-      if (iphase == 1) then
-        call assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
-                                      ddat_glob,buffer_send_vector_ext_mesh_smooth, &
-                                      buffer_recv_vector_ext_mesh_smooth, &
-                                      num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
-                                      nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
-                                      my_neighbors_ext_mesh, &
-                                      request_send_vector_ext_mesh,request_recv_vector_ext_mesh)
-      else
-        call assemble_MPI_w_ord_smooth(NPROC,NGLOB_AB, &
-                                       ddat_glob,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh, &
-                                       max_nibool_interfaces_ext_mesh, &
-                                       nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
-                                       request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
-                                       my_neighbors_ext_mesh,myrank)
-      endif
-      !!!!!!!!!!!!!!!!!
-    enddo !iphase = 1,2
-
-    ddat_glob(:) = ddat_glob(:) * rvol(:)
-    !! update
-    dat_glob(:) = dat_glob(:) + ddat_glob(:)
-
-    !! info
-    if (mod(istep, PRINT_INFO_PER_STEP) == 0) then
-      ! if (myrank == 0) print *, 'Step:', istep
-      min_val = minval(dat_glob)
-      max_val = maxval(dat_glob)
-      call min_all_cr(min_val, min_val_glob)
-      call max_all_cr(max_val, max_val_glob)
-      ! if (myrank == 0) then
-      !   ! print *, '  '//trim(kernel_name)
-      !   print *, '    minval:', min_val_glob
-      !   print *, '    maxval:', max_val_glob
-      !   call cpu_time(tnow)
-      !   print *, 'time since last message:', tnow-tlast
-      !   call cpu_time(tlast)
-      ! endif
-    endif
-
-    !!!!!!!!!!!!!
-    !! broadcast glob array back to local array
-    do ispec = 1, NSPEC_AB
-      do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
-        iglob = ibool(i,j,k,ispec)
-        !! mute everything in the PML domain
-        if (SET_ZERO_IN_PML .and. is_CPML(ispec)) then
-          dat_glob(iglob) = 0.0
-        endif
-        dat(i,j,k,ispec) = dat_glob(iglob)
-      enddo;enddo;enddo
+      !dat = reshape(dat_glob(reshape(ibool,[5*5*5*NSPEC_AB])), [5,5,5,NSPEC_AB])
+      do ispec = 1, NSPEC_AB
+        do k = 1,NGLLZ;do j = 1,NGLLY;do i = 1,NGLLX
+          iglob = ibool(i,j,k,ispec)
+          dat(i,j,k,ispec) = dat_glob(iglob)
+        enddo;enddo;enddo
+      enddo
+      
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      call synchronize_all()
     enddo
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    call synchronize_all()
-  enddo
-
+  else 
+    call smooth_sph_pde_cuda(is_sph_int,NSPEC_AB,NGLOB_AB,NPROC,ntstep, &
+                             size(phase_ispec_inner_elastic,1),phase_ispec_inner_elastic, &
+                             nspec_outer_elastic,nspec_inner_elastic,xixstore, &
+                             xiystore,xizstore,etaxstore,etaystore,etazstore, &
+                             gammaxstore,gammaystore,gammazstore, &
+                             jacobianstore,rotate_r,wgllwgll_xy,wgllwgll_xz, &
+                             wgllwgll_yz,hprime_xxT,hprimewgll_xx,ibool, &
+                             is_CPML,cv,ch,num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
+                             my_neighbors_ext_mesh,nibool_interfaces_ext_mesh, &
+                             ibool_interfaces_ext_mesh,dat_bak,dat,rvol,dat_glob,ddat_glob)
+  endif
   call synchronize_all()
   call cpu_time(t2)
-  ! if (myrank == 0) &
+  ! if (myrank == 0) & 
     ! print *, 'Computation time with PDE-based smoothing on CPU:', t2-t1
-
   !! output
   ! file output
   ! smoothed kernel file name
   ! statistics
-  min_val = minval(dat_glob)
-  max_val = maxval(dat_glob)
-  call min_all_cr(min_val, min_val_glob)
-  call max_all_cr(max_val, max_val_glob)
+  ! min_val = minval(dat_glob)
+  ! max_val = maxval(dat_glob)
+  ! call min_all_cr(min_val, min_val_glob)
+  ! call max_all_cr(max_val, max_val_glob)
   ! if (myrank == 0) then
   !   print *, 'After smoothing:'
-  !   ! print *, '  '//trim(kernel_name)
+  !   print *, '  '//trim(kernel_name)
   !   print *, '    minval:', min_val_glob
   !   print *, '    maxval:', max_val_glob
   ! endif
-
   ! write(ks_file,'(a,i6.6,a)') trim(output_dir)//'/proc',myrank,'_'//trim(kernel_name)//'_smooth.bin'
   ! open(IOUT,file=trim(ks_file),status='unknown',form='unformatted',iostat=ier)
   ! if (ier /= 0) stop 'Error opening smoothed kernel file'
@@ -544,107 +417,20 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat)
   ! if (myrank == 0) print *,'written: ',trim(ks_file)
 
   ! deallocate(ibool,irregular_element_number)
-  ! deallocate(xixstore,xiystore,xizstore,etaxstore,etaystore,etazstore, &
-  !            gammaxstore,gammaystore,gammazstore,jacobianstore)
-  ! !! spherical coordinate !!
-  ! !deallocate(rotate_r)
-  ! !!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! deallocate(dat_glob, ddat_glob)
+  ! deallocate(xix,xiy,xiz,etax,etay,etaz,gammax,gammay,gammaz,jacobian)
+  ! deallocate(rotate_r)
+  ! deallocate(dat, dat_glob, ddat_glob)
   ! deallocate(buffer_send_vector_ext_mesh_smooth, &
   !            buffer_recv_vector_ext_mesh_smooth)
   ! deallocate(rvol, rvol_local)
 
-  contains
-
-  subroutine mxm5_single(A,n1,B,C,n3)
-
-! we can force inlining (Intel compiler)
-! #if defined __INTEL_COMPILER
-! !DIR$ ATTRIBUTES FORCEINLINE :: mxm5_single
-! #else
-! ! cray
-! !DIR$ INLINEALWAYS mxm5_single
-! #endif
-
-! two-dimensional arrays (25,5)/(5,25)
-
-  use constants, only: CUSTOM_REAL
-
-  implicit none
-
-  integer,intent(in) :: n1,n3
-  real(kind=CUSTOM_REAL),dimension(n1,5),intent(in) :: A
-  real(kind=CUSTOM_REAL),dimension(5,n3),intent(in) :: B
-  real(kind=CUSTOM_REAL),dimension(n1,n3),intent(out) :: C
-
-  ! local parameters
-  integer :: i,j
-
-  ! matrix-matrix multiplication
-  do j = 1,n3
-!DIR$ IVDEP
-!DIR$ SIMD
-    do i = 1,n1
-      C(i,j) =  A(i,1) * B(1,j) &
-              + A(i,2) * B(2,j) &
-              + A(i,3) * B(3,j) &
-              + A(i,4) * B(4,j) &
-              + A(i,5) * B(5,j)
-    enddo
-  enddo
-
-  end subroutine mxm5_single
-
-  subroutine mxm5_3dmat_single(A,n1,B,n2,C,n3)
-
-! we can force inlining (Intel compiler)
-! #if defined __INTEL_COMPILER
-! !DIR$ ATTRIBUTES FORCEINLINE :: mxm5_3dmat_single
-! #else
-! ! cray
-! !DIR$ INLINEALWAYS mxm5_3dmat_single
-! #endif
-
-! three-dimensional arrays (5,5,5) for A and C
-
-  use constants, only: CUSTOM_REAL
-
-  implicit none
-
-  integer,intent(in) :: n1,n2,n3
-  real(kind=CUSTOM_REAL),dimension(n1,5,n3),intent(in) :: A
-  real(kind=CUSTOM_REAL),dimension(5,n2),intent(in) :: B
-  real(kind=CUSTOM_REAL),dimension(n1,n2,n3),intent(out) :: C
-
-  ! local parameters
-  integer :: i,j,k
-
-  ! matrix-matrix multiplication
-  do k = 1,n3
-    do j = 1,n2
-!DIR$ IVDEP
-!DIR$ SIMD
-      do i = 1,n1
-        C(i,j,k) =  A(i,1,k) * B(1,j) &
-                  + A(i,2,k) * B(2,j) &
-                  + A(i,3,k) * B(3,j) &
-                  + A(i,4,k) * B(4,j) &
-                  + A(i,5,k) * B(5,j)
-      enddo
-    enddo
-  enddo
-
-  end subroutine mxm5_3dmat_single
+  ! call finalize_mpi()
 
 end subroutine smooth_sem_pde
 
-!
-!-------------------------------------------------------------------------------------------------
-!
-
-  subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
-          array_val,buffer_send_vector_ext_mesh_smooth, &
-          buffer_recv_vector_ext_mesh_smooth, &
+  subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB,&
+          array_val,buffer_send_vector_ext_mesh_smooth,&
+          buffer_recv_vector_ext_mesh_smooth,&
           num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
           nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
           my_neighbors_ext_mesh, &
@@ -708,12 +494,9 @@ end subroutine smooth_sem_pde
 
   end subroutine assemble_MPI_send_smooth
 
-!
-!-------------------------------------------------------------------------------------------------
-!
 
   subroutine assemble_MPI_w_ord_smooth(NPROC,NGLOB_AB, &
-          array_val,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh, &
+          array_val,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh,&
           max_nibool_interfaces_ext_mesh, &
           nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
           request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
@@ -721,7 +504,20 @@ end subroutine smooth_sem_pde
 
 ! waits for data to receive and assembles
 
-  use constants, only: CUSTOM_REAL
+! The goal of this version is to avoid different round-off errors in different
+! processors.
+! The contribution of each processor is added following the order of its rank.
+! This guarantees that the sums are done in the same order on all processors.
+!
+! NOTE: this version assumes that the interfaces are ordered by increasing rank
+! of the neighbor.
+! That is currently done so in subroutine write_interfaces_database in
+! decompose_mesh_SCOTCH/part_decompose_mesh_SCOTCH.f90
+! A safety test could be added here.
+!
+! October 2012 - Surendra Somala and Jean-Paul Ampuero - Caltech Seismolab
+
+  use constants, only: CUSTOM_REAL, itag
 
   implicit none
 
@@ -808,5 +604,50 @@ end subroutine smooth_sem_pde
 
   end subroutine assemble_MPI_w_ord_smooth
 
-end module smooth_mod
 
+  subroutine get_gradient_element(s, dx_elem, dy_elem, dz_elem, &
+     xix,xiy,xiz,etax,etay,etaz,gammax,gammay,gammaz)
+  use constants, only: CUSTOM_REAL, NGLLX, NGLLY, NGLLZ
+  use specfem_par, only: hprime_xxT,hprime_yyT,hprime_zzT
+  implicit none
+  real(kind=CUSTOM_REAL), dimension(NGLLX, NGLLY, NGLLZ), intent(in) :: s
+  real(kind=CUSTOM_REAL), dimension(NGLLX, NGLLY, NGLLZ), intent(out) :: &
+          dx_elem, dy_elem, dz_elem
+  integer :: i,j,k,l
+  real(kind=CUSTOM_REAL) :: hp1,hp2,hp3
+  real(kind=CUSTOM_REAL) :: temp1l, temp2l, temp3l
+  real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: xix,xiy,xiz,etax,&
+          etay,etaz,gammax,gammay,gammaz
+  dx_elem(:,:,:) = 0.0
+  dy_elem(:,:,:) = 0.0
+  dz_elem(:,:,:) = 0.0
+  do k = 1, NGLLZ
+    do j = 1, NGLLY
+      do i = 1, NGLLX
+        temp1l = 0.0
+        temp2l = 0.0
+        temp3l = 0.0
+        do l = 1, NGLLX
+          hp1 = hprime_xxT(l,i)
+          temp1l = temp1l + s(l,j,k) * hp1
+        enddo
+        do l = 1, NGLLY
+          hp2 = hprime_yyT(l,j)
+          temp2l = temp2l + s(i,l,k) * hp2
+        enddo
+        do l = 1, NGLLZ
+          hp3 = hprime_zzT(l,k)
+          temp3l = temp3l + s(i,j,l) * hp3
+        enddo
+        dx_elem(i,j,k)=temp1l*xix(i,j,k)+&
+                temp2l*etax(i,j,k)+temp3l*gammax(i,j,k)
+        dy_elem(i,j,k)=temp1l*xiy(i,j,k)+&
+                temp2l*etay(i,j,k)+temp3l*gammay(i,j,k)
+        dz_elem(i,j,k)=temp1l*xiz(i,j,k)+&
+                temp2l*etaz(i,j,k)+temp3l*gammaz(i,j,k)
+      enddo
+    enddo
+  enddo
+  end subroutine get_gradient_element
+
+end module

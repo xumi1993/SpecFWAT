@@ -330,7 +330,9 @@ contains
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => post%get_list('INV_TYPE', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_static_logi_list(list, this%postproc%INV_TYPE)
+        if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
         list => post%get_list('NINV', required=.true., error=io_err)
@@ -472,6 +474,7 @@ contains
     call bcast_all_i(this%postproc%ninv, 3)
     call bcast_all_singlei(this%postproc%n_inversion_grid)
     call bcast_all_singlei(this%postproc%SMOOTH_TYPE)
+    call bcast_all_singlel(is_joint)
 
     ! Model UPDATE
     call bcast_all_ch_array(this%update%INIT_MODEL_PATH, 1, MAX_STRING_LEN)
@@ -490,18 +493,18 @@ contains
   end subroutine read_fwat_parameter_file
 
   subroutine select_simu_type(this)
-    use specfem_par, only: NSTEP, DT
+    use specfem_par, only: NSTEP, DT, LOCAL_PATH
     use ma_variables
     class(fwat_params), intent(inout) :: this
     integer :: icomp
 
     select case (simu_type)
-    case (SIMU_TYPE_TELE)
-      this%sim => tele_par
-      is_mtm0 = 0
-    case (SIMU_TYPE_NOISE)
-      this%sim => noise_par
-      is_mtm0 = 1
+      case (SIMU_TYPE_TELE)
+        this%sim => tele_par
+        is_mtm0 = 0
+      case (SIMU_TYPE_NOISE)
+        this%sim => noise_par
+        is_mtm0 = 1
     end select
     imeas0 = this%sim%IMEAS
     imeas = imeas0
@@ -509,13 +512,12 @@ contains
     is_mtm = is_mtm0
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
-    ! do icomp = 1, this%sim%NRCOMP
-    !   if (trim(this%sim%RCOMPS(icomp)) == 'R' .or. trim(this%sim%RCOMPS(icomp)) == 'T') then
-    !     dat_coord = 'ZRT'
-    !   else
-    !     dat_coord = 'ZNE'
-    !   end if
-    ! end do
+    if (is_joint) then
+      local_path_fwat = trim(LOCAL_PATH)//'/'//trim(simu_type)
+    else
+      local_path_fwat = trim(LOCAL_PATH)
+    endif
+    call synchronize_all()
   end subroutine select_simu_type
 
   subroutine read_static_int_list(list, list_out)

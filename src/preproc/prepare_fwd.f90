@@ -57,6 +57,8 @@ contains
     endif
     call log%write('*******************************************', .false.)
 
+    LOCAL_PATH = local_path_fwat
+
     call force_ftz()
 
     ! reads in parameters

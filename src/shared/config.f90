@@ -71,7 +71,7 @@ module config
   integer :: event_index = 0, run_mode, compress_level
   
   character(len=MAX_STRING_LEN) :: mesh_par_file
-  character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup, output_files_backup
+  character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup, local_path_fwat, output_files_backup
   character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, model_name_ls
   real(kind=cr), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy,rmass_copy,rmass_acoustic_copy
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_rho_kl 
@@ -93,7 +93,7 @@ module config
   integer, dimension(:,:,:,:), allocatable :: ibool_fwat
 
   ! post
-  logical :: is_joint
+  logical :: is_joint = .false.
   integer :: nkernel, parameter_type
   character(len=MAX_STRING_LEN) :: kernel_type
   character(len=MAX_STRING_LEN), dimension(:), allocatable :: kernel_names, parameter_names
