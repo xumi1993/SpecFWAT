@@ -34,17 +34,11 @@ program fwat_post_proc
         if (.not. (is_joint .and. itype == 1)) call fpp%sum_precond()
       endif
 
-      if (fpar%postproc%SMOOTH_TYPE == 1) then
-        ! call fpp%multigrid_smooth()
-        call fpp%pde_smooth()
+      call fpp%pde_smooth()
 
-        call fpp%taper_kernel_grid()
+      call fpp%taper_kernel_grid()
 
-        call fpp%write_gradient_grid()
-
-      else
-        call log%write('No smoothing applied', .false.)
-      endif
+      call fpp%write_gradient_grid()
 
       ! remove event kernels
       call fpp%remove_ekernel()

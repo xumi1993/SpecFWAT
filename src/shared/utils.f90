@@ -901,9 +901,9 @@ end function
       vr = v( [ x1, x2 ] )
       vq = vr(1) * ( xr(2) - xq ) + vr(2) * ( xq - xr(1) )
       vq = vq / vn
-    elseif (xq < x(1)) then
+    elseif (xq <= x(1)) then
       vq = v(1)
-    elseif (xq > x(size(x))) then
+    elseif (xq >= x(size(x))) then
       vq = v(size(v))
     end if
     return

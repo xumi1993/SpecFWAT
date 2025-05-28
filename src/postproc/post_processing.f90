@@ -73,7 +73,7 @@ contains
     call read_mesh_databases_for_init()
     
     call log%write('Simulation type: '//trim(simu_type), .false.)
-    write(msg, '(a,I4,F10.1,F10.1)') 'PDE smoothing: ', fpar%sim%SIGMA_H, &
+    write(msg, '(a,F10.1,F10.1)') 'PDE smoothing: ', fpar%sim%SIGMA_H, &
                                 fpar%sim%SIGMA_V
     call log%write(msg, .false.)
     if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then
@@ -97,7 +97,6 @@ contains
     else
       this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
     endif
-      ! call system('mkdir -p '//trim(this%kernel_path))
     call mkdir(this%kernel_path)
     call synchronize_all()
 
@@ -258,6 +257,7 @@ contains
       endif
     end do
     call synchronize_all()
+    call sync_from_main_rank_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
   end subroutine pde_smooth
 
   subroutine write_gradient_grid(this)

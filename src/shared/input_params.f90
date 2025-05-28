@@ -243,9 +243,9 @@ contains
         this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
         this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
         this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
 
         ! read parameters for teleseismic FWI
@@ -279,9 +279,9 @@ contains
         this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
         compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
         this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -404,6 +404,8 @@ contains
     call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
     call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
     call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
+    call bcast_all_singlecr(noise_par%SIGMA_H)
+    call bcast_all_singlecr(noise_par%SIGMA_V)
 
     ! broadcast tele parameters
     call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
@@ -436,6 +438,8 @@ contains
     call bcast_all_r(tele_par%TIME_WIN, 2)
     call bcast_all_r(tele_par%SHORT_P, 1)
     call bcast_all_r(tele_par%LONG_P, 1)
+    call bcast_all_singlecr(tele_par%SIGMA_H)
+    call bcast_all_singlecr(tele_par%SIGMA_V)
     call bcast_all_singlei(tele_par%TELE_TYPE)
     if (tele_par%rf%NGAUSS > 0) then
       call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)

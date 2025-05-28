@@ -19,6 +19,9 @@ contains
 
     ! reads in external mesh
     call read_mesh_databases_fwat()
+
+    NSPEC_FWAT = NSPEC_AB
+    NGLOB_FWAT = NGLOB_AB
     call synchronize_all()
 
     call check_mesh_distances(worldrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &

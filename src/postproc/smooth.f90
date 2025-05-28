@@ -92,8 +92,8 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
     enddo;enddo;enddo
   enddo
 
-  deallocate(xstore,ystore,zstore,kappastore,mustore)
-  deallocate(ispec_is_acoustic, ispec_is_elastic, ispec_is_poroelastic)
+  ! deallocate(xstore,ystore,zstore,kappastore,mustore)
+  ! deallocate(ispec_is_acoustic, ispec_is_elastic, ispec_is_poroelastic)
 
   !! determine ch, cv, ntstep
   !cmax = distance_min_glob ** 2 / 6.0
@@ -107,7 +107,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   endif
   ntstep = int(ceiling((max(sigma_h,sigma_v)**2)/(2.0*cmax)))
   
-  if (myrank == 0) print *, 'cv=', cv, 'ch=', ch, 'ntstep=', ntstep
+  ! if (myrank == 0) print *, 'cv=', cv, 'ch=', ch, 'ntstep=', ntstep
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -214,10 +214,10 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   call min_all_cr(min_val, min_val_glob)
   call max_all_cr(max_val, max_val_glob)
   ! if (myrank == 0) then
-  !   print *, '  '//trim(kernel_name)
+  ! !   ! print *, '  '//trim(kernel_name)
   !   print *, '    minval:', min_val_glob
   !   print *, '    maxval:', max_val_glob
-  !   if (myrank == 0) call cpu_time(tlast)
+  ! !   if (myrank == 0) call cpu_time(tlast)
   ! endif
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
    !! broadcast glob array back to local array
@@ -229,7 +229,8 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   enddo
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  if(.not. GPU_MODE) then 
+  ! if(.not. GPU_MODE) then 
+  if (.true.) then
     do istep = 1, ntstep
       ddat_glob(:) = 0.0
       do iphase = 1,2
@@ -331,14 +332,13 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
       !! update
       dat_glob(:) = dat_glob(:) + ddat_glob(:)
       !! info
-      ! if (mod(istep, PRINT_INFO_PER_STEP) == 0) then
+      ! if (mod(PRINT_INFO_PER_STEP, istep) == 0) then
       !   if (myrank == 0) print *, 'Step:', istep
       !   min_val = minval(dat_glob)
       !   max_val = maxval(dat_glob)
       !   call min_all_cr(min_val, min_val_glob)
       !   call max_all_cr(max_val, max_val_glob)
       !   if (myrank == 0) then
-      !     print *, '  '//trim(kernel_name)
       !     print *, '    minval:', min_val_glob
       !     print *, '    maxval:', max_val_glob
       !     call cpu_time(tnow)
@@ -394,7 +394,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   ! call max_all_cr(max_val, max_val_glob)
   ! if (myrank == 0) then
   !   print *, 'After smoothing:'
-  !   print *, '  '//trim(kernel_name)
+  !   ! print *, '  '//trim(kernel_name)
   !   print *, '    minval:', min_val_glob
   !   print *, '    maxval:', max_val_glob
   ! endif
@@ -417,9 +417,9 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
 
 end subroutine smooth_sem_pde
 
-  subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB,&
-          array_val,buffer_send_vector_ext_mesh_smooth,&
-          buffer_recv_vector_ext_mesh_smooth,&
+subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
+          array_val,buffer_send_vector_ext_mesh_smooth, &
+          buffer_recv_vector_ext_mesh_smooth, &
           num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
           nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
           my_neighbors_ext_mesh, &
@@ -485,7 +485,7 @@ end subroutine smooth_sem_pde
 
 
   subroutine assemble_MPI_w_ord_smooth(NPROC,NGLOB_AB, &
-          array_val,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh,&
+          array_val,buffer_recv_vector_ext_mesh_smooth,num_interfaces_ext_mesh, &
           max_nibool_interfaces_ext_mesh, &
           nibool_interfaces_ext_mesh,ibool_interfaces_ext_mesh, &
           request_send_vector_ext_mesh,request_recv_vector_ext_mesh, &
@@ -493,20 +493,7 @@ end subroutine smooth_sem_pde
 
 ! waits for data to receive and assembles
 
-! The goal of this version is to avoid different round-off errors in different
-! processors.
-! The contribution of each processor is added following the order of its rank.
-! This guarantees that the sums are done in the same order on all processors.
-!
-! NOTE: this version assumes that the interfaces are ordered by increasing rank
-! of the neighbor.
-! That is currently done so in subroutine write_interfaces_database in
-! decompose_mesh_SCOTCH/part_decompose_mesh_SCOTCH.f90
-! A safety test could be added here.
-!
-! October 2012 - Surendra Somala and Jean-Paul Ampuero - Caltech Seismolab
-
-  use constants, only: CUSTOM_REAL, itag
+  use constants, only: CUSTOM_REAL
 
   implicit none
 
