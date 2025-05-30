@@ -25,8 +25,9 @@ module post_processing
     integer :: nker, ks_win
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,apply_precond,&
-                 write_gradient_grid, remove_ekernel, pde_smooth, taper_kernel_grid, finalize
+    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,apply_precond, &
+                 write_gradient_grid, remove_ekernel, pde_smooth, taper_kernel_grid, finalize, &
+                 read_sum_kernel
   end type PostFlow
 contains
 
@@ -145,6 +146,20 @@ contains
     call synchronize_all()
   
   end subroutine sum_kernel
+
+  subroutine read_sum_kernel(this)
+    class(PostFlow), intent(inout) :: this
+    integer :: iker
+    character(len=MAX_STRING_LEN) :: fname
+    real(kind=cr), dimension(:,:,:,:), allocatable :: ker
+
+    call log%write('This is reading sum of kernels...', .true.)
+    do iker = 1, nkernel
+      call read_kernel(trim(this%kernel_path), trim(kernel_names(iker))//'_kernel', ker)
+      this%ker_data(:,:,:,:,iker) = ker
+    enddo
+    call synchronize_all()
+  end subroutine
 
   subroutine apply_precond(this)
     class(PostFlow), intent(inout) :: this

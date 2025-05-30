@@ -335,6 +335,7 @@ contains
   subroutine postproc_adjoint(this)
     class(PrepareFWD), intent(inout) :: this
 
+    call log%write('This is deleting forward field ...', .true.)
     open(unit=1234, iostat=ier, file=trim(prname)//'save_forward_arrays.bin', status='old')
     if (ier == 0) close(1234, status='delete') 
     open(unit=1234, iostat=ier, file=trim(prname)//'absorb_field.bin', status='old')

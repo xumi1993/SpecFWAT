@@ -665,6 +665,8 @@ contains
     ! ----------------------------------------------
     ! FREQUENCY-DOMAIN TAPERS FOR MT ADJOINT SOURCES
     ! ----------------------------------------------
+    ! print *, is_mtm, maxval(dtau_w(1:i_right)), maxval(wp_taper(1:i_right)), df, dt
+
     if( is_mtm == 1 ) then
 
       ! initialize water levels for err_dtau/dlnA division
@@ -768,6 +770,7 @@ contains
       ! compute p_j, q_j, P_j, Q_j and adjoint source fp, fq
       fp = 0.
       fq = 0.
+
       do ictaper = 1,ntaper
 
         ! compute p_j(w) and q_j(w)

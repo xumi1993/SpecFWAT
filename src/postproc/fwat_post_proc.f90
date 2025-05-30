@@ -26,7 +26,11 @@ program fwat_post_proc
       call fpp%init_for_type(itype)
     
       ! sum kernels for this type
-      call fpp%sum_kernel()
+      if (run_mode == 1) then
+        call fpp%sum_kernel()
+      elseif (run_mode == 2) then
+        call fpp%read_sum_kernel()
+      endif
       
       if (fpar%postproc%IS_PRECOND) then
         call fpp%apply_precond()

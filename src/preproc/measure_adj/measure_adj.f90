@@ -186,6 +186,7 @@ contains
       i_right = i_right0
       i_left = 1  ! LQY: is it feasible that i_left is not 1? mt_adj() inherently assumes it.
 
+
       ! adjust frequency ranges for MT measurements
       ! fstart is constrained by NCYCLE_IN_WINDOW/tlen, fend constrained by i_right
       if (is_mtm == 1) then
@@ -196,11 +197,11 @@ contains
         fstart = fstart0  ; fend = fend0
         call mt_measure_select(nlen,tshift,i_pmax_syn,dtau_w,err_dt, &
                             dt,i_left,i_right,fstart,fend,use_trace)
-        !print *, '     Tlong/Tshort (input) :', sngl(1/fstart0), sngl(1/fend0)
-        !print *, '     Tlong/Tshort (adjusted)  :', sngl(1/fstart), sngl(1/fend)
-        !print *, '     period of max data/syn power    :', sngl(T_pmax_dat), sngl(T_pmax_syn)
-
+        ! print *, '     Tlong/Tshort (input) :', sngl(1/fstart0), sngl(1/fend0)
+        ! print *, '     Tlong/Tshort (adjusted)  :', sngl(1/fstart), sngl(1/fend)
+        ! print *, '     period of max data/syn power    :', sngl(T_pmax_dat), sngl(T_pmax_syn)
         ! if MT measurement window is rejected by mt_measure_select, then use a CC measurement
+
         if(.not. use_trace) then
           !stop 'Check why this MT measurement was rejected'
           ! print *, '   reverting from MT measurement to CC measurement...'
@@ -214,6 +215,7 @@ contains
         !   ! print *, '     using this MTM. '
         endif
       endif
+      ! print *,trim(sta_in), ' i_right:', i_right, 
 
       out_imeas=imeas
       ! check that the CC measurements are within the specified input range
@@ -259,7 +261,7 @@ contains
         !write(13,'(a14,a8,a3,a5,i4,i4,2e14.6,20e14.6,2e14.6,2f14.6)') &
         !   file_prefix0,sta,net,chan_syn,j,imeas,&
         !   tstart,tend,window_chi(:),tr_chi,am_chi,T_pmax_dat,T_pmax_syn
-        !print *, '     tr_chi = ', sngl(tr_chi), '  am_chi = ', sngl(am_chi)
+        ! print *, trim(sta_in),'     tr_chi = ', sngl(tr_chi), '  am_chi = ', sngl(am_chi)
 
         ! uses weighting to balance love / rayleigh measurements
         if( DO_WEIGHTING ) then
