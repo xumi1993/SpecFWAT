@@ -117,7 +117,7 @@ contains
                             NSPEC_AB,NSPEC2D_A_XI,NSPEC2D_B_XI, &
                             NSPEC2D_A_ETA,NSPEC2D_B_ETA, &
                             NSPEC2DMAX_XMIN_XMAX,NSPEC2DMAX_YMIN_YMAX,NSPEC2D_BOTTOM,NSPEC2D_TOP, &
-                            NPOIN2DMAX_XMIN_XMAX,NPOIN2DMAX_YMIN_YMAX,NGLOB_AB, &
+                            NGLOB_AB, &
                             USE_REGULAR_MESH,NDOUBLINGS,ner_doublings)
 
     ! check that the code is running with the requested nb of processes
@@ -834,8 +834,8 @@ contains
     if (allocated(iMPIcut_xi)) deallocate(iMPIcut_xi)
     if (allocated(iMPIcut_eta)) deallocate(iMPIcut_eta)
     if (allocated(ispec_material_id)) deallocate(ispec_material_id)
-    if (allocated(flag_sediments)) deallocate(flag_sediments)
-    if (allocated(not_fully_in_bedrock)) deallocate(not_fully_in_bedrock)
+    ! if (allocated(flag_sediments)) deallocate(flag_sediments)
+    ! if (allocated(not_fully_in_bedrock)) deallocate(not_fully_in_bedrock)
     if (allocated(ibelm_xmin)) deallocate(ibelm_xmin)
     if (allocated(ibelm_xmax)) deallocate(ibelm_xmax)
     if (allocated(ibelm_ymin)) deallocate(ibelm_ymin)
