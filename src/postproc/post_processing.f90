@@ -74,7 +74,7 @@ contains
     call read_mesh_databases_for_init()
     
     call log%write('Simulation type: '//trim(simu_type), .false.)
-    write(msg, '(a,F10.1,F10.1)') 'PDE smoothing: ', fpar%sim%SIGMA_H, &
+    write(msg, '(a,F10.1,F10.1)') 'PDE smoothing; SIGMA_H, SIGMA_V: ', fpar%sim%SIGMA_H, &
                                 fpar%sim%SIGMA_V
     call log%write(msg, .false.)
     if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then

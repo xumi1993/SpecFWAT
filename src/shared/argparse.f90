@@ -86,7 +86,7 @@ contains
       call get_command_argument(i, argv(i))
     enddo
 
-    if (argc /= min_num_args .or. argc /= max_num_args) then
+    if (argc /= min_num_args .and. argc /= max_num_args) then
       if (worldrank == 0) print *, trim(usage)
       call exit_MPI(0, 'ERROR: Too more or too less arguments')
     endif
