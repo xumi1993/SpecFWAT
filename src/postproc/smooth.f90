@@ -28,7 +28,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
     dx_elem,dy_elem,dz_elem, stemp1,stemp2,stemp3, snewtemp1,snewtemp2,snewtemp3
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: dat_glob, ddat_glob
   real(kind=CUSTOM_REAL), dimension(:), allocatable :: rvol
-  real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: rvol_local
+  real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: rvol_local, jacobian_all
   integer :: i,j,k,l,iglob,ier,ispec,ispec_p,iphase,ispec_irreg, is_sph_int
 
   ! character(len=MAX_STRING_LEN) :: arg(7)
@@ -130,6 +130,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   enddo
 
   allocate(dat(NGLLX,NGLLY,NGLLZ,NSPEC_AB),dat_bak(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
+  allocate(jacobian_all(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
   allocate(dat_glob(NGLOB_AB))
   allocate(ddat_glob(NGLOB_AB))
   allocate(buffer_send_vector_ext_mesh_smooth( &
@@ -149,6 +150,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
       else
         jacobianl = jacobian_regular
       endif
+      jacobian_all(i,j,k,ispec) = jacobianl
       rvol_local(i,j,k,ispec) = real(dble(jacobianl)*weight,kind=CUSTOM_REAL)
       iglob = ibool(i,j,k,ispec)
       rvol(iglob) = rvol(iglob) + rvol_local(i,j,k,ispec)
@@ -229,8 +231,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   enddo
    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  ! if(.not. GPU_MODE) then 
-  if (.true.) then
+  if(.not. GPU_MODE) then 
     do istep = 1, ntstep
       ddat_glob(:) = 0.0
       do iphase = 1,2
@@ -374,7 +375,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
                           nspec_outer_elastic,nspec_inner_elastic,xixstore, &
                           xiystore,xizstore,etaxstore,etaystore,etazstore, &
                           gammaxstore,gammaystore,gammazstore, &
-                          jacobianstore,rotate_r,wgllwgll_xy,wgllwgll_xz, &
+                          jacobian_all,rotate_r,wgllwgll_xy,wgllwgll_xz, &
                           wgllwgll_yz,hprime_xxT,hprimewgll_xx,ibool, &
                           is_CPML,cv,ch,num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
                           my_neighbors_ext_mesh,nibool_interfaces_ext_mesh, &

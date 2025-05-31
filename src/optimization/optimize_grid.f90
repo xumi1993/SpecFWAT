@@ -162,6 +162,8 @@ contains
       if (is_output_direction) then
         call write_grid_model(trim(OPT_DIR)//'/direction_'//trim(model_current)//'.h5', this%direction)
       endif
+      write(msg, '(a,F10.8)') 'Update model parameter with step length: ', step_len
+      call log%write(msg, .true.)
       if (fpar%update%model_type == 1) then
       ! update model
         this%model = this%model * exp(step_len*this%direction)
@@ -216,7 +218,6 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: model0, model1, gradient0, gradient1, grad_bak
     real(kind=cr), dimension(:,:,:,:), allocatable :: q_vector, r_vector, gradient_diff, model_diff
     real(kind=cr) :: p_sum, a_sum, b_sum, p(1000), a(1000), b, p_k_up_sum, p_k_down_sum, p_k, angle
-    character(len=MAX_STRING_LEN) :: msg
 
     ! get direction
     if (this%iter_current == fpar%update%ITER_START) then
