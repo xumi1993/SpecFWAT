@@ -55,6 +55,8 @@ program fwat_optimize
   call log%write('*******************************************', .false.)
   call log%write('************ OPTIMIZATION DONE ************', .false.)
   call log%write('*******************************************', .false.)
+  call log%finalize()
+
   call finalize_MPI()
 
 end program fwat_optimize
