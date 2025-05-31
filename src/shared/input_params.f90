@@ -49,11 +49,8 @@ module input_params
 
   type postproc_params
     logical, dimension(2) :: INV_TYPE
-    integer :: SMOOTH_TYPE
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
-    integer, dimension(3) :: ninv
-    integer :: n_inversion_grid
     logical :: IS_PRECOND
   end type postproc_params
 
@@ -343,15 +340,11 @@ contains
         if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
-        ! list => post%get_list('NINV', required=.true., error=io_err)
-        ! call read_static_int_list(list, this%postproc%ninv)
-        ! this%postproc%n_inversion_grid = post%get_integer('N_INVERSION_GRID', error=io_err, default=5)
         this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
         this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err)
         this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
-        this%postproc%SMOOTH_TYPE = post%get_integer('SMOOTH_TYPE', error=io_err, default=1)
 
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
@@ -483,9 +476,6 @@ contains
     call bcast_all_singlel(this%postproc%IS_PRECOND)
     call bcast_all_l_array(this%postproc%INV_TYPE, 2)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
-    call bcast_all_i(this%postproc%ninv, 3)
-    call bcast_all_singlei(this%postproc%n_inversion_grid)
-    call bcast_all_singlei(this%postproc%SMOOTH_TYPE)
     call bcast_all_singlel(is_joint)
 
     ! Model UPDATE
