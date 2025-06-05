@@ -200,13 +200,13 @@ contains
       class is (type_dictionary)
         ! read parameters for noise FWI
         this%sim => noise_par
-        this%sim%IMEAS = 7
-        this%sim%ITAPER = 1
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
         this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
         this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
+        this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
+        this%sim%ITAPER = noise%get_integer('ITAPER', error=io_err, default=1)
         list => noise%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_string_list(list, this%sim%RCOMPS)
