@@ -221,7 +221,7 @@ contains
 
   subroutine get_half_duration(this, half_dura)
     class(TeleCCData), intent(inout) :: this
-    real(kind=dp), parameter :: max_duration = 40.0, amp_threshold = 0.4
+    real(kind=dp), parameter :: amp_threshold = 0.4
     real(kind=dp), dimension(:), allocatable, intent(out) :: half_dura
     real(kind=dp), dimension(:), allocatable :: seismo_cut_loc, seismo_cut, corr
     real(kind=dp), dimension(:,:), allocatable :: tmp_cut
@@ -230,7 +230,7 @@ contains
     integer, dimension(:), allocatable :: max_idx
 
     half_dura = zeros_dp(this%nrec_loc)
-    npts_cut = int(max_duration / dble(DT)) + 1
+    npts_cut = int((fpar%sim%time_win(2) - fpar%sim%time_win(1))/ dble(DT)) + 1
     seismo_cut_loc = zeros_dp(npts_cut)
     seismo_cut = zeros_dp(npts_cut)
 
