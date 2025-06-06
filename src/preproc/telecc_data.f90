@@ -243,7 +243,7 @@ contains
     enddo
     call synchronize_all()
     call sum_all_all_dp(seismo_cut_loc, seismo_cut)
-    seismo_cut = abs(seismo_cut / this%od%nsta)
+    seismo_cut = abs(seismo_cut / this%nrec)
 
     ! find half duration of mean seismogram
     max_idx = find_maxima_dp(seismo_cut)
