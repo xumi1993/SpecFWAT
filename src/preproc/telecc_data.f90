@@ -225,20 +225,22 @@ contains
     real(kind=dp), dimension(:), allocatable, intent(out) :: half_dura
     real(kind=dp), dimension(:), allocatable :: seismo_cut_loc, seismo_cut, corr
     real(kind=dp), dimension(:,:), allocatable :: tmp_cut
-    real(kind=dp) :: max_amp, half_dura_mean, time_shift
+    real(kind=dp) :: max_amp, half_dura_mean, time_shift, tb
     integer :: irec_local, irec, i, npts_cut
     integer, dimension(:), allocatable :: max_idx
 
     half_dura = zeros_dp(this%nrec_loc)
     npts_cut = int(max_duration / dble(DT)) + 1
     seismo_cut_loc = zeros_dp(npts_cut)
+    seismo_cut = zeros_dp(npts_cut)
 
     ! take sum of all local seismograms
     tmp_cut = zeros_dp(npts_cut, this%nrec_loc)
     do irec_local = 1, this%nrec_loc
       irec = select_global_id_for_rec(irec_local)
+      tb = dble(this%ttp(irec)+fpar%sim%time_win(1))
       tmp_cut(:, irec_local) = interpolate_func_dp(this%seismo_dat(:, 1, irec_local),&
-                       -dble(T0), dble(DT), NSTEP, dble(this%ttp(irec)), dble(DT), npts_cut)
+                       -dble(T0), dble(DT), NSTEP, tb, dble(DT), npts_cut)
       seismo_cut_loc = seismo_cut_loc + tmp_cut(:, irec_local)
     enddo
     call synchronize_all()
@@ -257,6 +259,7 @@ contains
 
     ! do CC for each local receiver and calculate time shift
     do irec_local = 1, this%nrec_loc
+      irec = select_global_id_for_rec(irec_local)
       call mycorrelation_dp(tmp_cut(:, irec_local), seismo_cut, corr, 1)
       half_dura(irec_local) = (maxloc(corr, dim=1) - npts_cut) * DT + half_dura_mean
     enddo

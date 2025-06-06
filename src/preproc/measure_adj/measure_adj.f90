@@ -895,7 +895,7 @@ subroutine measure_adj()
     real(kind=dp) :: fac                        
     integer :: nstart, nend, i, n, nconv, nmax, nn
 
-    nmax = int(tp)/SPECFEM_DT + 1
+    nmax = int(tp/SPECFEM_DT) + 1
     nn = nmax * 2
 
     call myconvolution_dp(synr, datz, conv1, 1)
@@ -915,12 +915,15 @@ subroutine measure_adj()
     conv2 = conv2(nmax:nmax+NSTEP-1)
     conv_diff = conv1-conv2
 
-    nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT + 1)
-    nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT + 1)
-    n = 1
+    nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT) + 1
+    nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT) + 1
+    
     ! Cosine taper
-    adj_r_tw(:) = zeros_dp(NSTEP)
-    adj_z_tw(:) = zeros_dp(NSTEP)
+    n = 1
+    adj_r_tw = zeros_dp(NSTEP)
+    adj_z_tw = zeros_dp(NSTEP)
+    data_tw = zeros_dp(NSTEP)
+    synt_tw = zeros_dp(NSTEP)
     do i = nstart, nend
       fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
       synt_tw(i) = conv1(i) * fac
@@ -929,7 +932,6 @@ subroutine measure_adj()
       adj_z_tw(i) = adj_z(i) * fac
       n = n+1
     enddo
-
     ! write windowed adjoint source
     window_chi = 0.
     window_chi(13) = 0.5 * sum( data_tw**2 )
