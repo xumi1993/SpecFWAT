@@ -893,9 +893,9 @@ subroutine measure_adj()
     real(kind=dp), dimension(:), allocatable :: conv1, conv2, conv_diff, adj_r, adj_z, conv_full
     real(kind=dp), dimension(:), allocatable :: data_tw, synt_tw, conv_diff_tw         
     real(kind=dp) :: fac                        
-    integer :: nstart, nend, i, n, nconv, nmax, nn
+    integer :: nstart, nend, i, n, nmax, nn
 
-    nmax = int(tp/SPECFEM_DT) + 1
+    nmax = int((tp+SPECFEM_T0)/SPECFEM_DT) + 1
     nn = nmax * 2
 
     call myconvolution_dp(synr, datz, conv1, 1)
@@ -903,7 +903,6 @@ subroutine measure_adj()
     conv1 = conv1 * SPECFEM_DT
     conv2 = conv2 * SPECFEM_DT
     conv_diff = conv1 - conv2
-    nconv = size(conv_diff)
 
     call myconvolution_dp(datz, conv_diff, conv_full, 1)
     adj_r = conv_full(nn:nn+NSTEP-1) * SPECFEM_DT
@@ -936,7 +935,7 @@ subroutine measure_adj()
     window_chi = 0.
     window_chi(13) = 0.5 * sum( data_tw**2 )
     window_chi(14) = 0.5 * sum( synt_tw**2 )
-    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )
+    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )*SPECFEM_DT
     window_chi(16) = (nend - nstart + 1)*SPECFEM_DT
     window_chi(17) = 0.5 * sum( conv2**2 )
     window_chi(18) = 0.5 * sum( conv1**2 )
@@ -944,6 +943,59 @@ subroutine measure_adj()
     window_chi(20) = NSTEP*SPECFEM_DT
 
   end subroutine measure_adj_cross_conv
+
+  subroutine measure_adj_cross_mul(datr, datz, synr, synz, tstart, tend, tp, &
+                                    window_chi, adj_r_tw, adj_z_tw)
+    use signal, only: myconvolution_dp
+    use config
+    use utils, only: zeros_dp
+
+    real(kind=dp), dimension(:), intent(in) :: datr, datz, synr, synz
+    real(kind=dp), intent(in) :: tstart, tend, tp
+    real(kind=dp), dimension(NCHI), intent(inout) :: window_chi
+    real(kind=dp), dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
+    real(kind=dp), dimension(:), allocatable :: mul1, mul2, mul_diff, adj_r, adj_z
+    real(kind=dp), dimension(:), allocatable :: data_tw, synt_tw, conv_diff_tw         
+    real(kind=dp) :: fac                        
+    integer :: nstart, nend, i, n
+
+
+    mul1 = synr * datz
+    mul2 = synz * datr
+    mul_diff = mul1 - mul2
+
+    adj_r = datz * mul_diff
+    adj_z = -datr * mul_diff
+
+    nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT) + 1
+    nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT) + 1
+    
+    ! Cosine taper
+    n = 1
+    adj_r_tw = zeros_dp(NSTEP)
+    adj_z_tw = zeros_dp(NSTEP)
+    data_tw = zeros_dp(NSTEP)
+    synt_tw = zeros_dp(NSTEP)
+    do i = nstart, nend
+      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+      synt_tw(i) = mul1(i) * fac
+      data_tw(i) = mul2(i) * fac
+      adj_r_tw(i) = adj_r(i) * fac
+      adj_z_tw(i) = adj_z(i) * fac
+      n = n+1
+    enddo
+    ! write windowed adjoint source
+    window_chi = 0.
+    window_chi(13) = 0.5 * sum( data_tw**2 )
+    window_chi(14) = 0.5 * sum( synt_tw**2 )
+    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )*SPECFEM_DT
+    window_chi(16) = (nend - nstart + 1)*SPECFEM_DT
+    window_chi(17) = 0.5 * sum( mul2**2 )
+    window_chi(18) = 0.5 * sum( mul1**2 )
+    window_chi(19) = 0.5 * sum( mul_diff**2 )
+    window_chi(20) = NSTEP*SPECFEM_DT
+
+  end subroutine measure_adj_cross_mul
 
   ! subroutine measure_adj_tele(dat, syn, tstart, tend, window_chi, adj_src_local)
   !   use utils, only: zeros_dp

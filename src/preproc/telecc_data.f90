@@ -86,11 +86,7 @@ contains
     real(kind=dp) :: tstart, tend, t01, max_amp
 
     if (worldrank == 0) then
-      seismo_inp = zeros_dp(NSTEP)
-      do irec = 1, this%nrec
-        seismo_inp = + seismo_inp + this%od%data(:, 1, irec)
-      enddo
-      max_amp = sum(seismo_inp)/real(this%nrec)
+      max_amp = average_amp_scale(this%od%data, 1)
     endif
     call synchronize_all()
     call bcast_all_singledp(max_amp)
@@ -166,10 +162,12 @@ contains
             header%kstnm = trim(this%od%stnm(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
             header%t0 = this%ttp(irec)
+            header%t1 = this%ttp(irec) + half_dura(irec_local)
             sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, this%seismo_dat(:, 1, irec_local), ier)
+
             sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
@@ -199,6 +197,8 @@ contains
                                     dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), tt0, &
                                     window_chi_local, adj_r_tw, adj_z_tw)
 
+        adj_r_tw = adj_r_tw * fpar%acqui%src_weight(this%ievt)
+        adj_z_tw = adj_z_tw * fpar%acqui%src_weight(this%ievt)
         call this%write_adj(adj_z_tw(1:NSTEP), trim(this%comp_name(1)), irec)
         adj_src = zeros_dp(NSTEP, 2)
         call rotate_R_to_NE_dp(adj_r_tw(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
@@ -244,7 +244,8 @@ contains
       seismo_cut_loc = seismo_cut_loc + tmp_cut(:, irec_local)
     enddo
     call synchronize_all()
-    call sum_all_all_dp(seismo_cut_loc, seismo_cut)
+    call sum_all_1Darray_dp(seismo_cut_loc, seismo_cut, npts_cut)
+    call bcast_all_dp(seismo_cut, npts_cut)
     seismo_cut = abs(seismo_cut / this%nrec)
 
     ! find half duration of mean seismogram
@@ -252,7 +253,7 @@ contains
     max_amp = maxval(seismo_cut)
     do i = 1, size(max_idx)
       if (seismo_cut(max_idx(i)) > amp_threshold * max_amp) then
-        half_dura_mean = max_idx(i) * DT
+        half_dura_mean = max_idx(i) * DT + fpar%sim%time_win(1)
         exit
       endif
     enddo
