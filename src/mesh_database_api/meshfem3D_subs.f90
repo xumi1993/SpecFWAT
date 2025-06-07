@@ -2,6 +2,7 @@ module meshfem3D_subs
   use meshfem_par
   use chunk_earth_mod
   use create_meshfem_par
+  use config, only : local_path_fwat
 
   implicit none
 
@@ -85,6 +86,7 @@ contains
     endif
 
     call read_mesh_parameter_file_fwat(filename)
+    LOCAL_PATH = local_path_fwat
     
     ! get interface data from external file to count the spectral elements along Z
     if (allocated(ner_layer)) deallocate(ner_layer)
