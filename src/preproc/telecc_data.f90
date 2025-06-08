@@ -246,13 +246,13 @@ contains
     call synchronize_all()
     call sum_all_1Darray_dp(seismo_cut_loc, seismo_cut, npts_cut)
     call bcast_all_dp(seismo_cut, npts_cut)
-    seismo_cut = abs(seismo_cut / this%nrec)
+    ! seismo_cut = abs(seismo_cut / this%nrec)
 
     ! find half duration of mean seismogram
     max_idx = find_maxima_dp(seismo_cut)
-    max_amp = maxval(seismo_cut)
+    max_amp = maxval(abs(seismo_cut))
     do i = 1, size(max_idx)
-      if (seismo_cut(max_idx(i)) > amp_threshold * max_amp) then
+      if (abs(seismo_cut(max_idx(i))) > amp_threshold * max_amp) then
         half_dura_mean = max_idx(i) * DT + fpar%sim%time_win(1)
         exit
       endif
