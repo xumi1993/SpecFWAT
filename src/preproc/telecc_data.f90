@@ -249,7 +249,7 @@ contains
     ! seismo_cut = abs(seismo_cut / this%nrec)
 
     ! find half duration of mean seismogram
-    max_idx = find_maxima_dp(seismo_cut)
+    max_idx = find_maxima_dp(abs(seismo_cut))
     max_amp = maxval(abs(seismo_cut))
     do i = 1, size(max_idx)
       if (abs(seismo_cut(max_idx(i))) > amp_threshold * max_amp) then
