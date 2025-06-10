@@ -126,11 +126,12 @@ contains
   end subroutine remove_event_kernel
 
   subroutine read_kernel(kernel_path, dataname, data)
-    character(len=*), intent(in) :: dataname
-    character(len=MAX_STRING_LEN) :: kernel_path
+    character(len=*), intent(in) :: dataname, kernel_path
+    character(len=MAX_STRING_LEN) :: path
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: data
 
-    call create_name_database(fprname, worldrank, kernel_path)
+    path = trim(kernel_path)
+    call create_name_database(fprname, worldrank, path)
     open(unit=IIN, file=trim(fprname)//trim(dataname)//'.bin', status='old', action='read', form='unformatted', iostat=ier)
     if (ier /= 0) then
       write(0, *) 'Error could not open database file: ',trim(fprname)//trim(dataname)//'.bin'
@@ -143,11 +144,12 @@ contains
 
   end subroutine read_kernel
 
-  subroutine write_kernel(path, dataname, data)
-    character(len=*), intent(in) :: dataname
+  subroutine write_kernel(kernel_path, dataname, data)
+    character(len=*), intent(in) :: dataname, kernel_path
     real(kind=cr), dimension(:,:,:,:), intent(in) :: data
-    character(len=*), intent(in) :: path
+    character(len=MAX_STRING_LEN) :: path
 
+    path = trim(kernel_path)
     call create_name_database(fprname, worldrank, path)
     open(unit=IOUT, file=trim(fprname)//trim(dataname)//'.bin', status='replace', action='write', form='unformatted', iostat=ier)
     if (ier /= 0) then

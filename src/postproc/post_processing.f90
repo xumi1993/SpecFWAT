@@ -131,6 +131,7 @@ contains
       enddo
     endif
     if (is_output_sum_kernel) then
+      call log%write('This is writing sum of kernels...', .true.)
       do iker = 1, nkernel
         call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
       enddo
@@ -167,20 +168,25 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
 
     call log%write('This is applying preconditioned kernels...', .true.)
+
     if (fpar%sim%PRECOND_TYPE <= DEFAULT_PRECOND) then
-      total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
-      do ievt = 1, fpar%acqui%nevents
-        call read_event_kernel(ievt, 'hess_kernel', ker)
-        if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
-          total_hess = total_hess + abs(ker)
-        else
-          total_hess = total_hess + ker
-        endif
-      enddo
-      if (fpar%sim%PRECOND_TYPE == 0) total_hess = abs(total_hess)
-      if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
-      call invert_hess(total_hess)
-      if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
+      if (run_mode == 1) then
+        total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
+        do ievt = 1, fpar%acqui%nevents
+          call read_event_kernel(ievt, 'hess_kernel', ker)
+          if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+            total_hess = total_hess + abs(ker)
+          else
+            total_hess = total_hess + ker
+          endif
+        enddo
+        if (fpar%sim%PRECOND_TYPE == 0) total_hess = abs(total_hess)
+        if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
+        call invert_hess(total_hess)
+        if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
+      elseif (run_mode == 2) then
+        call read_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
+      endif
     else
       call zprecond_gll(total_hess) 
     endif
