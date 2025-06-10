@@ -54,6 +54,7 @@ enddo
 call log%write('*******************************************', .false.)
 call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
 call log%write('*******************************************', .false.)
+call log%finalize()
 
 call finalize_mpi()
 

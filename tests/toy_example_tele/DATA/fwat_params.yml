@@ -13,6 +13,8 @@ NOISE:
   USE_NEAR_OFFSET: False # Set the following to false if use only data > 1 average wavelength
   SUPPRESS_EGF: False # Set to .false. when the data are cross-correlation functions
   PRECOND_TYPE: 1 # 1: inner product of acceleration
+  SIGMA_H: 5000
+  SIGMA_V: 5000
 
 TELE:
   TELE_TYPE: 1 # 1: teleseismic data, 2: receiver function, 3: teleseismic Cross-convolution
@@ -25,8 +27,10 @@ TELE:
   DT: 0.025 # Time step for the teleseismic data
   SHORT_P: [2] # Short period of filters
   LONG_P: [40] # Long period of filters
-  TIME_WIN: [-10, 30] # Time window for the teleseismic data
+  TIME_WIN: [-10, 35] # Time window for the teleseismic data
   PRECOND_TYPE: 2 # 2: abs(Z); 3: root squared z
+  SIGMA_H: 5000
+  SIGMA_V: 5000
   RF:
     F0: [1.0] # Gaussian width for the RF
     MAXIT: 200 # Maximum number of iterations
@@ -69,13 +73,10 @@ MODEL_GRID:
 POSTPROC:
   INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
   JOINT_WEIGHT: [0.5, 1.0]
-  NINV: [30, 14, 14]
-  N_INVERSION_GRID: 10
   TAPER_H_SUPPRESS: 5000
-  TAPER_H_BUFFER: 10000
+  TAPER_H_BUFFER: 15000
   TAPER_V_SUPPRESS: 0
   TAPER_V_BUFFER: 0
-  USE_RHO_SCALING_NOISE: true
   IS_PRECOND: True
 
 MODEL_UPDATE:

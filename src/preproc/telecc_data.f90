@@ -1,17 +1,17 @@
 module telecc_data
   use config
-  use measure_adj_mod, only: meas_adj_conv_diff
+  use measure_adj_mod, only: meas_adj_conv_diff, measure_adj_cross_conv
   use ma_constants
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, &
                         get_gauss_fac
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
-                    myconvolution_dp, interpolate_func_dp
+                    myconvolution_dp, interpolate_func_dp, mycorrelation_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
   use fk_coupling
   use fwat_mpi
-  use utils, only: zeros_dp, zeros, interp1
+  use utils, only: zeros_dp, zeros, interp1, find_maxima_dp
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
@@ -25,7 +25,7 @@ module telecc_data
   type, extends(TeleData) :: TeleCCData
   contains
   procedure :: preprocess, finalize
-  procedure, private :: measure_adj, pre_proc
+  procedure, private :: measure_adj, pre_proc, get_half_duration
   end type TeleCCData
 
 contains
@@ -86,11 +86,7 @@ contains
     real(kind=dp) :: tstart, tend, t01, max_amp
 
     if (worldrank == 0) then
-      seismo_inp = zeros_dp(NSTEP)
-      do irec = 1, this%nrec
-        seismo_inp = + seismo_inp + this%od%data(:, 1, irec)
-      enddo
-      max_amp = sum(seismo_inp)/real(this%nrec)
+      max_amp = average_amp_scale(this%od%data, 1)
     endif
     call synchronize_all()
     call bcast_all_singledp(max_amp)
@@ -107,10 +103,7 @@ contains
                           //'.'//trim(this%od%stnm(irec))//' larger than NSTEP', .false.)
           call exit_mpi(worldrank, 'Error: Time windows length larger than NSTEP')
         endif
-        nstep_cut = int((tend - tstart) / dble(DT)) + 1
         do icomp = 1, ncomp
-          ! seismo_inp = this%od%data(:, icomp, irec)
-
           t01 = this%od%tbeg(irec) - (this%od%tarr(irec) - this%ttp(irec))
           seismo_inp = interpolate_func_dp(this%od%data(:, icomp, irec), t01,&
                                            dble(this%od%dt), this%od%npts, &
@@ -126,8 +119,8 @@ contains
           seismo_inp = this%data(:, icomp, irec)
           call detrend(seismo_inp)
           call demean(seismo_inp)
-          call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
-                           1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+          ! call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
+                          !  1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           ! call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
           !                         tstart, dble(dt), NSTEP)
           this%seismo_syn(:, icomp, irec_local) = seismo_inp(1:NSTEP)
@@ -141,11 +134,13 @@ contains
   subroutine measure_adj(this)
     class(TeleCCData), intent(inout) :: this
     integer :: irec_local, irec
-    real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
+    real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw, half_dura
     real(kind=dp), dimension(:,:), allocatable :: adj_src
     real(kind=dp), dimension(NCHI) :: window_chi_local
-    real(kind=dp) :: f0
+    real(kind=dp) :: f0, tt0
     type(sachead) :: header
+
+    call this%get_half_duration(half_dura)
 
     if (this%nrec_loc > 0) then
       allocate(this%window_chi(this%nrec_loc, NCHI, fpar%sim%NRCOMP))
@@ -167,10 +162,12 @@ contains
             header%kstnm = trim(this%od%stnm(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
             header%t0 = this%ttp(irec)
+            header%t1 = this%ttp(irec) + half_dura(irec_local)
             sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, this%seismo_dat(:, 1, irec_local), ier)
+
             sacfile = trim(OUTPUT_FILES)//'/syn.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
@@ -188,14 +185,20 @@ contains
           end block
         endif
 
-        f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1)))
-        call meas_adj_conv_diff(this%seismo_dat(:, 2, irec_local), this%seismo_dat(:, 1, irec_local),&
-                                this%seismo_syn(:, 2, irec_local), this%seismo_syn(:, 1, irec_local),&
-                                dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), dble(this%ttp(irec)),&
-                                NSTEP, -dble(fpar%sim%TIME_WIN(1)), f0, NITER, 0.001_dp, &
-                                dble(1/fpar%sim%LONG_P(1)), dble(1/fpar%sim%SHORT_P(1)), &
-                                window_chi_local, adj_r_tw, adj_z_tw, this%od%stnm(irec))
+        tt0 = dble(this%ttp(irec)) + half_dura(irec_local)
+        ! call meas_adj_conv_diff(this%seismo_dat(:, 2, irec_local), this%seismo_dat(:, 1, irec_local),&
+        !                         this%seismo_syn(:, 2, irec_local), this%seismo_syn(:, 1, irec_local),&
+        !                         dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), dble(this%ttp(irec)),&
+        !                         NSTEP, -dble(fpar%sim%TIME_WIN(1)), 2.0, NITER, 0.001_dp, &
+        !                         dble(1/fpar%sim%LONG_P(1)), dble(1/fpar%sim%SHORT_P(1)), &
+        !                         window_chi_local, adj_r_tw, adj_z_tw, this%od%stnm(irec))
+        call measure_adj_cross_conv(this%seismo_dat(:, 2, irec_local), this%seismo_dat(:, 1, irec_local), &
+                                    this%seismo_syn(:, 2, irec_local), this%seismo_syn(:, 1, irec_local), &
+                                    dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), tt0, &
+                                    window_chi_local, adj_r_tw, adj_z_tw)
 
+        adj_r_tw = adj_r_tw * fpar%acqui%src_weight(this%ievt)
+        adj_z_tw = adj_z_tw * fpar%acqui%src_weight(this%ievt)
         call this%write_adj(adj_z_tw(1:NSTEP), trim(this%comp_name(1)), irec)
         adj_src = zeros_dp(NSTEP, 2)
         call rotate_R_to_NE_dp(adj_r_tw(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
@@ -215,6 +218,55 @@ contains
     endif
     call synchronize_all()
   end subroutine measure_adj
+
+  subroutine get_half_duration(this, half_dura)
+    class(TeleCCData), intent(inout) :: this
+    real(kind=dp), parameter :: amp_threshold = 0.4
+    real(kind=dp), dimension(:), allocatable, intent(out) :: half_dura
+    real(kind=dp), dimension(:), allocatable :: seismo_cut_loc, seismo_cut, corr
+    real(kind=dp), dimension(:,:), allocatable :: tmp_cut
+    real(kind=dp) :: max_amp, half_dura_mean, time_shift, tb
+    integer :: irec_local, irec, i, npts_cut
+    integer, dimension(:), allocatable :: max_idx
+
+    half_dura = zeros_dp(this%nrec_loc)
+    npts_cut = int((fpar%sim%time_win(2) - fpar%sim%time_win(1))/ dble(DT)) + 1
+    seismo_cut_loc = zeros_dp(npts_cut)
+    seismo_cut = zeros_dp(npts_cut)
+
+    ! take sum of all local seismograms
+    tmp_cut = zeros_dp(npts_cut, this%nrec_loc)
+    do irec_local = 1, this%nrec_loc
+      irec = select_global_id_for_rec(irec_local)
+      tb = dble(this%ttp(irec)+fpar%sim%time_win(1))
+      tmp_cut(:, irec_local) = interpolate_func_dp(this%seismo_dat(:, 1, irec_local),&
+                       -dble(T0), dble(DT), NSTEP, tb, dble(DT), npts_cut)
+      seismo_cut_loc = seismo_cut_loc + tmp_cut(:, irec_local)
+    enddo
+    call synchronize_all()
+    call sum_all_1Darray_dp(seismo_cut_loc, seismo_cut, npts_cut)
+    call bcast_all_dp(seismo_cut, npts_cut)
+    ! seismo_cut = abs(seismo_cut / this%nrec)
+
+    ! find half duration of mean seismogram
+    max_idx = find_maxima_dp(abs(seismo_cut))
+    max_amp = maxval(abs(seismo_cut))
+    do i = 1, size(max_idx)
+      if (abs(seismo_cut(max_idx(i))) > amp_threshold * max_amp) then
+        half_dura_mean = max_idx(i) * DT + fpar%sim%time_win(1)
+        exit
+      endif
+    enddo
+
+    ! do CC for each local receiver and calculate time shift
+    do irec_local = 1, this%nrec_loc
+      irec = select_global_id_for_rec(irec_local)
+      call mycorrelation_dp(tmp_cut(:, irec_local), seismo_cut, corr, 1)
+      half_dura(irec_local) = (maxloc(corr, dim=1) - npts_cut) * DT + half_dura_mean
+    enddo
+    call synchronize_all()
+
+  end subroutine get_half_duration
 
   subroutine finalize(this)
     class(TeleCCData), intent(inout) :: this

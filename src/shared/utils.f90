@@ -901,9 +901,9 @@ end function
       vr = v( [ x1, x2 ] )
       vq = vr(1) * ( xr(2) - xq ) + vr(2) * ( xq - xr(1) )
       vq = vq / vn
-    elseif (xq < x(1)) then
+    elseif (xq <= x(1)) then
       vq = v(1)
-    elseif (xq > x(size(x))) then
+    elseif (xq >= x(size(x))) then
       vq = v(size(v))
     end if
     return
@@ -1494,4 +1494,39 @@ end function
     res = sum(a * b) * dx * dy * dz
 
   end function inner_product
+
+  function find_maxima_dp(x) result(idx)
+
+    real(kind=DPRE), dimension(:), intent(in) :: x
+    integer, dimension(:), allocatable :: idx
+    integer :: i, n, count
+    
+    logical, allocatable :: rising(:), falling(:)
+    integer, allocatable :: max_idx(:)
+
+    n = size(x)
+    if (n < 3) then
+      allocate(idx(0))
+      return
+    end if
+
+    allocate(rising(n-1), falling(n-1))
+
+    rising = (x(2:) - x(1:n-1)) > 0.0
+    falling = (x(2:) - x(1:n-1)) < 0.0
+
+    allocate(max_idx(n-2))
+    count = 0
+    do i = 1, n-2
+      if (rising(i) .and. falling(i+1)) then
+        count = count + 1
+        max_idx(count) = i + 1
+      end if
+    end do
+
+    allocate(idx(count))
+    idx = max_idx(1:count)
+
+  end function find_maxima_dp
+
 end module

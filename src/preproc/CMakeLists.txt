@@ -5,11 +5,6 @@ include_directories(
 add_subdirectory(telesubs)
 add_subdirectory(measure_adj)
 
-# object libraries of specfem_interface
-file(GLOB SOURCES_SPECFEM_API "specfem_interface/*.f90")
-add_library(specfem_api_objs OBJECT ${SOURCES_SPECFEM_API})
-target_link_libraries(specfem_api_objs PRIVATE specfem3D_objs shared_fwat_objs)
-
 # object libraries of preproc
 file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
