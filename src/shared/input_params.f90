@@ -36,7 +36,7 @@ module input_params
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE, TELE_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
-    real(kind=cr) :: DT
+    real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING, SAVE_FK
     type(rf_params) :: rf
@@ -49,11 +49,8 @@ module input_params
 
   type postproc_params
     logical, dimension(2) :: INV_TYPE
-    integer :: SMOOTH_TYPE
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
-    integer, dimension(3) :: ninv
-    integer :: n_inversion_grid
     logical :: IS_PRECOND
   end type postproc_params
 
@@ -203,13 +200,13 @@ contains
       class is (type_dictionary)
         ! read parameters for noise FWI
         this%sim => noise_par
-        this%sim%IMEAS = 7
-        this%sim%ITAPER = 1
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
         this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
         this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
+        this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
+        this%sim%ITAPER = noise%get_integer('ITAPER', error=io_err, default=1)
         list => noise%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_string_list(list, this%sim%RCOMPS)
@@ -242,6 +239,10 @@ contains
         this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
         this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
         this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+        this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
 
         ! read parameters for teleseismic FWI
@@ -274,6 +275,10 @@ contains
         this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
         this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
         compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
+        this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         ! read parameters for RF proc
         rf => tele%get_dictionary('RF', required=.true., error=io_err)
         this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
@@ -330,18 +335,16 @@ contains
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => post%get_list('INV_TYPE', required=.true., error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_static_logi_list(list, this%postproc%INV_TYPE)
+        if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
-        list => post%get_list('NINV', required=.true., error=io_err)
-        call read_static_int_list(list, this%postproc%ninv)
-        this%postproc%n_inversion_grid = post%get_integer('N_INVERSION_GRID', error=io_err, default=5)
         this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
         this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err)
         this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
-        this%postproc%SMOOTH_TYPE = post%get_integer('SMOOTH_TYPE', error=io_err, default=1)
 
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
@@ -394,6 +397,8 @@ contains
     call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
     call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
     call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
+    call bcast_all_singlecr(noise_par%SIGMA_H)
+    call bcast_all_singlecr(noise_par%SIGMA_V)
 
     ! broadcast tele parameters
     call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
@@ -426,6 +431,8 @@ contains
     call bcast_all_r(tele_par%TIME_WIN, 2)
     call bcast_all_r(tele_par%SHORT_P, 1)
     call bcast_all_r(tele_par%LONG_P, 1)
+    call bcast_all_singlecr(tele_par%SIGMA_H)
+    call bcast_all_singlecr(tele_par%SIGMA_V)
     call bcast_all_singlei(tele_par%TELE_TYPE)
     if (tele_par%rf%NGAUSS > 0) then
       call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
@@ -469,9 +476,7 @@ contains
     call bcast_all_singlel(this%postproc%IS_PRECOND)
     call bcast_all_l_array(this%postproc%INV_TYPE, 2)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
-    call bcast_all_i(this%postproc%ninv, 3)
-    call bcast_all_singlei(this%postproc%n_inversion_grid)
-    call bcast_all_singlei(this%postproc%SMOOTH_TYPE)
+    call bcast_all_singlel(is_joint)
 
     ! Model UPDATE
     call bcast_all_ch_array(this%update%INIT_MODEL_PATH, 1, MAX_STRING_LEN)
@@ -490,18 +495,18 @@ contains
   end subroutine read_fwat_parameter_file
 
   subroutine select_simu_type(this)
-    use specfem_par, only: NSTEP, DT
+    use specfem_par, only: NSTEP, DT, LOCAL_PATH
     use ma_variables
     class(fwat_params), intent(inout) :: this
     integer :: icomp
 
     select case (simu_type)
-    case (SIMU_TYPE_TELE)
-      this%sim => tele_par
-      is_mtm0 = 0
-    case (SIMU_TYPE_NOISE)
-      this%sim => noise_par
-      is_mtm0 = 1
+      case (SIMU_TYPE_TELE)
+        this%sim => tele_par
+        is_mtm0 = 0
+      case (SIMU_TYPE_NOISE)
+        this%sim => noise_par
+        is_mtm0 = 1
     end select
     imeas0 = this%sim%IMEAS
     imeas = imeas0
@@ -509,13 +514,12 @@ contains
     is_mtm = is_mtm0
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
-    ! do icomp = 1, this%sim%NRCOMP
-    !   if (trim(this%sim%RCOMPS(icomp)) == 'R' .or. trim(this%sim%RCOMPS(icomp)) == 'T') then
-    !     dat_coord = 'ZRT'
-    !   else
-    !     dat_coord = 'ZNE'
-    !   end if
-    ! end do
+    if (is_joint) then
+      local_path_fwat = trim(LOCAL_PATH)//'/'//trim(simu_type)
+    else
+      local_path_fwat = trim(LOCAL_PATH)
+    endif
+    call synchronize_all()
   end subroutine select_simu_type
 
   subroutine read_static_int_list(list, list_out)

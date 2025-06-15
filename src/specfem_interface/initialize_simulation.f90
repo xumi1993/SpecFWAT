@@ -33,7 +33,7 @@
   use specfem_par_acoustic
   use specfem_par_poroelastic
   use specfem_par_movie
-  use config, only: run_mode, local_path_backup, simu_type, output_files_backup
+  use config, only: run_mode, local_path_backup, output_files_backup
   use fwat_constants, only: FORWARD_ADJOINT, SIMU_TYPE_TELE
   use input_params, fpar => fwat_par_global
 
@@ -75,29 +75,6 @@
   ! read the parameter file
   ! BROADCAST_AFTER_READ = .true.
   ! call read_parameter_file(BROADCAST_AFTER_READ)
-
-  ! MX: change SIMULATION_TYPE to 3 for adjoint simulations
-  SAVE_MESH_FILES=.false.
-  PRINT_SOURCE_TIME_FUNCTION=.false.
-  MOVIE_VOLUME=.false.
-  local_path_backup = LOCAL_PATH
-  output_files_backup = OUTPUT_FILES
-  APPROXIMATE_HESS_KL=.false.
-  if (run_mode < FORWARD_ADJOINT) then
-    SIMULATION_TYPE = 1
-    SAVE_FORWARD = .false.
-  else
-    SIMULATION_TYPE = 3
-    SAVE_FORWARD = .true.
-    if (fpar%sim%PRECOND_TYPE == 1) APPROXIMATE_HESS_KL=.true.
-  endif
-  if (fpar%update%MODEL_TYPE > 1) then
-    ANISOTROPIC_KL = .true.
-    ANISOTROPY = .true.
-  else
-    ANISOTROPIC_KL = .false.
-    ANISOTROPY = .false.
-  endif
 
   ! hdf5 i/o server
   ! HDF5 separate nodes for i/o server

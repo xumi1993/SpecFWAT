@@ -8,11 +8,11 @@ module post_processing
   use kernel_io
   use taper3d
   use common_lib, only: get_dat_type, get_kernel_names, mkdir
-  use multigrid
+  use smooth_mod
   use zprecond
   use shared_parameters
   use model_grid_data, only: read_grid_kernel_smooth, create_grid,&
-                              write_grid_kernel_smooth, write_grid, gll2grid, gll2grid_simple
+                              write_grid_kernel_smooth, write_grid, gll2grid
 
   implicit none
   character(len=MAX_STRING_LEN), private :: msg
@@ -25,8 +25,9 @@ module post_processing
     integer :: nker, ks_win
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,apply_precond,&
-                 write_gradient_grid, remove_ekernel, multigrid_smooth, taper_kernel_grid, finalize
+    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,apply_precond, &
+                 write_gradient_grid, remove_ekernel, pde_smooth, taper_kernel_grid, finalize, &
+                 read_sum_kernel
   end type PostFlow
 contains
 
@@ -38,6 +39,7 @@ contains
     call get_kernel_names()
 
     call create_grid()
+    local_path_backup = LOCAL_PATH
 
     if (fpar%update%MODEL_TYPE == 1) then
       ANISOTROPIC_KL = .false.
@@ -58,7 +60,9 @@ contains
 
     ! set simu type
     simu_type = INV_TYPE_NAMES(itype)
+    LOCAL_PATH = local_path_backup
     call fpar%select_simu_type()
+    LOCAL_PATH = local_path_fwat
 
     ! read src_rec for this data type
     call get_dat_type()
@@ -67,11 +71,11 @@ contains
     call fpar%acqui%read()
     
     ! setup mesh
-    call get_mesh_coord()
+    call read_mesh_databases_for_init()
     
     call log%write('Simulation type: '//trim(simu_type), .false.)
-    write(msg, '(a,I4,I4,I4)') 'Multi-grid smoothing: ', fpar%postproc%ninv(1), &
-                                fpar%postproc%ninv(2), fpar%postproc%ninv(3)
+    write(msg, '(a,F10.1,F10.1)') 'PDE smoothing; SIGMA_H, SIGMA_V: ', fpar%sim%SIGMA_H, &
+                                fpar%sim%SIGMA_V
     call log%write(msg, .false.)
     if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then
       write(msg, '(a)') 'Preconditioned L-BFGS'
@@ -94,7 +98,6 @@ contains
     else
       this%kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_name)
     endif
-      ! call system('mkdir -p '//trim(this%kernel_path))
     call mkdir(this%kernel_path)
     call synchronize_all()
 
@@ -128,6 +131,7 @@ contains
       enddo
     endif
     if (is_output_sum_kernel) then
+      call log%write('This is writing sum of kernels...', .true.)
       do iker = 1, nkernel
         call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
       enddo
@@ -144,26 +148,45 @@ contains
   
   end subroutine sum_kernel
 
+  subroutine read_sum_kernel(this)
+    class(PostFlow), intent(inout) :: this
+    integer :: iker
+    character(len=MAX_STRING_LEN) :: fname
+    real(kind=cr), dimension(:,:,:,:), allocatable :: ker
+
+    call log%write('This is reading sum of kernels...', .true.)
+    do iker = 1, nkernel
+      call read_kernel(trim(this%kernel_path), trim(kernel_names(iker))//'_kernel', ker)
+      this%ker_data(:,:,:,:,iker) = ker
+    enddo
+    call synchronize_all()
+  end subroutine
+
   subroutine apply_precond(this)
     class(PostFlow), intent(inout) :: this
     integer :: iker,  ievt, i, j, k, iglob, ispec
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
 
     call log%write('This is applying preconditioned kernels...', .true.)
+
     if (fpar%sim%PRECOND_TYPE <= DEFAULT_PRECOND) then
-      total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
-      do ievt = 1, fpar%acqui%nevents
-        call read_event_kernel(ievt, 'hess_kernel', ker)
-        if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
-          total_hess = total_hess + abs(ker)
-        else
-          total_hess = total_hess + ker
-        endif
-      enddo
-      if (fpar%sim%PRECOND_TYPE == 0) total_hess = abs(total_hess)
-      if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
-      call invert_hess(total_hess)
-      if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
+      if (run_mode == 1) then
+        total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
+        do ievt = 1, fpar%acqui%nevents
+          call read_event_kernel(ievt, 'hess_kernel', ker)
+          if (fpar%sim%PRECOND_TYPE == DEFAULT_PRECOND) then
+            total_hess = total_hess + abs(ker)
+          else
+            total_hess = total_hess + ker
+          endif
+        enddo
+        if (fpar%sim%PRECOND_TYPE == 0) total_hess = abs(total_hess)
+        if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'hess_kernel', total_hess)
+        call invert_hess(total_hess)
+        if (is_output_sum_kernel) call write_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
+      elseif (run_mode == 2) then
+        call read_kernel(this%kernel_path, 'inv_hess_kernel', total_hess)
+      endif
     else
       call zprecond_gll(total_hess) 
     endif
@@ -177,14 +200,13 @@ contains
   subroutine sum_precond(this)
     class(PostFlow), intent(inout) :: this
     character(len=MAX_STRING_LEN), parameter :: hess_name = 'hess'
-    real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
+    real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, total_hess_smooth, ker
     real(kind=cr), dimension(:), allocatable :: z_precond
     real(kind=cr), dimension(:,:), allocatable :: gk
     real(kind=cr), dimension(:,:,:), allocatable :: gm
     real(kind=cr) :: precond
     character(len=MAX_STRING_LEN) :: fname
     integer :: iker, ievt, i, j, k, iglob
-    type(InvGrid) :: inv
 
     call log%write('This is saving preconditioned kernels...', .true.)
     if (fpar%sim%PRECOND_TYPE <= 1) then
@@ -201,9 +223,8 @@ contains
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_kernel', total_hess)
       call invert_hess(total_hess)
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_inv_kernel', total_hess)
-      call inv%init()
-      call inv%sem2inv(total_hess, gk)
-      call inv%inv2grid(gk, gm)
+      call smooth_sem_pde(total_hess, fpar%sim%sigma_h, fpar%sim%sigma_v, total_hess_smooth, .false.)
+      call gll2grid(total_hess_smooth, gm)
       this%hess_smooth = gm/maxval(abs(gm))
     else
       call zprecond_grid(this%hess_smooth)
@@ -239,28 +260,26 @@ contains
     precond = precond / z_max 
   end function set_z_precond
 
-  subroutine multigrid_smooth(this)
+  subroutine pde_smooth(this)
     class(PostFlow), intent(inout) :: this
-    type(InvGrid) :: inv
     integer :: iker
-    real(kind=cr), dimension(:,:), allocatable :: gk
+    real(kind=cr), dimension(:,:,:,:), allocatable :: gk
     real(kind=cr), dimension(:,:,:), allocatable :: gm
-
-    call inv%init()
 
     do iker = 1, nkernel
       if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
         call log%write('This is scaling for rhop kernels...', .true.)
-        this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
+        if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
       else
         call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
-        call inv%sem2inv(this%ker_data(:,:,:,:,iker), gk)
-        call inv%inv2grid(gk, gm)
-        this%ker_data_smooth(:,:,:,iker) = gm
+        call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%sigma_h, fpar%sim%sigma_v, gk, .false.)
+        call gll2grid(gk, gm)
+        if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = gm
       endif
     end do
     call synchronize_all()
-  end subroutine multigrid_smooth
+    call sync_from_main_rank_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
+  end subroutine pde_smooth
 
   subroutine write_gradient_grid(this)
     class(PostFlow), intent(inout) :: this
@@ -447,11 +466,16 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel_data
     real(kind=cr) :: mean_val
     real(kind=cr), intent(out) :: max_global
-    character(len=MAX_STRING_LEN) :: fname
+    character(len=MAX_STRING_LEN) :: fname, modname
 
-    fname = trim(OPT_DIR)//'/gradient_M00_'//trim(INV_TYPE_NAMES(itype))//'.h5'
+    if (fpar%update%OPT_METHOD == 2) then
+      write(modname, '("M",I2.2)') fpar%update%ITER_START
+    else
+      modname = 'M00'
+    endif
+    fname = trim(OPT_DIR)//'/gradient_'//trim(modname)//'_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
-    max_global = maxval( abs(kernel_data))
+    max_global = maxval(abs(kernel_data))
     ! mean_val = sum(kernel_data) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
     ! max_global = sqrt(sum(kernel_data - mean_val)**2 / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
 

@@ -482,7 +482,7 @@ contains
             sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
                       '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                       '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
-                      '.adj.sac'//trim(this%band_name)
+                      '.adj.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, adj_syn_local(1:NSTEP), ier)
           endif
           adj_syn_local = adj_syn_local / this%avgamp

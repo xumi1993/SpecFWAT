@@ -186,6 +186,7 @@ contains
       i_right = i_right0
       i_left = 1  ! LQY: is it feasible that i_left is not 1? mt_adj() inherently assumes it.
 
+
       ! adjust frequency ranges for MT measurements
       ! fstart is constrained by NCYCLE_IN_WINDOW/tlen, fend constrained by i_right
       if (is_mtm == 1) then
@@ -196,11 +197,11 @@ contains
         fstart = fstart0  ; fend = fend0
         call mt_measure_select(nlen,tshift,i_pmax_syn,dtau_w,err_dt, &
                             dt,i_left,i_right,fstart,fend,use_trace)
-        !print *, '     Tlong/Tshort (input) :', sngl(1/fstart0), sngl(1/fend0)
-        !print *, '     Tlong/Tshort (adjusted)  :', sngl(1/fstart), sngl(1/fend)
-        !print *, '     period of max data/syn power    :', sngl(T_pmax_dat), sngl(T_pmax_syn)
-
+        ! print *, '     Tlong/Tshort (input) :', sngl(1/fstart0), sngl(1/fend0)
+        ! print *, '     Tlong/Tshort (adjusted)  :', sngl(1/fstart), sngl(1/fend)
+        ! print *, '     period of max data/syn power    :', sngl(T_pmax_dat), sngl(T_pmax_syn)
         ! if MT measurement window is rejected by mt_measure_select, then use a CC measurement
+
         if(.not. use_trace) then
           !stop 'Check why this MT measurement was rejected'
           ! print *, '   reverting from MT measurement to CC measurement...'
@@ -214,6 +215,7 @@ contains
         !   ! print *, '     using this MTM. '
         endif
       endif
+      ! print *,trim(sta_in), ' i_right:', i_right, 
 
       out_imeas=imeas
       ! check that the CC measurements are within the specified input range
@@ -259,7 +261,7 @@ contains
         !write(13,'(a14,a8,a3,a5,i4,i4,2e14.6,20e14.6,2e14.6,2f14.6)') &
         !   file_prefix0,sta,net,chan_syn,j,imeas,&
         !   tstart,tend,window_chi(:),tr_chi,am_chi,T_pmax_dat,T_pmax_syn
-        !print *, '     tr_chi = ', sngl(tr_chi), '  am_chi = ', sngl(am_chi)
+        ! print *, trim(sta_in),'     tr_chi = ', sngl(tr_chi), '  am_chi = ', sngl(am_chi)
 
         ! uses weighting to balance love / rayleigh measurements
         if( DO_WEIGHTING ) then
@@ -878,64 +880,122 @@ subroutine measure_adj()
 
   ! end subroutine measure_adj_rf_data
 
-  ! subroutine measure_adj_cross_conv(datr, datz, synr, synz, tstart, tend, tp, &
-  !                                   window_chi, adj_r_tw, adj_z_tw)
-  !   use signal, only: myconvolution_dp
-  !   use config
-  !   use utils, only: zeros_dp
+  subroutine measure_adj_cross_conv(datr, datz, synr, synz, tstart, tend, tp, &
+                                    window_chi, adj_r_tw, adj_z_tw)
+    use signal, only: myconvolution_dp
+    use config
+    use utils, only: zeros_dp
 
-  !   real(kind=dp), dimension(:), intent(in) :: datr, datz, synr, synz
-  !   real(kind=dp), intent(in) :: tstart, tend, tp
-  !   real(kind=dp), dimension(NCHI), intent(inout) :: window_chi
-  !   real(kind=dp), dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
-  !   real(kind=dp), dimension(:), allocatable :: conv1, conv2, conv_diff, adj_r, adj_z
-  !   real(kind=dp), dimension(:), allocatable :: data_tw, synt_tw, conv_diff_tw         
-  !   real(kind=dp) :: fac                        
-  !   integer :: nstart, nend, i, n
+    real(kind=dp), dimension(:), intent(in) :: datr, datz, synr, synz
+    real(kind=dp), intent(in) :: tstart, tend, tp
+    real(kind=dp), dimension(NCHI), intent(inout) :: window_chi
+    real(kind=dp), dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
+    real(kind=dp), dimension(:), allocatable :: conv1, conv2, conv_diff, adj_r, adj_z, conv_full
+    real(kind=dp), dimension(:), allocatable :: data_tw, synt_tw, conv_diff_tw         
+    real(kind=dp) :: fac                        
+    integer :: nstart, nend, i, n, nmax, nn
 
-  !   call myconvolution_dp(synr, datz, conv1, 0)
-  !   call myconvolution_dp(synz, datr, conv2, 0)
-  !   conv1 = conv1 * SPECFEM_DT
-  !   conv2 = conv2 * SPECFEM_DT
-  !   conv_diff = conv1 - conv2
-  !   print *, sum(conv_diff**2)/2
+    nmax = int((tp+SPECFEM_T0)/SPECFEM_DT) + 1
+    nn = nmax * 2
 
-  !   call myconvolution_dp(datz, conv_diff, adj_r, 0)
-  !   call myconvolution_dp(-datr, conv_diff, adj_z, 0)
-  !   adj_r = adj_r * SPECFEM_DT
-  !   adj_z = adj_z * SPECFEM_DT
+    call myconvolution_dp(synr, datz, conv1, 1)
+    call myconvolution_dp(synz, datr, conv2, 1)
+    conv1 = conv1 * SPECFEM_DT
+    conv2 = conv2 * SPECFEM_DT
+    conv_diff = conv1 - conv2
 
-  !   adj_r_tw = zeros_dp(NSTEP)
-  !   adj_z_tw = zeros_dp(NSTEP)
-  !   data_tw = zeros_dp(NSTEP)
-  !   synt_tw = zeros_dp(NSTEP)
-  !   conv_diff_tw = zeros_dp(NSTEP)
+    call myconvolution_dp(datz, conv_diff, conv_full, 1)
+    adj_r = conv_full(nn:nn+NSTEP-1) * SPECFEM_DT
 
-  !   nstart = floor((tp - tstart + SPECFEM_T0)/SPECFEM_DT + 1)
-  !   nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT + 1)
-  !   n = 1
-  !   do i = nstart, nend
-  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-  !     data_tw(i) = conv1(i) * fac
-  !     synt_tw(i) = conv2(i) * fac
-  !     conv_diff_tw(i) = conv_diff(i) * fac
-  !     adj_r_tw(i) = adj_r(i) * fac
-  !     adj_z_tw(i) = adj_z(i) * fac
-  !     n = n+1
-  !   enddo
+    call myconvolution_dp(-datr, conv_diff, conv_full, 1)
+    adj_z = conv_full(nn:nn+NSTEP-1) * SPECFEM_DT
 
-  !   ! write windowed adjoint source
-  !   window_chi = 0.
-  !   window_chi(13) = 0.5 * sum( data_tw**2 )
-  !   window_chi(14) = 0.5 * sum( synt_tw**2 )
-  !   window_chi(15) = 0.5 * sum( conv_diff_tw**2 )
-  !   window_chi(16) = (nend - nstart + 1)*SPECFEM_DT
-  !   window_chi(17) = 0.5 * sum( conv1**2 )
-  !   window_chi(18) = 0.5 * sum( conv2**2 )
-  !   window_chi(19) = 0.5 * sum( conv_diff**2 )
-  !   window_chi(20) = NSTEP*SPECFEM_DT
+    conv1 = conv1(nmax:nmax+NSTEP-1)
+    conv2 = conv2(nmax:nmax+NSTEP-1)
+    conv_diff = conv1-conv2
 
-  ! end subroutine measure_adj_cross_conv
+    nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT) + 1
+    nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT) + 1
+    
+    ! Cosine taper
+    n = 1
+    adj_r_tw = zeros_dp(NSTEP)
+    adj_z_tw = zeros_dp(NSTEP)
+    data_tw = zeros_dp(NSTEP)
+    synt_tw = zeros_dp(NSTEP)
+    do i = nstart, nend
+      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+      synt_tw(i) = conv1(i) * fac
+      data_tw(i) = conv2(i) * fac
+      adj_r_tw(i) = adj_r(i) * fac
+      adj_z_tw(i) = adj_z(i) * fac
+      n = n+1
+    enddo
+    ! write windowed adjoint source
+    window_chi = 0.
+    window_chi(13) = 0.5 * sum( data_tw**2 )
+    window_chi(14) = 0.5 * sum( synt_tw**2 )
+    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )*SPECFEM_DT
+    window_chi(16) = (nend - nstart + 1)*SPECFEM_DT
+    window_chi(17) = 0.5 * sum( conv2**2 )
+    window_chi(18) = 0.5 * sum( conv1**2 )
+    window_chi(19) = 0.5 * sum( conv_diff**2 )
+    window_chi(20) = NSTEP*SPECFEM_DT
+
+  end subroutine measure_adj_cross_conv
+
+  subroutine measure_adj_cross_mul(datr, datz, synr, synz, tstart, tend, tp, &
+                                    window_chi, adj_r_tw, adj_z_tw)
+    use signal, only: myconvolution_dp
+    use config
+    use utils, only: zeros_dp
+
+    real(kind=dp), dimension(:), intent(in) :: datr, datz, synr, synz
+    real(kind=dp), intent(in) :: tstart, tend, tp
+    real(kind=dp), dimension(NCHI), intent(inout) :: window_chi
+    real(kind=dp), dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
+    real(kind=dp), dimension(:), allocatable :: mul1, mul2, mul_diff, adj_r, adj_z
+    real(kind=dp), dimension(:), allocatable :: data_tw, synt_tw, conv_diff_tw         
+    real(kind=dp) :: fac                        
+    integer :: nstart, nend, i, n
+
+
+    mul1 = synr * datz
+    mul2 = synz * datr
+    mul_diff = mul1 - mul2
+
+    adj_r = datz * mul_diff
+    adj_z = -datr * mul_diff
+
+    nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT) + 1
+    nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT) + 1
+    
+    ! Cosine taper
+    n = 1
+    adj_r_tw = zeros_dp(NSTEP)
+    adj_z_tw = zeros_dp(NSTEP)
+    data_tw = zeros_dp(NSTEP)
+    synt_tw = zeros_dp(NSTEP)
+    do i = nstart, nend
+      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+      synt_tw(i) = mul1(i) * fac
+      data_tw(i) = mul2(i) * fac
+      adj_r_tw(i) = adj_r(i) * fac
+      adj_z_tw(i) = adj_z(i) * fac
+      n = n+1
+    enddo
+    ! write windowed adjoint source
+    window_chi = 0.
+    window_chi(13) = 0.5 * sum( data_tw**2 )
+    window_chi(14) = 0.5 * sum( synt_tw**2 )
+    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )*SPECFEM_DT
+    window_chi(16) = (nend - nstart + 1)*SPECFEM_DT
+    window_chi(17) = 0.5 * sum( mul2**2 )
+    window_chi(18) = 0.5 * sum( mul1**2 )
+    window_chi(19) = 0.5 * sum( mul_diff**2 )
+    window_chi(20) = NSTEP*SPECFEM_DT
+
+  end subroutine measure_adj_cross_mul
 
   ! subroutine measure_adj_tele(dat, syn, tstart, tend, window_chi, adj_src_local)
   !   use utils, only: zeros_dp

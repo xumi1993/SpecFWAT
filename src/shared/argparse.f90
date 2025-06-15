@@ -74,23 +74,24 @@ contains
   end subroutine parse_args_fwd_meas_adj
 
   subroutine parse_args_post_process()
-    integer, parameter :: max_num_args = 2
+    integer, parameter :: max_num_args = 4, min_num_args = 2
     character(len=MAX_STRING_LEN), dimension(max_num_args) :: argv
     integer :: i, iarg, argc
     character(len=MAX_STRING_LEN) :: usage
 
-    usage = 'Usage: fwat_post_proc -m <model>'
+    usage = 'Usage: fwat_post_proc -m <model> [-r 1|2] [-h]'
 
     argc = command_argument_count()
     do i = 1, argc
       call get_command_argument(i, argv(i))
     enddo
 
-    if (argc /= max_num_args) then
+    if (argc /= min_num_args .and. argc /= max_num_args) then
       if (worldrank == 0) print *, trim(usage)
       call exit_MPI(0, 'ERROR: Too more or too less arguments')
     endif
 
+    run_mode = 1  ! default run mode
     ! parse arguments
     do i = 1, argc
       if (argv(i) == '-m' .or. argv(i) == '--model') then
@@ -100,6 +101,17 @@ contains
           call exit_MPI(0, 'ERROR: Model name not set')
         endif
         model_name = argv(iarg)
+      elseif (argv(i) == '-h' .or. argv(i) == '--help') then
+        if (worldrank == 0) print *, trim(usage)
+        call finalize_MPI()
+        stop
+      elseif (argv(i) == '-r' .or. argv(i) == '--run-mode') then
+        iarg = i + 1
+        if (iarg > argc) then
+          if (worldrank == 0) print *, usage
+          call exit_MPI(0, 'ERROR: run-mode not set')
+        endif
+        read(argv(iarg), *) run_mode
       endif
     enddo
 

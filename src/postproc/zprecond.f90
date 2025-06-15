@@ -32,6 +32,7 @@ contains
   end subroutine get_1d_precond
 
   subroutine zprecond_gll(hess)
+    use specfem_par, only: ibool, zstore
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: hess
     real(kind=cr), dimension(:), allocatable :: zl
     real(kind=dp), dimension(:), allocatable :: zl_dp
@@ -46,13 +47,13 @@ contains
     
     do ispec = 1, NSPEC_FWAT
       do ix = 1, NGLLX; do iy = 1, NGLLY; do iz = 1, NGLLZ
-        iglob = ibool_fwat(ix, iy, iz, ispec)
-        zz = interp1(dble(ext_grid%z), zl_dp, dble(zstore_fwat(iglob)))
+        iglob = ibool(ix, iy, iz, ispec)
+        zz = interp1(dble(ext_grid%z), zl_dp, dble(zstore(iglob)))
         hess(ix, iy, iz, ispec) = sngl(zz)
       enddo; enddo; enddo
     enddo
     hess = hess * fpar%acqui%nevents
-    
+
     ! scales between [0,1]
     maxh = maxval(abs(hess))
     call max_all_all_cr(maxh, maxh_all)
