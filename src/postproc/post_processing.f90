@@ -466,11 +466,16 @@ contains
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel_data
     real(kind=cr) :: mean_val
     real(kind=cr), intent(out) :: max_global
-    character(len=MAX_STRING_LEN) :: fname
+    character(len=MAX_STRING_LEN) :: fname, modname
 
-    fname = trim(OPT_DIR)//'/gradient_M00_'//trim(INV_TYPE_NAMES(itype))//'.h5'
+    if (fpar%update%OPT_METHOD == 2) then
+      write(modname, '("M",I2.2)') fpar%update%ITER_START
+    else
+      modname = 'M00'
+    endif
+    fname = trim(OPT_DIR)//'/gradient_'//trim(modname)//'_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
-    max_global = maxval( abs(kernel_data))
+    max_global = maxval(abs(kernel_data))
     ! mean_val = sum(kernel_data) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
     ! max_global = sqrt(sum(kernel_data - mean_val)**2 / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
 
