@@ -32,6 +32,7 @@ program fwat_mesh_databases
   ! set local path
   LOCAL_PATH = local_path_fwat
   call mkdir(LOCAL_PATH)
+  call mkdir(OUTPUT_PATH)
   call synchronize_all()
 
   ! generate mesh and databases
