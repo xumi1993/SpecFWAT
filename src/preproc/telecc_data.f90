@@ -163,6 +163,8 @@ contains
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
             header%t0 = this%ttp(irec)
             header%t1 = this%ttp(irec) + half_dura(irec_local)
+            header%baz = this%od%baz(irec)
+            header%dist = this%od%dist(irec)
             sacfile = trim(OUTPUT_FILES)//'/dat.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       'Z.sac.'//trim(this%band_name)
