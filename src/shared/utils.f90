@@ -1247,6 +1247,20 @@ end function
 
   end function interp3_nearest
 
+  function get_nearest_bound_idx(x, x_sem) result(indx)
+    real(kind=RPRE), dimension(:), intent(in) :: x
+    real(kind=RPRE), intent(in) :: x_sem
+    integer(kind=IPRE) :: indx, i, n
+
+    n = size(x)
+    if (x_sem < x(1)) then
+      indx = 1
+    elseif(x_sem > x(n)) then
+      indx = n - 1
+    end if
+
+  end function get_nearest_bound_idx
+
   function interp3_nearest_simple(x, y, z, model_on_FD_grid, x_sem, y_sem, z_sem) result(value)
     use constants
     real(kind=RPRE)                                 :: x_sem, y_sem, z_sem, min_dist, &
@@ -1267,9 +1281,20 @@ end function
     call locate_bissection(dble(z),nz,dble(z_sem),indz)
 
     m=2
-    kx = min(max(indx-(m-1)/2,1),nx+1-m)
-    ky = min(max(indy-(m-1)/2,1),ny+1-m)
-    kz = min(max(indz-(m-1)/2,1),nz+1-m)
+    if (indx /= -1) then
+      kx = min(max(indx-(m-1)/2,1),nx+1-m)
+    else
+      kx = get_nearest_bound_idx(x, x_sem)
+    if (indy /= -1) then
+      ky = min(max(indy-(m-1)/2,1),ny+1-m)
+    else
+      ky = get_nearest_bound_idx(y, y_sem)
+    end if
+    if (indz /= -1) then
+      kz = min(max(indz-(m-1)/2,1),nz+1-m)
+    else
+      kz = get_nearest_bound_idx(z, z_sem)
+    end if
     do ifd = kx, kx+1
       xfd = x(ifd)
       do jfd = ky, ky+1
