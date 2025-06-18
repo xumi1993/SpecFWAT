@@ -3,6 +3,8 @@ file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 if (USE_CUDA)
   file (GLOB SOURCES_CUDA "*.cu")
+else()
+  file (GLOB SOURCES_CUDA "*.cpp")
 endif()
 add_library(postproc_objs OBJECT ${SOURCES_Fortran} ${SOURCES_CUDA})
 target_link_libraries(postproc_objs PRIVATE shared_objs shared_fwat_objs

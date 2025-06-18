@@ -1285,16 +1285,17 @@ end function
       kx = min(max(indx-(m-1)/2,1),nx+1-m)
     else
       kx = get_nearest_bound_idx(x, x_sem)
+    endif
     if (indy /= -1) then
       ky = min(max(indy-(m-1)/2,1),ny+1-m)
     else
       ky = get_nearest_bound_idx(y, y_sem)
-    end if
+    endif
     if (indz /= -1) then
       kz = min(max(indz-(m-1)/2,1),nz+1-m)
     else
       kz = get_nearest_bound_idx(z, z_sem)
-    end if
+    endif
     do ifd = kx, kx+1
       xfd = x(ifd)
       do jfd = ky, ky+1
