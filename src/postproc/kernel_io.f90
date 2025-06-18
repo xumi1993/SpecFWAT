@@ -8,68 +8,23 @@ module kernel_io
 
   implicit none
   integer :: ier
-  character(len=MAX_STRING_LEN) :: fprname
+  character(len=MAX_STRING_LEN), private :: fprname, msg
 
 contains
 
-  subroutine read_mesh_databases_minimum(is_read_database)
+  subroutine read_mesh_databases_for_init()
     use specfem_par
 
-    logical, intent(in) :: is_read_database
-    character(len=MAX_STRING_LEN) :: database_name
+    call initialize_simulation_fwat()
 
-    ! call read_parameter_file(.true.)
-
-    if (is_read_database) then
-      call initialize_simulation()
-
-      ! reads in external mesh
-      call read_mesh_databases()
-    endif
-    NSPEC_FWAT = NSPEC_AB
-    ! call synchronize_all()
-
-    call check_mesh_distances(worldrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
-                              x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
-                              elemsize_min_glob,elemsize_max_glob, &
-                              distance_min_glob,distance_max_glob)
-    call bcast_all_singlecr(x_min_glob)
-    call bcast_all_singlecr(x_max_glob)
-    call bcast_all_singlecr(y_min_glob)
-    call bcast_all_singlecr(y_max_glob)
-    call bcast_all_singlecr(z_min_glob)
-    call bcast_all_singlecr(z_max_glob)
-    call bcast_all_singlecr(elemsize_min_glob)
-    call bcast_all_singlecr(elemsize_max_glob)
-    call bcast_all_singlecr(distance_min_glob)
-    call bcast_all_singlecr(distance_max_glob)
-
-  end subroutine read_mesh_databases_minimum
-
-  subroutine get_mesh_coord()
-    use meshfem3D_subs, only: meshfem3D_fwat
-    use generate_databases_subs, only: generate_databases_fwat
-    use create_regions_mesh_ext_par, only: xstore_unique, ystore_unique, zstore_unique
-    use generate_databases_par, only: NSPEC_AB, NGLOB_AB, ibool
-    ! use specfem_par
-    real(kind=cr) :: x_min,x_max
-    real(kind=cr) :: y_min,y_max
-    real(kind=cr) :: z_min,z_max
-    character(len=MAX_STRING_LEN) :: msg
-
-    call meshfem3D_fwat(fpar%sim%MESH_PAR_FILE)
-    call generate_databases_fwat(.false.)
-    ! call initialize_simulation_fwat()
-    ! call read_mesh_databases_fwat()
+    ! reads in external mesh
+    call read_mesh_databases_fwat()
 
     NSPEC_FWAT = NSPEC_AB
     NGLOB_FWAT = NGLOB_AB
-    xstore_fwat = xstore_unique
-    ystore_fwat = ystore_unique
-    zstore_fwat = zstore_unique
-    ibool_fwat = ibool
-  
-    call check_mesh_distances(worldrank,NSPEC_FWAT,NGLOB_AB,ibool,xstore_unique,ystore_unique,zstore_unique, &
+    call synchronize_all()
+
+    call check_mesh_distances(worldrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore, &
                               x_min_glob,x_max_glob,y_min_glob,y_max_glob,z_min_glob,z_max_glob, &
                               elemsize_min_glob,elemsize_max_glob, &
                               distance_min_glob,distance_max_glob)
@@ -118,7 +73,8 @@ contains
     endif
 
     call synchronize_all()
-  end subroutine get_mesh_coord
+
+  end subroutine read_mesh_databases_for_init
 
   subroutine read_event_kernel(ievt, dataname, data)
     integer, intent(in) :: ievt
@@ -170,11 +126,12 @@ contains
   end subroutine remove_event_kernel
 
   subroutine read_kernel(kernel_path, dataname, data)
-    character(len=*), intent(in) :: dataname
-    character(len=MAX_STRING_LEN) :: kernel_path
+    character(len=*), intent(in) :: dataname, kernel_path
+    character(len=MAX_STRING_LEN) :: path
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: data
 
-    call create_name_database(fprname, worldrank, kernel_path)
+    path = trim(kernel_path)
+    call create_name_database(fprname, worldrank, path)
     open(unit=IIN, file=trim(fprname)//trim(dataname)//'.bin', status='old', action='read', form='unformatted', iostat=ier)
     if (ier /= 0) then
       write(0, *) 'Error could not open database file: ',trim(fprname)//trim(dataname)//'.bin'
@@ -187,11 +144,12 @@ contains
 
   end subroutine read_kernel
 
-  subroutine write_kernel(path, dataname, data)
-    character(len=*), intent(in) :: dataname
+  subroutine write_kernel(kernel_path, dataname, data)
+    character(len=*), intent(in) :: dataname, kernel_path
     real(kind=cr), dimension(:,:,:,:), intent(in) :: data
-    character(len=*), intent(in) :: path
+    character(len=MAX_STRING_LEN) :: path
 
+    path = trim(kernel_path)
     call create_name_database(fprname, worldrank, path)
     open(unit=IOUT, file=trim(fprname)//trim(dataname)//'.bin', status='replace', action='write', form='unformatted', iostat=ier)
     if (ier /= 0) then

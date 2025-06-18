@@ -18,12 +18,6 @@ program fwat_post_proc
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
 
-  if (count(fpar%postproc%INV_TYPE) > 1) then
-    is_joint = .true.
-  else
-    is_joint = .false.
-  endif
-
   call fpp%init(.true.)
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then
@@ -32,7 +26,11 @@ program fwat_post_proc
       call fpp%init_for_type(itype)
     
       ! sum kernels for this type
-      call fpp%sum_kernel()
+      if (run_mode == 1) then
+        call fpp%sum_kernel()
+      elseif (run_mode == 2) then
+        call fpp%read_sum_kernel()
+      endif
       
       if (fpar%postproc%IS_PRECOND) then
         call fpp%apply_precond()
@@ -40,17 +38,11 @@ program fwat_post_proc
         if (.not. (is_joint .and. itype == 1)) call fpp%sum_precond()
       endif
 
-      if (fpar%postproc%SMOOTH_TYPE == 1) then
-        call fpp%multigrid_smooth()
-        ! call fpp%pde_smooth()
+      call fpp%pde_smooth()
 
-        call fpp%taper_kernel_grid()
+      call fpp%taper_kernel_grid()
 
-        call fpp%write_gradient_grid()
-
-      else
-        call log%write('No smoothing applied', .false.)
-      endif
+      call fpp%write_gradient_grid()
 
       ! remove event kernels
       call fpp%remove_ekernel()
@@ -70,6 +62,7 @@ program fwat_post_proc
   call log%write('*******************************************', .false.)
   call log%write('********** POST-PROCESSING DONE ***********', .false.)
   call log%write('*******************************************', .false.)
+  call log%finalize()
 
   call finalize_mpi()
     

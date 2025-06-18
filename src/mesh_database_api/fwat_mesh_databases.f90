@@ -6,6 +6,7 @@ program fwat_mesh_databases
   use input_params, fpar => fwat_par_global
   use argparse, only: parse_args_mesh_databases
   use shared_parameters, only : ANISOTROPY
+  use common_lib, only: mkdir
 
   ! init MPI
   call init_mpi()
@@ -27,6 +28,12 @@ program fwat_mesh_databases
 
   ! select simulation type
   call fpar%select_simu_type()
+
+  ! set local path
+  LOCAL_PATH = local_path_fwat
+  call mkdir(LOCAL_PATH)
+  call mkdir(OUTPUT_PATH)
+  call synchronize_all()
 
   ! generate mesh and databases
   call meshfem3D_fwat(fpar%sim%mesh_par_file)

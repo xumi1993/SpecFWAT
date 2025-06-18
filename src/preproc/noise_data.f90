@@ -151,6 +151,8 @@ contains
             ! reject near offsets
             if (.not. fpar%sim%USE_NEAR_OFFSET) then
               dist_min = (fpar%sim%GROUPVEL_MAX(iflt) + fpar%sim%GROUPVEL_MIN(iflt))*fpar%sim%LONG_P(iflt)/2.
+              
+              
               if (this%od%dist(irec) < dist_min) then
                 seismo_syn = 1.0e-18_dp
                 seismo_dat = 1.0e-18_dp
