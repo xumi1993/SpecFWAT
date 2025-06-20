@@ -10,7 +10,6 @@ module optimize_grid
   use shared_input_parameters, only: TOMOGRAPHY_PATH
   use hdf5_interface
   use common_lib, only: get_kernel_names
-
   implicit none
 
   character(len=MAX_STRING_LEN), private :: msg

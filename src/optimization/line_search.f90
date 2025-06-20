@@ -4,7 +4,7 @@ module line_search
   use input_params, fpar => fwat_par_global
   use opt_io
   use preproc_fwd
-  use window_chi, only : WindowChi
+  use window_chi, only : read_model_misfit
   use common_lib, only : get_dat_type
 
   implicit none
@@ -61,31 +61,5 @@ contains
     IS_OUTPUT_PREPROC = is_output_backup
     call synchronize_all()
   end subroutine forward_for_simu_type
-
-  subroutine read_model_misfit(model_name_in, ievt, misfit)
-    use common_lib, only: get_band_name
-    character(len=MAX_STRING_LEN), intent(in) :: model_name_in
-    integer, intent(in) :: ievt
-    real(kind=dp), intent(out) :: misfit
-    character(len=MAX_STRING_LEN) :: band_name
-    integer :: iflt
-    type(WindowChi) :: wchi
-
-    misfit = 0.0_dp
-    do iflt = 1, fpar%sim%NUM_FILTER
-      if (dat_type /= 'rf') then
-        call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), band_name)
-      else
-        write(band_name, '("F",F3.1)') fpar%sim%rf%f0(iflt)
-      endif
-
-      call wchi%read(model_name_in, ievt, band_name)
-
-      misfit = misfit + wchi%sum_chi(29)
-
-      call wchi%finalize()
-    enddo
-
-  end subroutine read_model_misfit
 
 end module line_search

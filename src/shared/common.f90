@@ -32,6 +32,7 @@ contains
   end subroutine get_dat_type
 
   subroutine get_tele_type(tele_type)
+    use input_params, fpar => fwat_par_global
     integer, intent(in) :: tele_type
     select case (tele_type)
       case (1)

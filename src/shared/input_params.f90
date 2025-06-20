@@ -51,6 +51,7 @@ module input_params
     logical, dimension(2) :: INV_TYPE
     real(kind=cr), dimension(2) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
+    integer :: NORM_TYPE
     logical :: IS_PRECOND
   end type postproc_params
 
@@ -340,10 +341,11 @@ contains
         if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
         call read_static_real_list(list, this%postproc%JOINT_WEIGHT)
-        this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err)
-        this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err)
-        this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err)
-        this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err)
+        this%postproc%NORM_TYPE = post%get_integer('NORM_TYPE', error=io_err, default=1)
+        this%postproc%TAPER_H_SUPPRESS = post%get_real('TAPER_H_SUPPRESS', error=io_err, default=0.0_cr)
+        this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err, default=0.0_cr)
+        this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err, default=0.0_cr)
+        this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err, default=0.0_cr)
         this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
 
         ! Model UPDATE
@@ -477,6 +479,7 @@ contains
     call bcast_all_l_array(this%postproc%INV_TYPE, 2)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
     call bcast_all_singlel(is_joint)
+    call bcast_all_singlei(this%postproc%NORM_TYPE)
 
     ! Model UPDATE
     call bcast_all_ch_array(this%update%INIT_MODEL_PATH, 1, MAX_STRING_LEN)

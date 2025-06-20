@@ -290,4 +290,53 @@ contains
     call free_shm_array(this%win_tend)
     
   end subroutine finalize
+
+  subroutine read_model_misfit(model_name_in, ievt, misfit)
+    use common_lib, only: get_band_name
+    character(len=MAX_STRING_LEN), intent(in) :: model_name_in
+    integer, intent(in) :: ievt
+    real(kind=dp), intent(out) :: misfit
+    character(len=MAX_STRING_LEN) :: band_name, chifile
+    integer :: iflt, fp, ios
+    ! type(WindowChi) :: wchi
+    character(len=20) :: c1
+    character(len=8)  :: c2
+    character(len=4)  :: c3
+    character(len=5)  :: c4
+    integer :: i1, i2
+    real(kind=dp) :: rtmp(26)
+
+    misfit = 0.0_dp
+    do iflt = 1, fpar%sim%NUM_FILTER
+      if (dat_type /= 'rf') then
+        call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), band_name)
+      else
+        write(band_name, '("F",F3.1)') fpar%sim%rf%f0(iflt)
+      endif
+
+      ! call wchi%read(model_name_in, ievt, band_name)
+
+      ! misfit = misfit + wchi%sum_chi(29)
+      chifile = trim(MISFITS_DIR)//'/'//trim(model_name_in)//'.'//&
+              trim(fpar%acqui%evtid_names(ievt))//'_'//trim(band_name)//&
+              '_window_chi'
+      if (worldrank == 0) then
+        open(newunit=fp, file=chifile, status='old')
+        do
+          read(fp, '(a20,a8,a4,a5,i4,i4,2e14.6,20e14.6,2e14.6,2f14.6)', iostat=ios) &
+              c1, c2, c3, c4, i1, i2, rtmp(1), rtmp(2),               & 
+              rtmp(3:22),                                             & 
+              rtmp(23), rtmp(24),                                     & 
+              rtmp(25), rtmp(26)
+          misfit = misfit + rtmp(23)
+          if (ios /= 0) exit
+        enddo
+        close(fp)
+      endif
+      call synchronize_all()
+      ! call wchi%finalize()
+    enddo
+    call bcast_all_singledp(misfit)
+
+  end subroutine read_model_misfit
 end module window_chi 

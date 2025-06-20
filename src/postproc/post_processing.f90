@@ -435,24 +435,45 @@ contains
     integer :: itype, iker
     character(len=MAX_STRING_LEN) :: type_name, fname
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel, total_kernel
-    real(kind=cr) :: norm_val, std_val, mean_val
+    real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, max_val, mean_val
 
     call log%write('This is taking sum of kernels for joint inversion...', .true.)
+    norm_val = 0._cr
+    ! calculate normalization value
+    ! set normalization value 
+    do itype = 1, NUM_INV_TYPE
+      if (.not. fpar%postproc%INV_TYPE(itype)) cycle
+      if (fpar%postproc%NORM_TYPE == 1) then
+        if (worldrank == 0) call calc_kernel0_weight_grid(itype, norm_val(itype))
+      elseif (fpar%postproc%NORM_TYPE == 2) then
+        call calc_misfit0_weight(itype, norm_val(itype))
+      else
+        call log%write('ERROR: Unknown normalization type for joint inversion', .false.)
+        call exit_MPI(0, 'Unknown normalization type for joint inversion')
+      endif
+    enddo
+    call bcast_all_cr(norm_val, NUM_INV_TYPE)
 
     if (worldrank == 0) then
       total_kernel = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
         type_name = INV_TYPE_NAMES(itype)
-        call calc_kernel0_weight_grid(itype, norm_val)
+
+        ! read gradient for itype
         fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'_'//trim(type_name)//'.h5'
         call read_grid_kernel_smooth(fname, kernel)
-        ! mean_val = sum(kernel) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
-        ! std_val = sqrt(sum((kernel - mean_val)**2) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
-        std_val = maxval(abs(kernel))
-        total_kernel = total_kernel + fpar%postproc%JOINT_WEIGHT(itype)*kernel/norm_val
-        write(msg, '(a,F18.6)') 'Max gradient of '//trim(type_name), &
-              fpar%postproc%JOINT_WEIGHT(itype)*std_val/norm_val
+
+        ! take sum of kernels
+        kernel = fpar%postproc%JOINT_WEIGHT(itype)*kernel/norm_val(itype)
+        total_kernel = total_kernel + kernel
+
+        ! calculate infinity norm and std for logger
+        mean_val = sum(kernel) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
+        std_val = sqrt(sum((kernel - mean_val)**2) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
+        max_val = maxval(abs(kernel))
+        write(msg, '(a,G18.9,"  ",G18.9)') 'infinity-norm, std for '//trim(type_name)//': ', max_val, std_val
+        print *, max_val, std_val
         call log%write(msg, .false.)
       enddo
       fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'.h5'
@@ -461,11 +482,11 @@ contains
 
   end subroutine sum_joint_kernel_grid
 
-  subroutine calc_kernel0_weight_grid(itype, max_global)
+  subroutine calc_kernel0_weight_grid(itype, weight)
     integer, intent(in) :: itype
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel_data
     real(kind=cr) :: mean_val
-    real(kind=cr), intent(out) :: max_global
+    real(kind=cr), intent(out) :: weight
     character(len=MAX_STRING_LEN) :: fname, modname
 
     if (fpar%update%OPT_METHOD == 2) then
@@ -475,11 +496,44 @@ contains
     endif
     fname = trim(OPT_DIR)//'/gradient_'//trim(modname)//'_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
-    max_global = maxval(abs(kernel_data))
+    weight = maxval(abs(kernel_data))
     ! mean_val = sum(kernel_data) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
     ! max_global = sqrt(sum(kernel_data - mean_val)**2 / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
 
   end subroutine calc_kernel0_weight_grid
+
+  subroutine calc_misfit0_weight(itype, weight)
+    use window_chi, only: read_model_misfit
+    use common_lib, only: get_dat_type
+    integer, intent(in) :: itype
+    real(kind=cr), intent(out) :: weight
+    real(kind=dp) :: misfit_loc, misfit_all
+    character(len=MAX_STRING_LEN) :: modname
+    integer :: ievt
+
+    if (fpar%update%OPT_METHOD == 2) then
+      write(modname, '("M",I2.2)') fpar%update%ITER_START
+    else
+      modname = 'M00'
+    endif
+
+    simu_type = INV_TYPE_NAMES(itype)
+    LOCAL_PATH = local_path_backup
+    call fpar%select_simu_type()
+    LOCAL_PATH = local_path_fwat
+
+    call get_dat_type()
+
+    call fpar%acqui%read()
+
+    misfit_all = 0._dp
+    do ievt = 1, fpar%acqui%nevents
+      call read_model_misfit(modname, ievt, misfit_loc)
+      misfit_all = misfit_all + misfit_loc
+    enddo
+    weight = real(misfit_all)
+
+  end subroutine calc_misfit0_weight
 
   subroutine finalize(this)
     class(PostFlow), intent(inout) :: this

@@ -3,7 +3,7 @@ file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 add_library(opt_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(opt_objs PRIVATE shared_objs shared_fwat_objs
-                      preproc_objs cuda_objs postproc_objs
+                      preproc_objs cuda_objs postproc_objs window_chi_objs
                       
 )
 
@@ -25,7 +25,7 @@ foreach(execsourcefile ${APP_SOURCES})
                         tele_objs measadj_objs cuda_objs grid_objs
                         generate_databases_objs meshfem3D_objs
                         external_values_objs config_objs 
-                        hdf5_interface_objs utils_objs
+                        hdf5_interface_objs utils_objs window_chi_objs
                         mesh_subs_objs databases_subs_objs
   )
   if (USE_CUDA)
