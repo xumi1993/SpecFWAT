@@ -63,6 +63,8 @@ program fwat_post_proc
   call log%write('********** POST-PROCESSING DONE ***********', .false.)
   call log%write('*******************************************', .false.)
   call log%finalize()
+  
+  call synchronize_all()
 
   call finalize_mpi()
     

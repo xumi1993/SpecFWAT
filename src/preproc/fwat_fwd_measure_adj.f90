@@ -56,6 +56,8 @@ call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
 call log%write('*******************************************', .false.)
 call log%finalize()
 
+call synchronize_all()
+
 call finalize_mpi()
 
 end program fwat_fwd_measure_adj
