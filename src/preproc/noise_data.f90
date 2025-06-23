@@ -283,6 +283,7 @@ contains
     header%knetwk = this%od%netwk(irec)
     header%kstnm = this%od%stnm(irec)
     header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+    header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
     header%t1 = real(tb)
     header%t2 = real(te)
     call sacio_writesac(datafile, header, trace, ier)

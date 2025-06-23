@@ -271,6 +271,7 @@ module rf_data
           header%kstnm = this%od%stnm(irec)
           header%knetwk = this%od%netwk(irec)
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
+          header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
           header%t0 = this%ttp(irec)
           call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/wsyn.'//&
                               trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&

@@ -445,6 +445,7 @@ contains
             header%knetwk = trim(this%od%netwk(irec))
             header%kstnm = trim(this%od%stnm(irec))
             header%t0 = this%ttp(irec)
+            header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
             sacfile = trim(OUTPUT_FILES)//'/wsyn.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)

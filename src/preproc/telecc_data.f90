@@ -161,6 +161,7 @@ contains
             header%knetwk = trim(this%od%netwk(irec))
             header%kstnm = trim(this%od%stnm(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
+            header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
             header%t0 = this%ttp(irec)
             header%t1 = this%ttp(irec) + half_dura(irec_local)
             header%baz = this%od%baz(irec)
