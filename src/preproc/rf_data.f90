@@ -381,6 +381,7 @@ module rf_data
     do igaus = 1, fpar%sim%rf%NGAUSS
       call this%wchi(igaus)%finalize()
     enddo
+    call free_shm_array(this%dat_win)
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%rf_win)
     call free_shm_array(this%syn_win)

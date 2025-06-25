@@ -41,32 +41,32 @@ contains
 
     if (worldrank == 0) then
       if (ext_grid%x(1) > x_min_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min x: ',ext_grid%x(1), &
+        write(msg, '(A,F0.6,A,F20.6)') 'Error: Min x: ',ext_grid%x(1), &
               ' value of grid larger than x_min_glob:', x_min_glob
         call exit_MPI(0, trim(msg))
       endif
       if (ext_grid%x(ext_grid%nx) < x_max_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max x: ',ext_grid%x(ext_grid%nx),&
+        write(msg, '(A,F0.6,A,F20.6)') 'Error: Max x: ',ext_grid%x(ext_grid%nx),&
              ' value of grid smaller than x_max_glob:', x_max_glob
         call exit_MPI(0, trim(msg))
       endif
       if (ext_grid%y(1) > y_min_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min y: ',ext_grid%y(1), &
+        write(msg, '(A,F0.6,A,F20.6)') 'Error: Min y: ',ext_grid%y(1), &
               ' value of grid larger than y_min_glob:', y_min_glob
         call exit_MPI(0, trim(msg))
       endif
       if (ext_grid%y(ext_grid%ny) < y_max_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max y: ',ext_grid%y(ext_grid%ny), &
+        write(msg, '(A,F0.6,A,F20.6)') 'Error: Max y: ',ext_grid%y(ext_grid%ny), &
               ' value of grid smaller than y_max_glob:', y_max_glob
         call exit_MPI(0, trim(msg))
       endif
       if (ext_grid%z(1) > z_min_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Min z: ',ext_grid%z(1), &
+        write(msg, '(A,F0.6,A,F20.6)') 'Error: Min z: ',ext_grid%z(1), &
               ' value of grid larger than z_min_glob:', z_min_glob
         call exit_MPI(0, trim(msg))
       endif
       if (ext_grid%z(ext_grid%nz) < z_max_glob) then
-        write(msg, '(A,F20.6,A,F20.6)') 'Error: Max z: ',ext_grid%z(ext_grid%nz), &
+        write(msg, '(A,F0.6,A,F20.6)') 'Error: Max z: ',ext_grid%z(ext_grid%nz), &
               ' value of grid smaller than z_max_glob:', z_max_glob
         call exit_MPI(0, trim(msg))
       endif
