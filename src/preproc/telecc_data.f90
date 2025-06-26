@@ -24,8 +24,8 @@ module telecc_data
 
   type, extends(TeleData) :: TeleCCData
   contains
-  procedure :: preprocess, finalize
-  procedure, private :: measure_adj, pre_proc, get_half_duration
+    procedure :: preprocess, finalize
+    procedure, private :: measure_adj, pre_proc, get_half_duration, calc_times
   end type TeleCCData
 
 contains
@@ -57,7 +57,8 @@ contains
 
     call this%get_comp_name_adj()
 
-    call this%calc_fktimes()
+    ! call this%calc_fktimes()
+    call this%calc_times()
 
     call synchronize_all()
 
@@ -270,6 +271,24 @@ contains
     call synchronize_all()
 
   end subroutine get_half_duration
+
+  subroutine calc_times(this)
+    class(TeleCCData), intent(inout) :: this
+    real(kind=cr), dimension(:), allocatable :: ttp_local
+    integer :: irec_local, irec
+
+    ttp_local = zeros(this%nrec)
+    call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
+    
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
+        ttp_local(irec) = maxloc(this%data(:, 1, irec), dim=1) * DT - T0
+      end do
+    endif
+    call sum_all_1Darray_cr(ttp_local, this%ttp, this%nrec)
+    call sync_from_main_rank_cr_1d(this%ttp, this%nrec)
+  end subroutine calc_times
 
   subroutine finalize(this)
     class(TeleCCData), intent(inout) :: this

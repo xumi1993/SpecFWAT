@@ -10,6 +10,8 @@ file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/window_chi.f90")
 add_library(window_chi_objs OBJECT window_chi.f90)
+target_link_libraries(window_chi_objs PRIVATE shared_objs shared_fwat_objs
+                      config_objs)
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
                       specfem_api_objs cuda_objs tele_objs measadj_objs

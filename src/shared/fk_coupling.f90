@@ -442,7 +442,7 @@ contains
     real(kind=cr), intent(in) :: xx, yy, zz
     real(kind=cr), intent(out) :: tdelay
     real(kind=cr), dimension(:), allocatable :: h, v_fk_input
-    real(kind=cr) :: p, eta, theta_rad, phi_rad
+    real(kind=cr) :: p, eta, z1, z0, theta_rad, phi_rad
     integer :: ilayer, j
     
     theta_rad = theta_FK * DEG2RAD
@@ -456,19 +456,22 @@ contains
     endif
     tdelay = p * (xx - xx0) * cos(phi_rad) + p * (yy - yy0) * sin(phi_rad)
 
+    z0 = zz0 - Z_REF_for_FK
+    z1 = zz - Z_REF_for_FK
+
     ! h = zeros(nlayer)
     allocate(h(nlayer))
     h = 0._cr
     ilayer = nlayer
     do j = nlayer - 1, 1, -1
-      if (zz <= sum(h_FK(j:nlayer))) then
+      if (z1 <= sum(h_FK(j:nlayer))) then
         ilayer = j
         exit
       end if
     end do
     h(ilayer+1:nlayer) = h_FK(ilayer+1:nlayer)
-    h(ilayer) = zz - sum(h_FK(ilayer+1:nlayer))
-    h(nlayer) = 0 - zz0
+    h(ilayer) = z1 - sum(h_FK(ilayer+1:nlayer))
+    h(nlayer) = 0 - z0
     if (h(ilayer) < 0) then
       print *, 'Error setting layer thickness'
       stop
