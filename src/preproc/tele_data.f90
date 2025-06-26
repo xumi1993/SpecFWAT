@@ -172,8 +172,8 @@ contains
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:fpar%sim%nstep)
 
           this%seismo_syn(:, icomp, irec_local) = this%data(:, icomp, irec)
-          call detrend(this%seismo_syn(:, icomp, irec_local))
-          call demean(this%seismo_syn(:, icomp, irec_local))
+          ! call detrend(this%seismo_syn(:, icomp, irec_local))
+          ! call demean(this%seismo_syn(:, icomp, irec_local))
           call bandpass_dp(this%seismo_syn(:, icomp, irec_local), fpar%sim%nstep, dble(fpar%sim%dt),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           if (icomp == 1) then

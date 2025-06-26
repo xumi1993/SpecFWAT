@@ -365,7 +365,7 @@ contains
 
   end subroutine time_deconv
 
-  subroutine detrend(x)
+  subroutine detrend_legacy(x)
     implicit none
     real(kind=dp), dimension(:) :: x
     real(kind=dp) :: ds1,ds2,dan,davei,davex,dslope,dai
@@ -387,6 +387,23 @@ contains
     do i=1,n
       dai = i-1
       x(i) = x(i)- davex - dslope*(dai-davei)
+    enddo
+
+  end subroutine detrend_legacy
+
+  subroutine detrend(x)
+    implicit none
+    real(kind=dp), dimension(:), intent(inout) :: x
+    real(kind=dp) :: x1, x2
+    integer :: i, n
+
+    n = size(x)
+
+    x1 = x(1)
+    x2 = x(n)
+
+    do i=1,n
+      x(i) = x(i) - (x1 + (x2 - x1) * real(i-1, kind=dp) / real(n-1, kind=dp))
     enddo
 
   end subroutine detrend

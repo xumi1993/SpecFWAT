@@ -24,8 +24,8 @@ module telecc_data
 
   type, extends(TeleData) :: TeleCCData
   contains
-  procedure :: preprocess, finalize
-  procedure, private :: measure_adj, pre_proc, get_half_duration
+    procedure :: preprocess, finalize
+    procedure, private :: measure_adj, pre_proc, get_half_duration, calc_times
   end type TeleCCData
 
 contains
@@ -57,7 +57,8 @@ contains
 
     call this%get_comp_name_adj()
 
-    call this%calc_fktimes()
+    ! call this%calc_fktimes()
+    call this%calc_times()
 
     call synchronize_all()
 
@@ -117,8 +118,8 @@ contains
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:NSTEP)
 
           seismo_inp = this%data(:, icomp, irec)
-          call detrend(seismo_inp)
-          call demean(seismo_inp)
+          ! call detrend(seismo_inp)
+          ! call demean(seismo_inp)
           ! call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                           !  1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           ! call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
@@ -270,6 +271,31 @@ contains
     call synchronize_all()
 
   end subroutine get_half_duration
+
+  subroutine calc_times(this)
+    class(TeleCCData), intent(inout) :: this
+    real(kind=cr), dimension(:), allocatable :: ttp_local
+    integer :: irec_local, irec
+
+    call read_fk_model(fpar%acqui%evtid_names(this%ievt))
+    
+    this%baz = -phi_FK - 90.d0
+    this%az = 90.d0 - phi_FK
+
+    call free_fk_arrays()
+
+    ttp_local = zeros(this%nrec)
+    call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
+    
+    if (this%nrec_loc > 0) then
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
+        ttp_local(irec) = maxloc(this%data(:, 1, irec), dim=1) * DT - T0
+      end do
+    endif
+    call sum_all_1Darray_cr(ttp_local, this%ttp, this%nrec)
+    call sync_from_main_rank_cr_1d(this%ttp, this%nrec)
+  end subroutine calc_times
 
   subroutine finalize(this)
     class(TeleCCData), intent(inout) :: this

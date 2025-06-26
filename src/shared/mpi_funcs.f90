@@ -233,6 +233,7 @@ contains
     implicit none
     integer :: win, ierr
 
+    call MPI_Win_fence(0, win, ierr)
     call MPI_Win_free(win, ierr)
   end subroutine free_shm_array
 

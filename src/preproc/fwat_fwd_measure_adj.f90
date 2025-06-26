@@ -51,10 +51,15 @@ do while (ffwd%ievt <= nsim)
   ffwd%ievt = ffwd%ievt + 1
 enddo
 
+! Free shared memory
+call fpar%acqui%finalize()
+
 call log%write('*******************************************', .false.)
 call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
 call log%write('*******************************************', .false.)
 call log%finalize()
+
+call synchronize_all()
 
 call finalize_mpi()
 
