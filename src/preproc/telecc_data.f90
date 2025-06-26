@@ -277,6 +277,13 @@ contains
     real(kind=cr), dimension(:), allocatable :: ttp_local
     integer :: irec_local, irec
 
+    call read_fk_model(fpar%acqui%evtid_names(this%ievt))
+    
+    this%baz = -phi_FK - 90.d0
+    this%az = 90.d0 - phi_FK
+
+    call free_fk_arrays()
+
     ttp_local = zeros(this%nrec)
     call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
     
