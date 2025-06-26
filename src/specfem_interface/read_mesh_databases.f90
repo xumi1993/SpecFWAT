@@ -1599,6 +1599,7 @@ contains
   use specfem_par_poroelastic
   use specfem_par_noise
   use config, only: run_mode
+  use fwat_constants, only: ADJOINT_ONLY, FORWARD_ADJOINT
 
   implicit none
 
@@ -1612,7 +1613,7 @@ contains
   call deallocate_mesh_database_adjoint_arrays()
 
   ! allocates adjoint arrays for elastic simulations
-  if (ELASTIC_SIMULATION .and. run_mode == 3) then
+  if (ELASTIC_SIMULATION .and. (run_mode == FORWARD_ADJOINT .or. run_mode == ADJOINT_ONLY)) then
     ! backward displacement,velocity,acceleration fields
     allocate(b_displ(NDIM,NGLOB_ADJOINT),stat=ier)
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 1587')

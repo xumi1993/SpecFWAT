@@ -282,7 +282,7 @@ contains
       ! save simulation results
       call log%write('Writing synthetic data ...', .true.)
       call this%semd2sac()
-    elseif (this%run_mode >= FORWARD_MEASADJ .and. this%run_mode < ADJOINT_SAVE) then
+    elseif (this%run_mode >= FORWARD_MEASADJ .and. this%run_mode < FORWARD_SAVE) then
       ! save simulation results
       call log%write('Measuring adjoint source ...', .true.)
       call this%measure_adj()
@@ -305,7 +305,7 @@ contains
     integer, intent(in) :: run_opt
 
     SIMULATION_TYPE = run_opt
-    if (run_mode == FORWARD_ADJOINT) then
+    if (run_mode == FORWARD_ADJOINT .or. run_mode == FORWARD_SAVE) then
       SAVE_FORWARD = .true.
     else
       SAVE_FORWARD = .false.

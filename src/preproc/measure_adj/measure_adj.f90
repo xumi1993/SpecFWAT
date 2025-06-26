@@ -997,47 +997,47 @@ subroutine measure_adj()
 
   end subroutine measure_adj_cross_mul
 
-  ! subroutine measure_adj_tele(dat, syn, tstart, tend, window_chi, adj_src_local)
-  !   use utils, only: zeros_dp
-  !   double precision, dimension(:), intent(in) :: dat, syn
-  !   double precision, dimension(:), allocatable, intent(out) :: adj_src_local
-  !   double precision, intent(in)                       :: tstart, tend
-  !   double precision, dimension(NCHI), intent(inout)   :: window_chi
+  subroutine measure_adj_tele(dat, syn, tstart, tend, window_chi, adj_src_local)
+    use utils, only: zeros_dp
+    double precision, dimension(:), intent(in) :: dat, syn
+    double precision, dimension(:), allocatable, intent(out) :: adj_src_local
+    double precision, intent(in)                       :: tstart, tend
+    double precision, dimension(NCHI), intent(inout)   :: window_chi
 
-  !   double precision, dimension(:), allocatable        :: adj, dat_tw, syn_tw
-  !   double precision :: fac
-  !   integer :: nstart, nend, i, n
+    double precision, dimension(:), allocatable        :: adj, dat_tw, syn_tw
+    double precision :: fac
+    integer :: nstart, nend, i, n
 
-  !   adj = syn - dat
+    adj = syn - dat
 
-  !   nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT + 1)
-  !   nend = floor((tend + SPECFEM_T0)/SPECFEM_DT + 1)
-  !   adj_src_local = zeros_dp(NSTEP)
-  !   dat_tw = zeros_dp(NSTEP)
-  !   syn_tw = zeros_dp(NSTEP)
+    nstart = floor((tstart + SPECFEM_T0)/SPECFEM_DT + 1)
+    nend = floor((tend + SPECFEM_T0)/SPECFEM_DT + 1)
+    adj_src_local = zeros_dp(NSTEP)
+    dat_tw = zeros_dp(NSTEP)
+    syn_tw = zeros_dp(NSTEP)
 
-  !   n = 1
-  !   ! Cosine taper
-  !   do i = nstart, nend
-  !     fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
-  !     dat_tw(i) = dat(i) * fac
-  !     syn_tw(i) = syn(i) * fac
-  !     adj_src_local(i) = adj(i) * fac
-  !     n = n+1
-  !   enddo
+    n = 1
+    ! Cosine taper
+    do i = nstart, nend
+      fac = 1. - cos(PI*(n-1)/(nend-nstart))**10
+      dat_tw(i) = dat(i) * fac
+      syn_tw(i) = syn(i) * fac
+      adj_src_local(i) = adj(i) * fac
+      n = n+1
+    enddo
 
-  !   ! write windowed adjoint source
-  !   window_chi = 0.
-  !   window_chi(13) = 0.5 * sum( dat_tw**2 )
-  !   window_chi(14) = 0.5 * sum( syn_tw**2 )
-  !   window_chi(15) = 0.5 * sum( adj_src_local**2 )
-  !   window_chi(16) = (nend - nstart)*SPECFEM_DT
-  !   window_chi(17) = 0.5 * sum( dat**2 )
-  !   window_chi(18) = 0.5 * sum( syn**2 )
-  !   window_chi(19) = 0.5 * sum( adj**2 )
-  !   window_chi(20) = NSTEP*SPECFEM_DT
+    ! write windowed adjoint source
+    window_chi = 0.
+    window_chi(13) = 0.5 * sum( dat_tw**2 )
+    window_chi(14) = 0.5 * sum( syn_tw**2 )
+    window_chi(15) = 0.5 * sum( adj_src_local**2 )
+    window_chi(16) = (nend - nstart)*SPECFEM_DT
+    window_chi(17) = 0.5 * sum( dat**2 )
+    window_chi(18) = 0.5 * sum( syn**2 )
+    window_chi(19) = 0.5 * sum( adj**2 )
+    window_chi(20) = NSTEP*SPECFEM_DT
     
-  ! end subroutine measure_adj_tele
+  end subroutine measure_adj_tele
 
   subroutine meas_adj_conv_diff(datr, datz, synr, synz, tstart, tend, tp, npts,&
                                 tshift, f0, maxit, minderr, freq_min, freq_max, &
