@@ -445,7 +445,7 @@ contains
             header%knetwk = trim(this%od%netwk(irec))
             header%kstnm = trim(this%od%stnm(irec))
             header%t0 = this%ttp(irec)
-            header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
+            ! header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
             sacfile = trim(OUTPUT_FILES)//'/wsyn.'//trim(this%od%netwk(irec))//&
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
@@ -454,10 +454,10 @@ contains
                       '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
                       trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
             call sacio_writesac(sacfile, header, this%seismo_dat(:, icomp, irec_local), ier)
-            sacfile = trim(OUTPUT_FILES)//'/diff.'//trim(this%od%netwk(irec))//&
-                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
-            call sacio_writesac(sacfile, header, this%seismo_syn(:, icomp, irec_local)- this%seismo_dat(:, icomp, irec_local), ier)
+            ! sacfile = trim(OUTPUT_FILES)//'/diff.'//trim(this%od%netwk(irec))//&
+            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+            !           trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
+            ! call sacio_writesac(sacfile, header, this%seismo_syn(:, icomp, irec_local)- this%seismo_dat(:, icomp, irec_local), ier)
           endif
 
           ! measure adjoint

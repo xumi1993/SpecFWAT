@@ -108,7 +108,7 @@ contains
       elseif (argv(i) == '-r' .or. argv(i) == '--run-mode') then
         iarg = i + 1
         if (iarg > argc) then
-          if (worldrank == 0) print *, usage
+          if (worldrank == 0) print *, trim(usage)
           call exit_MPI(0, 'ERROR: run-mode not set')
         endif
         read(argv(iarg), *) run_mode
@@ -140,7 +140,7 @@ contains
       if (argv(i) == '-m' .or. argv(i) == '--model') then
         iarg = i + 1
         if (iarg > argc) then
-          if (worldrank == 0) print *, usage
+          if (worldrank == 0) print *, trim(usage)
           call exit_MPI(0, 'ERROR: Model name not set')
         endif
         model_name = argv(iarg)
@@ -171,7 +171,7 @@ contains
       if (argv(i) == '-s' .or. argv(i) == '--simu_type') then
         iarg = i + 1
         if (iarg > argc) then
-          if (worldrank == 0) print *, usage
+          if (worldrank == 0) print *, trim(usage)
           call exit_MPI(0, 'ERROR: simu_type not set')
         endif
         simu_type = argv(iarg)

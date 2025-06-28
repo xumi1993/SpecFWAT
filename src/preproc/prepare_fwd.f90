@@ -101,7 +101,10 @@ contains
     if (run_mode < FORWARD_ADJOINT) then
       SIMULATION_TYPE = 1
       SAVE_FORWARD = .false.
-    else
+    elseif (run_mode == FORWARD_SAVE) then
+      SIMULATION_TYPE = 1
+      SAVE_FORWARD = .true.
+    elseif (run_mode == FORWARD_ADJOINT .or. run_mode == ADJOINT_ONLY) then
       SIMULATION_TYPE = 3
       SAVE_FORWARD = .true.
       if (fpar%sim%PRECOND_TYPE == 1) APPROXIMATE_HESS_KL=.true.
@@ -171,7 +174,7 @@ contains
     call mkdir(trim(path)//'/'//trim(OUTPUT_PATH))
     if (run_mode > FORWARD_ONLY) call mkdir(trim(path)//'/'//trim(ADJOINT_PATH))
     if (run_mode > FORWARD_MEASADJ) call mkdir(trim(path)//'/'//trim(EKERNEL_PATH))
-    if (run_mode >= FORWARD_MEASADJ) call mkdir('misfits')
+    if (run_mode >= FORWARD_MEASADJ .and. run_mode < ADJOINT_ONLY) call mkdir('misfits')
     call synchronize_all()
 
     ! assign local path
@@ -268,24 +271,25 @@ contains
     class(PrepareFWD), intent(inout) :: this
     type(TeleData) :: td
 
-    call log%write('This is forward simulations ...', .true.)
-    
     ! run forward simulation
-    call this%run_simulation(1)
-
+    if (this%run_mode <= FORWARD_SAVE) then
+      call log%write('This is forward simulations ...', .true.)  
+      call this%run_simulation(1)
+    endif
+  
     ! preprocess data
     if (this%run_mode == FORWARD_ONLY) then
       ! save simulation results
       call log%write('Writing synthetic data ...', .true.)
       call this%semd2sac()
-    elseif (this%run_mode >= FORWARD_MEASADJ) then
+    elseif (this%run_mode >= FORWARD_MEASADJ .and. this%run_mode < FORWARD_SAVE) then
       ! save simulation results
       call log%write('Measuring adjoint source ...', .true.)
       call this%measure_adj()
     endif
 
     ! run adjoint simulation
-    if (this%run_mode == FORWARD_ADJOINT) then
+    if (this%run_mode == FORWARD_ADJOINT .or. this%run_mode == ADJOINT_ONLY) then
       ! save adjoint source
       call log%write('This is adjoint simulations...', .true.)
       call this%run_simulation(3)
@@ -301,7 +305,7 @@ contains
     integer, intent(in) :: run_opt
 
     SIMULATION_TYPE = run_opt
-    if (run_mode == FORWARD_ADJOINT) then
+    if (run_mode == FORWARD_ADJOINT .or. run_mode == FORWARD_SAVE) then
       SAVE_FORWARD = .true.
     else
       SAVE_FORWARD = .false.

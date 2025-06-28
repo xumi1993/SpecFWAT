@@ -47,6 +47,8 @@ module fwat_constants
   integer, parameter :: FORWARD_ONLY = 1
   integer, parameter :: FORWARD_MEASADJ = 2
   integer, parameter :: FORWARD_ADJOINT = 3
+  integer, parameter :: FORWARD_SAVE = 4
+  integer, parameter :: ADJOINT_ONLY = 5
   character(len=MAX_STRING_LEN), dimension(3), parameter :: INV_TYPE_NAMES = [SIMU_TYPE_NOISE, SIMU_TYPE_TELE, SIMU_TYPE_LEQ]
 
 
