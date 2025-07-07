@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-set(project_version 0.3.0)
+set(project_version 0.3.1)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
@@ -13,10 +13,29 @@ set(project_version 0.3.0)
 # - CUDA 10 for Turing, like GeForce RTX 2080
 # - CUDA 11 for Ampere, like A100
 # - CUDA 12 for Hopper, like H100
-if (NOT DEFINED CUDA_ARCH)
-  set(CUDA_ARCH 0)
-endif()
+
 if(USE_CUDA)
+  if (NOT DEFINED CUDA_ARCH OR CUDA_ARCH EQUAL 0)
+    set(CMAKE_CUDA_ARCHITECTURES native)
+  elseif (CUDA_ARCH EQUAL 12)
+    set(CMAKE_CUDA_ARCHITECTURES 90)
+  elseif (CUDA_ARCH EQUAL 11)
+    set(CMAKE_CUDA_ARCHITECTURES 80 89)
+  elseif (CUDA_ARCH EQUAL 10)
+    set(CMAKE_CUDA_ARCHITECTURES 75)
+  elseif (CUDA_ARCH EQUAL 9)
+    set(CMAKE_CUDA_ARCHITECTURES 70)
+  elseif (CUDA_ARCH EQUAL 8)
+    set(CMAKE_CUDA_ARCHITECTURES 60)
+  elseif (CUDA_ARCH EQUAL 7)
+    set(CMAKE_CUDA_ARCHITECTURES 50)
+  elseif (CUDA_ARCH EQUAL 6)
+    set(CMAKE_CUDA_ARCHITECTURES 37)
+  elseif (CUDA_ARCH EQUAL 5)
+    set(CMAKE_CUDA_ARCHITECTURES 35)
+  elseif (CUDA_ARCH EQUAL 4)
+    set(CMAKE_CUDA_ARCHITECTURES 30)
+  endif()
   project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran CUDA)
   find_package(CUDAToolkit REQUIRED)
   if (CUDAToolkit_FOUND)
