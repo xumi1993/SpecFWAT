@@ -100,6 +100,7 @@ contains
     real(kind=dp), dimension(:), allocatable :: adj_2, adj_3, adj_1
     real(kind=dp), dimension(NDIM_MA) :: adj_syn_local
     real(kind=dp) :: dist_min, max_amp, tr_chi_loc, am_chi_loc, T_pmax_dat_loc, T_pmax_syn_loc
+    logical :: is_reject
     character(len=MAX_STRING_LEN) :: file_prefix, msg
     character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
 
@@ -149,13 +150,13 @@ contains
             tend(irec_local) = min(tend(irec_local), (NSTEP-2)*dble(DT)-t0)
 
             ! reject near offsets
+            is_reject = .false.
             if (.not. fpar%sim%USE_NEAR_OFFSET) then
               dist_min = (fpar%sim%GROUPVEL_MAX(iflt) + fpar%sim%GROUPVEL_MIN(iflt))*fpar%sim%LONG_P(iflt)/2.
-              
-              
               if (this%od%dist(irec) < dist_min) then
                 seismo_syn = 1.0e-18_dp
                 seismo_dat = 1.0e-18_dp
+                is_reject = .true.
               end if
             end if
 
@@ -167,20 +168,29 @@ contains
               call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'syn', seismo_syn)
               call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'obs', seismo_dat)
             end if
-            call measure_adj_fwat(seismo_dat, seismo_syn, tstart(irec_local), tend(irec_local),&
-                                  dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)),&
-                                  this%od%netwk(irec), this%od%stnm(irec),&
-                                  trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
-                                  window_chi_loc, tr_chi_loc,&
-                                  am_chi_loc, T_pmax_dat_loc, &
-                                  T_pmax_syn_loc, adj_syn_local, &
-                                  file_prefix, out_imeas)
-            window_chi(irec_local, :, icomp) = window_chi_loc
-            adj_src(:, icomp, irec_local, iflt) = adj_syn_local(1:NSTEP)
-            tr_chi(irec_local, icomp) = tr_chi_loc * fpar%acqui%src_weight(this%ievt)
-            am_chi(irec_local, icomp) = am_chi_loc * fpar%acqui%src_weight(this%ievt)
-            T_pmax_dat(irec_local, icomp) = T_pmax_dat_loc
-            T_pmax_syn(irec_local, icomp) = T_pmax_syn_loc
+            if (is_reject) then
+              window_chi(irec_local, :, icomp) = 0.0_dp
+              adj_src(:, icomp, irec_local, iflt) = 0.0_dp
+              tr_chi(irec_local, icomp) = 0.0_dp
+              am_chi(irec_local, icomp) = 0.0_dp
+              T_pmax_dat(irec_local, icomp) = 0.0_dp
+              T_pmax_syn(irec_local, icomp) = 0.0_dp
+            else
+              call measure_adj_fwat(seismo_dat, seismo_syn, tstart(irec_local), tend(irec_local),&
+                                    dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)),&
+                                    this%od%netwk(irec), this%od%stnm(irec),&
+                                    trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
+                                    window_chi_loc, tr_chi_loc,&
+                                    am_chi_loc, T_pmax_dat_loc, &
+                                    T_pmax_syn_loc, adj_syn_local, &
+                                    file_prefix, out_imeas)
+              window_chi(irec_local, :, icomp) = window_chi_loc
+              adj_src(:, icomp, irec_local, iflt) = adj_syn_local(1:NSTEP)
+              tr_chi(irec_local, icomp) = tr_chi_loc * fpar%acqui%src_weight(this%ievt)
+              am_chi(irec_local, icomp) = am_chi_loc * fpar%acqui%src_weight(this%ievt)
+              T_pmax_dat(irec_local, icomp) = T_pmax_dat_loc
+              T_pmax_syn(irec_local, icomp) = T_pmax_syn_loc
+            endif
             ! write adjoint source
             if (iflt == 1) then
               sta(irec_local) = this%od%stnm(irec)

@@ -271,7 +271,7 @@ contains
         call log%write('This is scaling for rhop kernels...', .true.)
         if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
       else
-        call log%write('This is multi-grid smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
+        call log%write('This is smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
         call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%sigma_h, fpar%sim%sigma_v, gk, .false.)
         call gll2grid(gk, gm)
         if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = gm
