@@ -533,6 +533,8 @@ contains
     enddo
     weight = real(misfit_all)
 
+    call fpar%acqui%finalize()
+
   end subroutine calc_misfit0_weight
 
   subroutine finalize(this)

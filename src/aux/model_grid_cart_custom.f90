@@ -110,6 +110,7 @@
     replace_zero = 'true'
   endif
 
+
     hx_fd_proj = fpar%grid%regular_grid_interval(1)
     hy_fd_proj = fpar%grid%regular_grid_interval(2)
     hz_fd_proj = fpar%grid%regular_grid_interval(3)
