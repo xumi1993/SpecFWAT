@@ -130,7 +130,7 @@ contains
         enddo
       enddo
     endif
-    if (is_output_sum_kernel) then
+    if (is_output_sum_kernel .or. fpar%update%DO_LS == .true.) then
       call log%write('This is writing sum of kernels...', .true.)
       do iker = 1, nkernel
         call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
@@ -306,9 +306,9 @@ contains
     real(kind=cr), dimension(:,:,:), allocatable :: taper
     call log%write('This is tapering kernels...', .true.)
 
-    dh = (distance_max_glob+distance_min_glob)/2.0_cr
-    
+    ! create regluar densey taper grid
     if (worldrank == 0) then
+      dh = (distance_max_glob+distance_min_glob)/2.0_cr
       call tap%create(x_min_glob, x_max_glob,&
                     y_min_glob, y_max_glob,&
                     z_min_glob, z_max_glob, &
@@ -317,6 +317,8 @@ contains
                     fpar%postproc%TAPER_H_BUFFER, &
                     fpar%postproc%TAPER_V_SUPPRESS, &
                     fpar%postproc%TAPER_V_BUFFER)
+
+      ! create mask grid
       taper = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz)
       do i = 1, ext_grid%nx
         do j = 1, ext_grid%ny
@@ -325,6 +327,8 @@ contains
           enddo
         enddo
       enddo
+
+      ! apply tape for each kernel
       do iker = 1, nkernel
         this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,iker) * taper
       enddo
@@ -435,7 +439,7 @@ contains
     integer :: itype, iker
     character(len=MAX_STRING_LEN) :: type_name, fname
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel, total_kernel
-    real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, max_val, mean_val
+    real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, linf_val, mean_val
 
     call log%write('This is taking sum of kernels for joint inversion...', .true.)
     norm_val = 0._cr
@@ -443,8 +447,15 @@ contains
     ! set normalization value 
     do itype = 1, NUM_INV_TYPE
       if (.not. fpar%postproc%INV_TYPE(itype)) cycle
-      if (fpar%postproc%NORM_TYPE == 1) then
-        if (worldrank == 0) call calc_kernel0_weight_grid(itype, norm_val(itype))
+      if (fpar%postproc%NORM_TYPE == 1 .or. fpar%postproc%NORM_TYPE == 3) then
+        if (worldrank == 0) then
+          call calc_kernel0_weight_grid(itype, linf_val, std_val)
+          if (fpar%postproc%NORM_TYPE == 1) then
+            norm_val(itype) = linf_val
+          else
+            norm_val(itype) = std_val
+          endif
+        endif
       elseif (fpar%postproc%NORM_TYPE == 2) then
         call calc_misfit0_weight(itype, norm_val(itype))
       else
@@ -471,9 +482,9 @@ contains
         ! calculate infinity norm and std for logger
         mean_val = sum(kernel) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
         std_val = sqrt(sum((kernel - mean_val)**2) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
-        max_val = maxval(abs(kernel))
-        write(msg, '(a,G18.9,"  ",G18.9)') 'infinity-norm, std for '//trim(type_name)//': ', max_val, std_val
-        print *, max_val, std_val
+        linf_val = maxval(abs(kernel))
+        write(msg, '(a,G18.9,"  ",G18.9)') 'infinity-norm, std for '//trim(type_name)//': ', linf_val, std_val
+        print *, linf_val, std_val
         call log%write(msg, .false.)
       enddo
       fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'.h5'
@@ -482,13 +493,14 @@ contains
 
   end subroutine sum_joint_kernel_grid
 
-  subroutine calc_kernel0_weight_grid(itype, weight)
+  subroutine calc_kernel0_weight_grid(itype, linf_val, std_val)
     integer, intent(in) :: itype
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel_data
     real(kind=cr) :: mean_val
-    real(kind=cr), intent(out) :: weight
+    real(kind=cr), intent(out) :: linf_val, std_val
     character(len=MAX_STRING_LEN) :: fname, modname
 
+    ! read gradient of iter_start for itype 
     if (fpar%update%OPT_METHOD == 2) then
       write(modname, '("M",I2.2)') fpar%update%ITER_START
     else
@@ -496,9 +508,11 @@ contains
     endif
     fname = trim(OPT_DIR)//'/gradient_'//trim(modname)//'_'//trim(INV_TYPE_NAMES(itype))//'.h5'
     call read_grid_kernel_smooth(fname, kernel_data)
-    weight = maxval(abs(kernel_data))
-    ! mean_val = sum(kernel_data) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
-    ! max_global = sqrt(sum(kernel_data - mean_val)**2 / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
+
+    ! calculate infinity norm and std for normalization
+    linf_val = maxval(abs(kernel_data))
+    mean_val = sum(kernel_data) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel)
+    std_val = sqrt(sum((kernel_data - mean_val)**2) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
 
   end subroutine calc_kernel0_weight_grid
 
@@ -511,12 +525,14 @@ contains
     character(len=MAX_STRING_LEN) :: modname
     integer :: ievt
 
+    ! read total misfit of iter_start for itype
     if (fpar%update%OPT_METHOD == 2) then
       write(modname, '("M",I2.2)') fpar%update%ITER_START
     else
       modname = 'M00'
     endif
 
+    ! set simu type
     simu_type = INV_TYPE_NAMES(itype)
     LOCAL_PATH = local_path_backup
     call fpar%select_simu_type()
@@ -526,6 +542,7 @@ contains
 
     call fpar%acqui%read()
 
+    ! calculate total misfit
     misfit_all = 0._dp
     do ievt = 1, fpar%acqui%nevents
       call read_model_misfit(modname, ievt, misfit_loc)
