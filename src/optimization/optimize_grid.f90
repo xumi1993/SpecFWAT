@@ -380,13 +380,13 @@ contains
     use meshfem3D_subs
     use generate_databases_subs
     class(OptGridFlow), intent(inout) :: this
-    real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_start, misfit_prev
+    real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_prev
     integer :: itype, isub
+    logical :: break_flag
 
     run_mode = FORWARD_MEASADJ
     do isub = 1, fpar%update%MAX_SUB_ITER
       total_misfit = 0.0_dp
-      misfit_start = 0.0_dp
       misfit_prev = 0.0_dp
       write(msg, '("Starting ",I0,"th sub-iteration with step_length: ",F10.8)') isub, step_len
       call log%write(msg, .true.)
@@ -407,26 +407,14 @@ contains
         call generate_databases_fwat(.true.)
         
         ! Forward simulation and measure misfits
-        call forward_for_simu_type(total_misfit(itype), misfit_start(itype), misfit_prev(itype))
-        total_misfit(itype) = fpar%postproc%JOINT_WEIGHT(itype)*total_misfit(itype)/misfit_start(itype)
-        misfit_prev(itype) = fpar%postproc%JOINT_WEIGHT(itype)*misfit_prev(itype)/misfit_start(itype)
+        call forward_for_simu_type(total_misfit(itype), misfit_prev(itype))
       enddo
       call synchronize_all()
+
+      call backtracking(this%direction, total_misfit, misfit_prev, break_flag)
+
+      if (break_flag) exit      
       
-      if (sum(total_misfit) < sum(misfit_prev)) then
-        if (worldrank == 0) then
-          write(msg, '("Sum of misfit reduced from ",F22.8," to ",F22.8)') sum(misfit_prev), sum(total_misfit)
-          call log%write(msg, .true.)
-        endif
-        exit
-      else
-        if (myrank == 0) then
-          write(msg, '("Sum of misfit increased from ",F22.8," to ",F22.8)') sum(misfit_prev), sum(total_misfit)
-          call log%write(msg, .true.)
-        endif
-        step_len = step_len * fpar%update%MAX_SHRINK
-      endif
-      call synchronize_all()
     enddo
 
   end subroutine run_linesearch

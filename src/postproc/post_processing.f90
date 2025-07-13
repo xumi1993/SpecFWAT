@@ -130,7 +130,7 @@ contains
         enddo
       enddo
     endif
-    if (is_output_sum_kernel .or. fpar%update%DO_LS == .true.) then
+    if (is_output_sum_kernel .or. fpar%update%DO_LS) then
       call log%write('This is writing sum of kernels...', .true.)
       do iker = 1, nkernel
         call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel', this%ker_data(:,:,:,:,iker))
