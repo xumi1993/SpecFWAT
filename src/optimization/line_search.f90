@@ -43,12 +43,9 @@ contains
 
       total_misfit = total_misfit + ffwd%obj_func
 
-      if (model_prev /= 'none') then
-        call read_model_misfit(model_current, ievt, misfit_loc)
-        misfit_prev = misfit_prev + misfit_loc
-      else
-        misfit_prev = total_misfit
-      endif
+      call read_model_misfit(model_current, ievt, misfit_loc)
+      misfit_prev = misfit_prev + misfit_loc
+        ! misfit_prev = total_misfit
 
       call synchronize_all()
     enddo
@@ -64,15 +61,16 @@ contains
   subroutine backtracking(direction, misfit_ls, misfit_prev, break_flag)
     use kernel_io
     use post_processing, only: calc_misfit0_weight, calc_kernel0_weight_grid
-    use model_grid_data, only: gll2grid
+    use model_grid_data, only: grid2gll
 
     real(kind=cr), dimension(:,:,:,:), intent(in) :: direction
     real(kind=dp), dimension(NUM_INV_TYPE), intent(in) :: misfit_prev, misfit_ls
     logical, intent(out) :: break_flag
     real(kind=dp) :: f1, f0, qt
+    real(kind=cr) :: qp
     real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, linf_val, mean_val
-    real(kind=cr), dimension(:,:,:,:), allocatable :: ker, q0
-    real(kind=cr), dimension(:,:,:), allocatable :: gker
+    real(kind=cr), dimension(:,:,:,:), allocatable :: ker, direc_gll
+    real(kind=cr), dimension(:,:,:), allocatable :: direc_grid
     character(len=MAX_STRING_LEN) :: kernel_path
     integer :: itype, iker
 
@@ -104,10 +102,11 @@ contains
     ! calculate f0 and f1
     f0 = 0.0_dp
     f1 = 0.0_dp
+    qt = 0.0_dp
     kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_current)
-    if (worldrank == 0) q0 = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
     do itype = 1, NUM_INV_TYPE
       if (.not. fpar%postproc%INV_TYPE(itype)) cycle
+      call read_mesh_databases_for_init()
       f0 = f0 + misfit_prev(itype) * norm_val(itype)
       f1 = f1 + misfit_ls(itype) * norm_val(itype)
   
@@ -116,16 +115,23 @@ contains
         kernel_path = trim(kernel_path)//'_'//trim(INV_TYPE_NAMES(itype))
       endif
       do iker = 1, nkernel
+        ! read kernel
         call read_kernel(trim(kernel_path), trim(kernel_names(iker))//'_kernel', ker)
-        call gll2grid(ker, gker)
-        if (worldrank == 0) q0(:,:,:,iker) = q0(:,:,:,iker) + gker * norm_val(itype)
+        ! read direction
+        direc_grid = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz)
+        if (worldrank == 0) direc_grid = direction(:,:,:,iker)
+        call bcast_all_cr(direc_grid, ext_grid%nx*ext_grid%ny*ext_grid%nz)
+        call grid2gll(direc_grid, direc_gll)
+        ! compute inner product
+        call Parallel_ComputeInnerProduct(direc_gll, ker, qp)
+        qt = qt + qp * norm_val(itype)
         call synchronize_all()
       enddo
     enddo
 
     if (worldrank == 0) then
-      qt = sum(q0*direction*ext_grid%dx*ext_grid%dy*ext_grid%dz)*step_len*fpar%update%C1
-      write(msg, '(a,f20.6,a,f20.6,a,f20.6)') 'Backtracking: f1 = ', f1, ', f0 = ', f0, ', f0+qt = ', f0+qt
+      qt = qt*step_len*fpar%update%C1
+      write(msg, '(a,f18.6,a,f18.6,a,f18.6)') 'Backtracking: f1 = ', f1, ', f0 = ', f0, ', f0+qt = ', f0+qt
       call log%write(msg, .true.)
       if (f1 <= f0 + qt) then
         break_flag = .true.

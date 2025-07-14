@@ -232,4 +232,17 @@ contains
   
   end subroutine gll2grid
 
+  subroutine grid2gll(grid_data, gll_data)
+    use shared_parameters
+
+    real(kind=cr), dimension(:,:,:), allocatable, intent(in) :: grid_data
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: gll_data
+    integer :: ier
+
+    gll_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
+    call Project_model_FD_grid2SEM(gll_data, grid_data, worldrank)
+
+    call synchronize_all()
+  end subroutine grid2gll
+
 end module model_grid_data

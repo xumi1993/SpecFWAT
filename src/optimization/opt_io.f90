@@ -144,14 +144,14 @@ contains
     end do
   end subroutine write_model
 
+
   subroutine Parallel_ComputeInnerProduct(vect1, vect2, qp)
 
     ! use specfem_par, only: NSPEC_AB,  jacobianstore, jacobian_regular, irregular_element_number, wxgll, wygll, wzgll
 
-    real(kind=CUSTOM_REAL), dimension(:,:,:,:,:), intent(in)    :: vect1, vect2
-    real(kind=CUSTOM_REAL), dimension(:,:,:,:,:), allocatable   :: wks_1n, wks_2n
+    real(kind=CUSTOM_REAL), dimension(:,:,:,:), intent(in)    :: vect1, vect2
+    real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable   :: wks_1n, wks_2n
     real(kind=CUSTOM_REAL),                       intent(inout) :: qp
-    integer                                                     :: Niv
     ! local
     real(kind=CUSTOM_REAL)                                      :: coeff, coeff_n1, coeff_n2
     ! try double precision
@@ -162,21 +162,12 @@ contains
     ! initializes
     qp = 0._CUSTOM_REAL
 
-    Niv = size(vect1, 5)
-
-    !! try normalization to avoid numerical overflow errors
-    ! wks_1n(:,:,:,:,:) = 0.d0
-    ! wks_2n(:,:,:,:,:) = 0.d0
-
-    !call Parallel_ComputeL2normSquare(vect1 , Niv, coeff_n1)
-    !call Parallel_ComputeL2normSquare(vect2 , Niv, coeff_n2)
-
-    coeff = maxval(abs(vect1(:,:,:,:,:)))
+    coeff = maxval(abs(vect1(:,:,:,:)))
     call max_all_all_cr(coeff, coeff_n1)
 
     if (coeff_n1 == 0._CUSTOM_REAL) coeff_n1 = 1._CUSTOM_REAL
 
-    coeff = maxval(abs(vect2(:,:,:,:,:)))
+    coeff = maxval(abs(vect2(:,:,:,:)))
     call max_all_all_cr(coeff, coeff_n2)
 
     if (coeff_n2 == 0._CUSTOM_REAL) coeff_n2 = 1._CUSTOM_REAL
@@ -187,25 +178,23 @@ contains
     ! wks_1n(:,:,:,:,:) = vect1(:,:,:,:,:)
     ! wks_2n(:,:,:,:,:) = vect2(:,:,:,:,:)
 
-    wks_1n(:,:,:,:,:) = vect1(:,:,:,:,:) / coeff_n1_dp
-    wks_2n(:,:,:,:,:) = vect2(:,:,:,:,:) / coeff_n2_dp
+    wks_1n = vect1(:,:,:,:) / coeff_n1_dp
+    wks_2n = vect2(:,:,:,:) / coeff_n2_dp
 
     ! L2 of normalized gradient
     qp_dp = 0.d0
     ! inner product with quadrature weights
-    do ipar = 1, Niv
-      do ispec = 1, NSPEC_AB
-        ispec_irreg = irregular_element_number(ispec)
-        if (ispec_irreg == 0) jacobianl = jacobian_regular
-        do k = 1,NGLLZ
-          do j = 1,NGLLY
-            do i = 1,NGLLX
-              weight = wxgll(i) * wygll(j) * wzgll(k)
-              if (ispec_irreg /= 0) jacobianl = jacobianstore(i,j,k,ispec_irreg)
-              ! integrated inner product
-              qp_dp = qp_dp + jacobianl * weight * wks_1n(i,j,k,ispec,ipar) * wks_2n(i,j,k,ispec,ipar)
-              !qp = qp + jacobianl * weight * vect1(i,j,k,ispec,ipar) * vect2(i,j,k,ispec,ipar)
-            enddo
+    do ispec = 1, NSPEC_AB
+      ispec_irreg = irregular_element_number(ispec)
+      if (ispec_irreg == 0) jacobianl = jacobian_regular
+      do k = 1,NGLLZ
+        do j = 1,NGLLY
+          do i = 1,NGLLX
+            weight = wxgll(i) * wygll(j) * wzgll(k)
+            if (ispec_irreg /= 0) jacobianl = jacobianstore(i,j,k,ispec_irreg)
+            ! integrated inner product
+            qp_dp = qp_dp + jacobianl * weight * wks_1n(i,j,k,ispec) * wks_2n(i,j,k,ispec)
+            !qp = qp + jacobianl * weight * vect1(i,j,k,ispec,ipar) * vect2(i,j,k,ispec,ipar)
           enddo
         enddo
       enddo

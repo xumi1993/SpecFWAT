@@ -46,7 +46,7 @@ subroutine Project_model_FD_grid2SEM(model_on_SEM_mesh, model_on_FD_grid, myrank
   use utils, only: interp3_nearest_simple
   integer,                                                 intent(in)    :: myrank
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(inout) :: model_on_SEM_mesh
-  real(kind=CUSTOM_REAL), dimension(:,:,:),   allocatable, intent(inout) :: model_on_FD_grid
+  real(kind=CUSTOM_REAL), dimension(:,:,:),   allocatable, intent(in) :: model_on_FD_grid
 
   integer                                                :: ispec, iglob, i_fd, j_fd, k_fd
   real(kind=CUSTOM_REAL)                                 :: vinterp, v1, v2, v3, v4, v5, v6, v7, v8

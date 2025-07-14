@@ -7,7 +7,7 @@ else()
   file (GLOB SOURCES_CUDA "*.cpp")
 endif()
 add_library(postproc_objs OBJECT ${SOURCES_Fortran} ${SOURCES_CUDA})
-target_link_libraries(postproc_objs PRIVATE shared_objs shared_fwat_objs
+target_link_libraries(postproc_objs PRIVATE shared_objs shared_fwat_objs ${MPI_LIBRARIES}
                       cuda_objs grid_objs mesh_subs_objs databases_subs_objs)
 
 # executables
