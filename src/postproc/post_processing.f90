@@ -484,7 +484,6 @@ contains
         std_val = sqrt(sum((kernel - mean_val)**2) / (ext_grid%nx * ext_grid%ny * ext_grid%nz * nkernel))
         linf_val = maxval(abs(kernel))
         write(msg, '(a,G18.9,"  ",G18.9)') 'infinity-norm, std for '//trim(type_name)//': ', linf_val, std_val
-        print *, linf_val, std_val
         call log%write(msg, .false.)
       enddo
       fname = trim(OPT_DIR)//'/gradient_'//trim(model_name)//'.h5'
