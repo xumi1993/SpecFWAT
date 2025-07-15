@@ -1517,7 +1517,7 @@ end function
     real(kind = RPRE), intent(in) :: dx, dy, dz
     real(kind = RPRE) :: res
 
-    res = sum(a * b) * dx * dy * dz
+    res = sum(a * b * dx * dy * dz)
 
   end function inner_product
 
