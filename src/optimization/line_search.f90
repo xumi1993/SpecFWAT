@@ -124,7 +124,7 @@ contains
         call grid2gll(direc_grid, direc_gll)
         ! compute inner product
         call Parallel_ComputeInnerProduct(direc_gll, ker, qp)
-        qt = qt + qp * norm_val(itype)
+        qt = qt + qp * sqrt(norm_val(itype))
         call synchronize_all()
       enddo
     enddo
