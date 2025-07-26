@@ -1,0 +1,92 @@
+NOISE:
+  MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
+  SCOMPS: ['Z'] # Components of the source
+  RCOMPS: ['Z'] # Components of the receiver
+  CH_CODE: BX # Channel code
+  NSTEP: 4500 # Number of time steps
+  DT: 0.06 # Time step for the noise data
+  SHORT_P: [6, 10, 20] # Short period of filters
+  LONG_P: [15, 25, 40] # Long period of filters
+  GROUPVEL_MIN: [2.3, 2.3, 2.5] # Approximate minimum group velocity
+  GROUPVEL_MAX: [3.2, 3.5, 4.0] # Approximate maximum group velocity
+  ADJ_SRC_NORM: False # Set the following to .true. to normalize adjoint sources across different bands
+  USE_NEAR_OFFSET: False # Set the following to false if use only data > 1 average wavelength
+  SUPPRESS_EGF: False # Set to .false. when the data are cross-correlation functions
+  PRECOND_TYPE: 1 # 1: inner product of acceleration
+  SIGMA_H: 5000
+  SIGMA_V: 5000
+
+TELE:
+  TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function
+  MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
+  RCOMPS: ['Z', 'R'] # Components of the receiver
+  CH_CODE: BX # Channel code
+  SAVE_FK: True # Save the FK wavefield
+  NSTEP: 2500 # Number of time steps
+  DT: 0.025 # Time step for the teleseismic data
+  SHORT_P: [1] # Short period of filters
+  LONG_P: [20] # Long period of filters
+  TIME_WIN: [-5, 25] # Time window for the teleseismic data
+  PRECOND_TYPE: 3 # 2: abs(Z); 3: root squared z
+  SIGMA_H: 5000
+  SIGMA_V: 5000
+  RF:
+    F0: [1.5] # Gaussian width for the RF
+    MAXIT: 200 # Maximum number of iterations
+    MINDERR: 0.001 # Minimum residual error when the RF converges
+    TSHIFT: 5.0 # Time shift before P
+
+####################### FWAT PAR for measure_adj ######################
+# The names below correspond to the variable names in measure_adj
+# see manual for more details https://docs.xumijian.me/seismo/specfem3d/measure_adj.html#input-file-2-measurement-par
+MEASURE_ADJ:
+  TSHIFT_MIN: -5.000
+  TSHIFT_MAX: 5.000
+  DLNA_MIN: -1.5000
+  DLNA_MAX: 1.5000
+  CC_MIN: 0.800
+  ERROR_TYPE: 1
+  DT_SIGMA_MIN: 1.000
+  DLNA_SIGMA_MIN: 0.500
+  WTR: 0.020
+  NPI: 2.50
+  DT_FAC: 2.000
+  ERR_FAC: 2.500
+  DT_MAX_SCALE: 3.500 
+  NCYCLE_IN_WINDOW: 1.500
+  USE_PHYSICAL_DISPERSION: .false.
+
+OUTPUT:
+  IS_OUTPUT_PREPROC: True # Output preprocessed data
+  IS_OUTPUT_ADJ_SRC: False # Output adjoint sources
+  IS_OUTPUT_EVENT_KERNEL: True # Output kernels
+  IS_OUTPUT_SUM_KERNEL: True # Output sum of kernels
+  IS_OUTPUT_HESS_INV: False # Output inverse Hessian when precond_type = 1
+  IS_OUTPUT_DIRECTION: False
+
+MODEL_GRID:
+  REGULAR_GRID_MIN_COORD: [833950, -44274.0, -80000]
+  REGULAR_GRID_INTERVAL: [2000, 2000, 1000]
+  REGULAR_GRID_SIZE: [104, 48, 81]
+
+POSTPROC:
+  INV_TYPE: [False, True] # Inversion type of noise and teleseismic data
+  JOINT_WEIGHT: [0.5, 0.5]
+  TAPER_H_SUPPRESS: 5000
+  TAPER_H_BUFFER: 10000
+  TAPER_V_SUPPRESS: 0
+  TAPER_V_BUFFER: 0
+  IS_PRECOND: True
+
+MODEL_UPDATE:
+  INIT_MODEL_PATH: initial_model.h5
+  MODEL_TYPE: 1 # 1: vp,vs,rho; 2: L,N,Gc,Gs
+  OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS 
+  ITER_START: 0
+  LBFGS_M_STORE: 5
+  MAX_SLEN: 0.02 # Maximum step length
+  MAX_SHRINK: 0.618 # Maximum shrink factor
+  MAX_SUB_ITER: 6
+  DO_LS: True # Do line search
+  C1: 0.1
+  VPVS_RATIO_RANGE: [1.3, 2.5] # Min and max limitation of Vp/Vs ratio

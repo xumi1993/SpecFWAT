@@ -1,0 +1,43 @@
+include_directories(
+  ${PROJECT_SOURCE_DIR}/include
+)
+
+add_subdirectory(telesubs)
+add_subdirectory(measure_adj)
+
+# object libraries of preproc
+file(GLOB SOURCES_Fortran "*.f90")
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/window_chi.f90")
+add_library(window_chi_objs OBJECT window_chi.f90)
+target_link_libraries(window_chi_objs PRIVATE shared_objs shared_fwat_objs
+                      config_objs)
+add_library(preproc_objs OBJECT ${SOURCES_Fortran})
+target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
+                      specfem_api_objs cuda_objs tele_objs measadj_objs
+                      window_chi_objs)
+
+# executables
+set(APP_SOURCES
+    "${PROJECT_SOURCE_DIR}/src/preproc/fwat_fwd_measure_adj.f90"
+)
+foreach(execsourcefile ${APP_SOURCES})
+  get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)
+  add_executable(${EXEC_NAME} ${execsourcefile}
+    ${SOURCES_SUBS} 
+    ${HEADERS}
+  )
+
+  set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
+  target_link_libraries(${EXEC_NAME} PUBLIC preproc_objs shared_fwat_objs
+                        shared_objs cuda_objs specfem3D_objs window_chi_objs
+                        specfem_api_objs tele_objs measadj_objs
+                        config_objs hdf5_interface_objs utils_objs
+  )
+  if (USE_CUDA)
+    target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)
+  endif()
+  target_link_libraries(${EXEC_NAME} PUBLIC ${MPI_LIBRARIES} fortran-yaml ${YAML_CPP_LIBRARIES})
+  set_target_properties(${EXEC_NAME} PROPERTIES LINKER_LANGUAGE Fortran)
+    
+endforeach()

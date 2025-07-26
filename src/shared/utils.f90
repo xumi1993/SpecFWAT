@@ -1,0 +1,1558 @@
+!=====================================================================
+!
+!                           S u r f A T T
+!               ---------------------------------------
+!
+!     Main historical authors: Mijian Xu @
+!                     Nanyang Technological University
+!                           (c) October 2023
+!   
+!     Changing History: Oct 2023, Initialize Codes
+!
+!=====================================================================
+module utils
+  use fwat_constants, only: cr, dp, rad2deg, deg2rad, km2deg,&
+                            r_earth_km, MAX_STRING_LEN
+
+  implicit none
+
+  integer, public, parameter :: IPRE = 4
+  integer, public, parameter :: RPRE = cr
+  integer, public, parameter :: DPRE = dp
+
+  interface zeros
+    module procedure zeros1, zeros2, zeros3, zeros4, zeros5
+  end interface zeros
+
+  interface zeros_dp
+    module procedure zeros1_dp, zeros2_dp, zeros3_dp, zeros4_dp
+  end interface zeros_dp
+
+  interface ones
+    module procedure ones1, ones2, ones3, ones4
+  end interface ones
+  public :: ones
+  private :: ones1, ones2, ones3
+
+  interface randu
+    module procedure randu0, randu1, randu2, randu3
+  end interface randu
+
+  interface randn
+    module procedure randn0, randn1, randn2, randn3
+  end interface randn
+
+  interface diff
+    module procedure diff1, diff2
+  end interface diff
+  public :: diff
+  private :: diff1, diff2
+  
+  interface linspace
+    module procedure linspace_r8r8, linspace_i4i4, &
+                     linspace_r8i4,  linspace_i4r8
+  end interface linspace
+
+  interface arange
+    module procedure arange0, arange1_i4, arange1_r8, arange_i4, arange_r8, arange_r4
+  end interface arange
+
+  interface interp1
+    module procedure interp1_0, interp1_1, interp1_1_fill
+  end interface interp1
+
+  interface interp2
+    module procedure interp2_0_dp, interp2_1_dp, interp2_2_dp
+  end interface interp2
+
+  interface interp3
+    module procedure interp3_0_dp, interp3_0_cr
+  end interface
+
+  interface append
+    module procedure append_i, append_r4, append_r8, append_ch_name
+  end interface append
+
+  interface find_loc
+    module procedure find_str_loc, find_int_loc
+  end interface find_loc
+
+  interface meshgrid_ij
+    module procedure meshgrid2_ij, meshgrid3_ij
+  end interface meshgrid_ij
+
+  interface transpose_3
+    module procedure transpose_3_s, transpose_3_f
+  end interface transpose_3
+
+  interface gps2dist
+    module procedure gps2dist_scalar, gps2dist_1, gps2dist_2
+  end interface gps2dist
+
+  interface empirical_vp
+    module procedure empirical_vp_1, empirical_vp_2, empirical_vp_3
+  end interface empirical_vp
+  
+  interface empirical_rho
+    module procedure empirical_rho_1, empirical_rho_2, empirical_rho_3
+  end interface
+
+  interface drho_dalpha
+    module procedure drho_dalpha_0, drho_dalpha_1, drho_dalpha_2, drho_dalpha_3
+  end interface drho_dalpha
+
+  interface dalpha_dbeta
+    module procedure dalpha_dbeta_1, dalpha_dbeta_2, dalpha_dbeta_3
+  end interface dalpha_dbeta
+
+contains
+function drho_dalpha_0(vp) result(rho)
+    double precision, intent(in) :: vp
+    double precision :: rho
+    rho = 1.6612 - 2*0.4721*vp + 3*0.0671*vp**2 - 4*0.0043*vp**3 + 5*0.000106*vp**4
+end function
+
+function drho_dalpha_1(vp) result(rho)
+    double precision, dimension(:), intent(in) :: vp
+    double precision, dimension(:), allocatable :: rho
+    allocate(rho(size(vp)))
+    rho = 1.6612 - 2*0.4721*vp + 3*0.0671*vp**2 - 4*0.0043*vp**3 + 5*0.000106*vp**4
+end function
+
+function drho_dalpha_2(vp) result(rho)
+    double precision, dimension(:,:), intent(in) :: vp
+    double precision, dimension(:,:), allocatable :: rho
+    allocate(rho(size(vp,1), size(vp,2)))
+    rho = 1.6612 - 2*0.4721*vp + 3*0.0671*vp**2 - 4*0.0043*vp**3 + 5*0.000106*vp**4
+end function
+
+function drho_dalpha_3(vp) result(rho)
+    double precision, dimension(:,:,:),intent(in) :: vp
+    double precision, dimension(:,:,:), allocatable :: rho
+    allocate(rho(size(vp,1), size(vp,2), size(vp,3)))
+    rho = 1.6612 - 2*0.4721*vp + 3*0.0671*vp**2 - 4*0.0043*vp**3 + 5*0.000106*vp**4
+end function
+
+function dalpha_dbeta_1(vs) result(dvp)
+    double precision, dimension(:),intent(in) :: vs
+    double precision, dimension(:), allocatable :: dvp
+    allocate(dvp(size(vs)))
+    dvp = 2.0947 - 2*0.8206*vs + 3*0.2683*vs**2 - 4*0.0251*vs**3
+end function
+
+function dalpha_dbeta_2(vs) result(dvp)
+    double precision, dimension(:,:),intent(in) :: vs
+    double precision, dimension(:,:), allocatable :: dvp
+    allocate(dvp(size(vs,1), size(vs,2)))
+    dvp = 2.0947 - 2*0.8206*vs + 3*0.2683*vs**2 - 4*0.0251*vs**3
+end function
+
+function dalpha_dbeta_3(vs) result(dvp)
+    double precision, dimension(:,:,:),intent(in) :: vs
+    double precision, dimension(:,:,:), allocatable :: dvp
+    allocate(dvp(size(vs,1), size(vs,2), size(vs,3)))
+    dvp = 2.0947 - 2*0.8206*vs + 3*0.2683*vs**2 - 4*0.0251*vs**3
+end function
+
+function empirical_vp_1(vs) result(vp)
+    double precision, dimension(:),intent(in) :: vs
+    double precision, dimension(:), allocatable :: vp
+    allocate(vp(size(vs)))
+    vp = 0.9409 + 2.0947*vs - 0.8206*vs**2+ 0.2683*vs**3 - 0.0251*vs**4
+end function
+
+function empirical_vp_2(vs) result(vp)
+    double precision, dimension(:,:),intent(in) :: vs
+    double precision, dimension(:,:), allocatable :: vp
+    allocate(vp(size(vs,1),size(vs,2)))
+    vp = 0.9409 + 2.0947*vs - 0.8206*vs**2+ 0.2683*vs**3 - 0.0251*vs**4
+end function
+
+function empirical_vp_3(vs) result(vp)
+    double precision, dimension(:,:,:),intent(in) :: vs
+    double precision, dimension(:,:,:), allocatable :: vp
+    allocate(vp(size(vs,1),size(vs,2),size(vs,3)))
+    vp = 0.9409 + 2.0947*vs - 0.8206*vs**2+ 0.2683*vs**3 - 0.0251*vs**4
+end function
+
+function empirical_rho_1(vp) result(rho)
+  double precision, dimension(:), intent(in) :: vp
+  double precision, dimension(:), allocatable :: rho
+  allocate(rho(size(vp)))
+  rho=1.6612*vp - 0.4721*vp**2 + &
+        0.0671*vp**3 - 0.0043*vp**4 + & 
+        0.000106*vp**5
+end function
+
+function empirical_rho_2(vp) result(rho)
+  double precision, dimension(:,:), intent(in) :: vp
+  double precision, dimension(:,:), allocatable :: rho
+  allocate(rho(size(vp,1), size(vp,2)))
+  rho=1.6612*vp - 0.4721*vp**2 + &
+        0.0671*vp**3 - 0.0043*vp**4 + & 
+        0.000106*vp**5
+end function
+
+function empirical_rho_3(vp) result(rho)
+  double precision, dimension(:,:,:), intent(in) :: vp
+  double precision, dimension(:,:,:), allocatable :: rho
+  allocate(rho(size(vp,1), size(vp,2), size(vp,3)))
+  rho=1.6612*vp - 0.4721*vp**2 + &
+        0.0671*vp**3 - 0.0043*vp**4 + & 
+        0.000106*vp**5
+end function
+
+!=======================================================================
+! zeros
+!-----------------------------------------------------------------------
+! zeros creates array all of zeros.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! x = zeros(dim1)
+! A = zeros(dim1, dim2)
+! X = zeros(dim1, dim2, dim3)
+!
+! Description
+!-----------------------------------------------------------------------
+! x = zeros(dim1) returns a dim1 vector of zeros.
+!
+! A = zeros(dim1, dim2) returns a dim1-by-dim2 matrix of zeros.
+!
+! X = zeros(dim1, dim2, dim3) returns a dim1-by-dim2-by-dim3
+! 3-dimensional matrix of zeros.
+!
+! Examples
+!-----------------------------------------------------------------------
+! x = zeros(3)
+! x =
+!     0.  0.  0.
+!
+! A = zeros(3, 3)
+! A =
+!     0.  0.  0.
+!     0.  0.  0.
+!     0.  0.  0.
+!=======================================================================
+
+  pure function zeros1(dim1)
+    real(kind = RPRE), dimension(:), allocatable :: zeros1
+    integer(kind = IPRE), intent(in) :: dim1
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros1(dim1), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   stop "Error: in zeros, could not allocate array."
+    ! else
+    zeros1 = 0.0d0
+    ! end if
+    return
+  end function zeros1
+
+  pure function zeros2(dim1, dim2)
+    real(kind = RPRE), dimension(:,:), allocatable :: zeros2
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros2(dim1, dim2), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros2 = 0.0d0
+    ! end if
+    return
+  end function zeros2
+
+  pure function zeros3(dim1, dim2, dim3)
+    real(kind = RPRE), dimension(:,:,:), allocatable :: zeros3
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros3(dim1, dim2, dim3), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros3 = 0.0d0
+    ! end if
+    return
+  end function zeros3
+
+  pure function zeros4(dim1, dim2, dim3, dim4)
+    real(kind = RPRE), dimension(:,:,:,:), allocatable :: zeros4
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros4(dim1, dim2, dim3, dim4), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros4 = 0.0d0
+    ! end if
+    return
+  end function zeros4
+
+  pure function zeros5(dim1, dim2, dim3, dim4, dim5)
+    real(kind = RPRE), dimension(:,:,:,:,:), allocatable :: zeros5
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4, dim5
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros5(dim1, dim2, dim3, dim4, dim5), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros5 = 0.0d0
+    ! end if
+    return
+  end function zeros5
+
+  pure function zeros1_dp(dim1)
+    real(kind = DPRE), dimension(:), allocatable :: zeros1_dp
+    integer(kind = IPRE), intent(in) :: dim1
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros1_dp(dim1), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   stop "Error: in zeros, could not allocate array."
+    ! else
+    zeros1_dp = 0.0d0
+    ! end if
+    return
+  end function zeros1_dp
+
+  pure function zeros2_dp(dim1, dim2)
+    real(kind = DPRE), dimension(:,:), allocatable :: zeros2_dp
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros2_dp(dim1, dim2), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros2_dp = 0.0d0
+    ! end if
+    return
+  end function zeros2_dp
+
+  pure function zeros3_dp(dim1, dim2, dim3)
+    real(kind = DPRE), dimension(:,:,:), allocatable :: zeros3_dp
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros3_dp(dim1, dim2, dim3), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros3_dp = 0.0d0
+    ! end if
+    return
+  end function zeros3_dp
+
+  pure function zeros4_dp(dim1, dim2, dim3, dim4)
+    real(kind = DPRE), dimension(:,:,:,:), allocatable :: zeros4_dp
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4
+    integer(kind = IPRE) :: ierr
+
+    allocate(zeros4_dp(dim1, dim2, dim3, dim4), stat = ierr)
+    ! if ( ierr .ne. 0 ) then
+    !   print *, "Error: in zeros, could not allocate array."
+    !   stop
+    ! else
+    zeros4_dp = 0.0_dp
+    ! end if
+    return
+  end function zeros4_dp
+
+!=======================================================================
+! ones
+!-----------------------------------------------------------------------
+! ones creates array all of ones.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! x = ones(dim1)
+! A = ones(dim1, dim2)
+! X = ones(dim1, dim2, dim3)
+!
+! Description
+!-----------------------------------------------------------------------
+! x = ones(dim1) returns a dim1 vector of ones.
+!
+! A = ones(dim1, dim2) returns a dim1-by-dim2 matrix of ones.
+!
+! X = ones(dim1, dim2, dim3) returns a dim1-by-dim2-by-dim3
+! 3-dimensional matrix of ones.
+!
+! Examples
+!-----------------------------------------------------------------------
+! x = ones(3)
+! x =
+!     1.  1.  1.
+!
+! A = ones(3, 3)
+! A =
+!     1.  1.  1.
+!     1.  1.  1.
+!     1.  1.  1.
+!=======================================================================
+
+  function ones1(dim1)
+    real(kind = RPRE), dimension(:), allocatable :: ones1
+    integer(kind = IPRE), intent(in) :: dim1
+    
+    allocate(ones1(dim1))
+    ones1 = 1.0d0
+    return
+  end function ones1
+  
+  function ones2(dim1, dim2)
+    real(kind = RPRE), dimension(:,:), allocatable :: ones2
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+    
+    allocate(ones2(dim1, dim2))
+    ones2 = 1.0d0
+    return
+  end function ones2
+  
+  function ones3(dim1, dim2, dim3)
+    real(kind = RPRE), dimension(:,:,:), allocatable :: ones3
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+    
+    allocate(ones3(dim1, dim2, dim3))
+    ones3 = 1.0d0
+    return
+  end function ones3
+
+  function ones4(dim1, dim2, dim3, dim4)
+    real(kind = RPRE), dimension(:,:,:,:), allocatable :: ones4
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3, dim4
+    
+    allocate(ones4(dim1, dim2, dim3, dim4))
+    ones4 = 1.0d0
+    return
+  end function ones4
+
+!=======================================================================
+! randu
+!-----------------------------------------------------------------------
+! randu generates uniformly distributed random numbers.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! x = randu()
+! x = randu(dim1)
+! A = randu(dim1, dim2)
+! X = randu(dim1, dim2, dim3)
+!
+! Description
+!-----------------------------------------------------------------------
+! x = randu() returns a single uniformly distributed random number in
+! the interval [0,1].
+!
+! x = randu(dim1) returns a dim1 vector of uniformly distributed random
+! numbers.
+!
+! A = randu(dim1, dim2) returns a dim1-by-dim2 matrix of uniformly
+! distributed random numbers.
+!
+! X = randu(dim1, dim2, dim3) returns a dim1-by-dim2-by-dim3
+! 3-dimensional matrix of uniformly distributed random numbers.
+!
+! Examples
+!-----------------------------------------------------------------------
+! x = randu()
+!     0.383413825
+!
+! x = randu(5)*2 - 1
+!     0.640258908  -0.873707294   0.787327528
+!=======================================================================
+
+  real(kind = DPRE) function randu0()
+    call random_number(randu0)
+    return
+  end function randu0
+
+  function randu1(dim1)
+    real(kind = DPRE), dimension(:), allocatable :: randu1
+    integer(kind = IPRE), intent(in) :: dim1
+
+    allocate(randu1(dim1))
+    call random_number(randu1)
+    return
+  end function randu1
+
+  function randu2(dim1, dim2)
+    real(kind = DPRE), dimension(:,:), allocatable :: randu2
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+
+    allocate(randu2(dim1, dim2))
+    call random_number(randu2)
+    return
+  end function randu2
+
+  function randu3(dim1, dim2, dim3)
+    real(kind = DPRE), dimension(:,:,:), allocatable :: randu3
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+
+    allocate(randu3(dim1, dim2, dim3))
+    call random_number(randu3)
+    return
+  end function randu3
+
+!=======================================================================
+! randn
+!-----------------------------------------------------------------------
+! randn generates normally distributed random numbers using polar
+! Box-Muller algorithm.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! x = randn()
+! x = randn(dim1)
+!
+! Description
+!-----------------------------------------------------------------------
+! x = randn() returns a single normally distributed random number with
+! mean 0 and standard deviation 1.
+!
+! x = randn(dim1) returns a dim1 vector of normally distributed random
+! numbers.
+!
+! A = randn(dim1, dim2) returns a dim1-by-dim2 matrix of normally
+! distributed random numbers.
+!
+! X = randn(dim1, dim2, dim3) returns a dim1-by-dim2-by-dim3
+! 3-dimensional matrix of normally distributed random numbers.
+!
+! Examples
+!-----------------------------------------------------------------------
+! x = randn(3)
+!     -1.22003853  -0.211721316   0.522971511
+!=======================================================================
+
+  real(kind = DPRE) function randn0()
+    real(kind = RPRE) :: u, v, s
+
+    do
+      u = 2.*randu() - 1.
+      v = 2.*randu() - 1.
+      s = u*u + v*v
+      if ( (s .gt. 0.) .and. (s .lt. 1.) ) exit
+    end do
+    randn0 = u * sqrt( -2.0d0 * log(s) / s )
+    return
+  end function randn0
+
+  function randn1(dim1)
+    real(kind = DPRE), dimension(:), allocatable :: randn1
+    integer(kind = IPRE), intent(in) :: dim1
+    integer(kind = IPRE) :: i
+
+    allocate(randn1(dim1))
+    do i = 1, dim1
+      randn1(i) = randn0()
+    end do
+    return
+  end function randn1
+
+  function randn2(dim1, dim2)
+    real(kind = DPRE), dimension(:,:), allocatable :: randn2
+    integer(kind = IPRE), intent(in) :: dim1, dim2
+    integer(kind = IPRE) :: i, j
+
+    allocate(randn2(dim1, dim2))
+    do i = 1, dim1
+      do j = 1, dim2
+        randn2(i,j) = randn()
+      end do
+    end do
+    return
+  end function randn2
+
+  function randn3(dim1, dim2, dim3)
+    real(kind = DPRE), dimension(:,:,:), allocatable :: randn3
+    integer(kind = IPRE), intent(in) :: dim1, dim2, dim3
+    integer(kind = IPRE) :: i, j, k
+
+    allocate(randn3(dim1, dim2, dim3))
+    do i = 1, dim1
+      do j = 1, dim2
+        do k = 1, dim3
+          randn3(i,j,k) = randn()
+        end do
+      end do
+    end do
+    return
+  end function randn3
+
+!=======================================================================
+! diff
+!-----------------------------------------------------------------------
+! diff computes differences of arrays
+!
+! Syntax
+!-----------------------------------------------------------------------
+! y = diff(x)
+! y = diff(x, n)
+! B = diff(A)
+! B = diff(A, n)
+! B = diff(A, dim)
+! B = diff(A, n, dim)
+!
+! Description
+!-----------------------------------------------------------------------
+! y = diff(x) returns differences between adjacent elements of vector x.
+!
+! y = diff(x, n) returns the nth difference by applying the diff(x)
+! operator recursively n times.
+!
+! B = diff(A) returns differences between adjacent elements of array A
+! along the first dimension.
+!
+! B = diff(A, n) returns the nth difference by applying the diff(A)
+! operator recursively n times.
+!
+! B = diff(A, dim) returns differences between adjacent elements of
+! array A along the dimension given by dim.
+!
+! B = diff(A, n, dim) returns the nth difference along the dimension
+! given by dim by applying the diff(A, dim) operator recursively
+! n times.
+!=======================================================================
+
+  function diff1(x, n)
+    real(kind = DPRE), dimension(:), allocatable :: diff1
+    real(kind = DPRE), dimension(:), intent(in) :: x
+    integer(kind = IPRE), intent(in), optional :: n
+    integer(kind = IPRE) :: opt_n, i
+
+    opt_n = 1
+    if (present(n)) opt_n = n
+
+    diff1 = x
+    do i = 1, opt_n
+      diff1 = diff1(2:) - diff1(:size(diff1)-1)
+    end do
+    return
+  end function diff1
+
+  function diff2(A, n, dim)
+    real(kind = DPRE), dimension(:,:), allocatable :: diff2
+    real(kind = DPRE), dimension(:,:), intent(in) :: A
+    integer(kind = IPRE), intent(in), optional :: n, dim
+    integer(kind = IPRE) :: opt_n, i
+
+    opt_n = 1
+    if (present(n)) opt_n = n
+
+    diff2 = A
+    if ((.not. present(dim)) .or. (dim .eq. 1)) then
+      do i = 1, opt_n
+        diff2 = diff2(2:,:) - diff2(:size(diff2,1)-1,:)
+      end do
+    elseif (dim .eq. 2) then
+      do i = 1, opt_n
+        diff2 = diff2(:,2:) - diff2(:,:size(diff2,2)-1)
+      end do
+    end if
+    return
+  end function diff2
+!=======================================================================
+! linspace
+!-----------------------------------------------------------------------
+! linspace creates a linearly spaced vector.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! x = linspace(x1, x2, n)
+!
+! Description
+!-----------------------------------------------------------------------
+! x = linspace(x1, x2, n) returns a vector of n evenly spaced points
+! between x1 and x2.
+!
+! Examples
+!-----------------------------------------------------------------------
+! x = linspace(0, 10, 11)
+!     0.  1.  2.  3.  4.  5.  6.  7.  8.  9.  10.
+!=======================================================================
+
+  pure function linspace_r8r8(first, last, n)
+    real(kind = DPRE), dimension(:), allocatable :: linspace_r8r8
+    real(kind = DPRE), intent(in) :: first, last
+    integer(kind = IPRE), intent(in) :: n
+    integer(kind = IPRE) :: i
+    real(kind = DPRE) :: step
+
+    allocate(linspace_r8r8(n))
+    step = ( last - first ) / ( n-1 )
+    linspace_r8r8 = first + step * real([ ( i-1, i = 1, n ) ], DPRE)
+    linspace_r8r8(n) = last
+    return
+  end function linspace_r8r8
+
+  pure function linspace_i4i4(first, last, n)
+    real(kind = DPRE), dimension(:), allocatable :: linspace_i4i4
+    integer, intent(in) :: first, last
+    integer(kind = IPRE), intent(in) :: n
+
+    linspace_i4i4 = linspace(real(first, kind = 8), real(last, kind = 8), n)
+    return
+  end function linspace_i4i4
+
+  pure function linspace_r8i4(first, last, n)
+    real(kind = DPRE), dimension(:), allocatable :: linspace_r8i4
+    real(kind = DPRE), intent(in) :: first
+    integer, intent(in) :: last
+    integer(kind = IPRE), intent(in) :: n
+
+    linspace_r8i4 = linspace(first, real(last, kind = DPRE), n)
+    return
+  end function linspace_r8i4
+
+  pure function linspace_i4r8(first, last, n)
+    real(kind = DPRE), dimension(:), allocatable :: linspace_i4r8
+    integer, intent(in) :: first
+    real(kind = DPRE), intent(in) :: last
+    integer(kind = IPRE), intent(in) :: n
+
+    linspace_i4r8 = linspace(real(first, kind = 8), last, n)
+    return
+  end function linspace_i4r8
+
+  pure function arange_i4(first, last, step) result(x)
+    real(kind = DPRE), dimension(:), allocatable :: x
+    integer(kind = IPRE), intent(in) :: first, last, step
+    integer(kind = IPRE) :: size, i
+
+    size = int((last - first) / step) + 1
+    x = [ ( first + i * step, i = 0, size - 1 ) ]
+    return
+  end function arange_i4
+
+  pure function arange_r4(first, last, step) result(x)
+    real(kind = RPRE), dimension(:), allocatable :: x
+    real(kind = RPRE), intent(in) :: first, last, step
+    integer(kind = IPRE) :: i, size
+    
+    size = int((last - first) / step) + 1
+    x = [ ( first + i * step, i = 0, size - 1 ) ]
+    return
+  end function arange_r4
+
+  pure function arange_r8(first, last, step) result(x)
+    real(kind = DPRE), dimension(:), allocatable :: x
+    real(kind = DPRE), intent(in) :: first, last, step
+    integer(kind = IPRE) :: i, size
+    
+    size = int((last - first) / step) + 1
+    x = [ ( first + i * step, i = 0, size - 1 ) ]
+    return
+  end function arange_r8
+
+  pure function arange0(num) result(x)
+    real(kind = DPRE), dimension(:), allocatable :: x
+    integer(kind = IPRE), intent(in) :: num
+    integer(kind = IPRE) :: i
+
+    x = [ ( i, i = 1, num) ]
+    return
+  end function
+
+  pure function arange1_i4(first, last) result(x)
+    real(kind = DPRE), dimension(:), allocatable :: x
+    integer(kind = IPRE), intent(in) :: first, last
+    integer(kind = IPRE) :: size, i
+
+    size = int((last - first)) + 1
+    x = [ ( first + i, i = 0, size - 1 ) ]
+    return
+  end function
+
+  pure function arange1_r8(first, last) result(x)
+    real(kind = DPRE), dimension(:), allocatable :: x
+    real(kind = DPRE), intent(in) :: first, last
+    integer(kind = IPRE) :: size, i
+
+    size = int((last - first)) + 1
+    x = [ ( first + i, i = 0, size - 1 ) ]
+    return
+  end function
+
+  function sort(x, order)
+    real(kind = DPRE), dimension(:), allocatable :: sort
+    real(kind = DPRE), dimension(:), intent(in) :: x
+    integer(kind = IPRE), intent(in), optional :: order
+    integer(kind = IPRE) :: n
+
+    n = size(x)
+    sort = x
+    if ((.not. present(order)) .or. (order .eq. 1)) then
+      call quicksort(sort, n, 1)
+    elseif (order .eq. 2) then
+      call quicksort(sort, n, 2)
+    end if
+    return
+
+  contains
+
+    !-------------------------------------------------------------------
+    ! quicksort
+    !-------------------------------------------------------------------
+    recursive subroutine quicksort(x, n, order)
+      real(kind = DPRE), dimension(n), intent(inout) :: x
+      integer(kind = IPRE), intent(in) :: n, order
+      integer(kind = IPRE) :: left, right, marker
+      real(kind = DPRE) :: pivot, tmp
+
+      if (n .gt. 1) then
+        left = 0
+        right = n + 1
+        pivot = x(randi0_0(n))
+
+        select case(order)
+          case(1)
+            do while ( left .lt. right )
+              left = left + 1
+              right = right - 1
+              do while ( x(left) .lt. pivot )
+                left = left + 1
+              end do
+              do while ( x(right) .gt. pivot )
+                right = right - 1
+              end do
+              if ( left .lt. right ) then
+                tmp = x(left)
+                x(left) = x(right)
+                x(right) = tmp
+              end if
+            end do
+          case(2)
+            do while ( left .lt. right )
+              left = left + 1
+              right = right - 1
+              do while ( x(left) .gt. pivot )
+                left = left + 1
+              end do
+              do while ( x(right) .lt. pivot )
+                right = right - 1
+              end do
+              if ( left .lt. right ) then
+                tmp = x(left)
+                x(left) = x(right)
+                x(right) = tmp
+              end if
+            end do
+        end select
+
+        if ( left .eq. right ) then
+          marker = left + 1
+        else
+          marker = left
+        end if
+
+        call quicksort(x(:marker-1), marker-1, order)
+        call quicksort(x(marker:), n-marker+1, order)
+      end if
+      return
+    end subroutine quicksort
+
+  end function sort
+
+  integer(kind = IPRE) function randi0_0(imax)
+    integer(kind = IPRE), intent(in) :: imax
+
+    randi0_0 = floor( randu0() * real(imax) ) + 1
+    return
+  end function randi0_0
+
+!=======================================================================
+! interp1
+!-----------------------------------------------------------------------
+! interp1 performs a linear interpolation.
+!
+! Syntax
+!-----------------------------------------------------------------------
+! vq = interp1(x, v, xq)
+!
+! Description
+!-----------------------------------------------------------------------
+! vq = interp1(x, v, xq) returns the evaluated vector yq at the query
+! points in xq using a linear interpolation.
+!=======================================================================
+
+  function interp1_0(x, v, xq) result(vq)
+    real(kind = DPRE) :: vq
+    real(kind = DPRE), intent(in) :: xq
+    real(kind = DPRE), dimension(:), intent(in) :: x, v
+    integer(kind = IPRE) :: i, x1, x2, ix(2)
+    real(kind = DPRE) :: vn, xr(2), vr(2)
+
+    x1 = minloc(xq - x, 1, mask = xq .ge. x)
+    x2 = maxloc(xq - x, 1, mask = xq .lt. x)
+    if ( x2 .ne. 0 ) then
+      vn = abs( (x(x2) - x(x1)) )
+      xr = x( [ x1, x2 ] )
+      vr = v( [ x1, x2 ] )
+      vq = vr(1) * ( xr(2) - xq ) + vr(2) * ( xq - xr(1) )
+      vq = vq / vn
+    elseif (xq <= x(1)) then
+      vq = v(1)
+    elseif (xq >= x(size(x))) then
+      vq = v(size(v))
+    end if
+    return
+  end function interp1_0
+
+  function interp1_1(x, v, xq) result(vq)
+    real(kind = DPRE), dimension(:), allocatable :: vq
+    real(kind = DPRE), dimension(:), intent(in) :: xq, x, v
+    integer(kind = IPRE) :: i, n
+
+    n = size(xq)
+    vq = zeros_dp(n)
+    do i = 1, n
+      vq(i) = interp1_0(x, v, xq(i))
+    end do
+    return
+  end function interp1_1
+
+  function interp1_1_fill(x, v, xq, fill_value) result(vq)
+    real(kind = DPRE), dimension(:), allocatable :: vq
+    real(kind = DPRE), dimension(:), intent(in) :: xq, x, v
+    real(kind = DPRE), intent(in) :: fill_value
+    integer(kind = IPRE) :: i, n
+
+    n = size(xq)
+    vq = zeros_dp(n)
+    do i = 1, n
+      vq(i) = interp1_0(x, v, xq(i))
+      if (xq(i) < x(1)) vq(i) = fill_value
+      if (xq(i) > x(size(x))) vq(i) = fill_value
+    end do
+    return
+  end function interp1_1_fill
+
+  pure function transpose_3_s(x) result(y)
+    real(kind = RPRE), dimension(:,:,:), intent(in) :: x
+    real(kind = RPRE), dimension(size(x,3), size(x,2), size(x,1)) :: y
+    integer(kind = IPRE) :: i, j, k
+
+    y = reshape(x, shape=[size(x,3), size(x,2), size(x,1)], order=[3,2,1])
+    return
+  end function transpose_3_s
+
+  pure function transpose_3_f(x) result(y)
+    real(kind = DPRE), dimension(:,:,:), intent(in) :: x
+    real(kind = DPRE), dimension(size(x,3), size(x,2), size(x,1)) :: y
+    integer(kind = IPRE) :: i, j, k
+
+    y = reshape(x, shape=[size(x,3), size(x,2), size(x,1)], order=[3,2,1])
+    return
+  end function transpose_3_f
+
+  pure subroutine meshgrid2_ij(ax, ay, x, y)
+    real(kind = DPRE), dimension(:), intent(in) :: ax, ay
+    real(kind = DPRE), dimension(:,:), allocatable, intent(out) :: x, y
+    integer(kind = IPRE) :: i, m, n
+
+    m = size(ax)
+    n = size(ay)
+    if (.not. allocated(x)) allocate(x(m, n))
+    if (.not. allocated(y)) allocate(y(m, n))
+    do i = 1, n
+      x(:,i) = ax
+    end do
+    do i = 1, m
+      y(i,:) = ay
+    end do
+    return
+  end subroutine meshgrid2_ij
+
+  pure subroutine meshgrid3_ij(ax, ay, az, x, y, z)
+    real(kind = DPRE), dimension(:), intent(in) :: ax, ay, az
+    real(kind = DPRE), dimension(:,:,:), allocatable, intent(out) :: x, y, z
+    integer(kind = IPRE) :: i, m, n, j, k
+
+    m = size(ax)
+    n = size(ay)
+    k = size(az)
+    if (.not. allocated(x)) allocate(x(m, n, k))
+    if (.not. allocated(y)) allocate(y(m, n, k))
+    if (.not. allocated(z)) allocate(z(m, n, k))
+    do i = 1, n
+      do j = 1, k
+        x(:,i,j) = ax
+      enddo
+    end do
+    do i = 1, m
+      do j = 1, k
+        y(i,:,j) = ay
+      enddo
+    end do
+    do i = 1, m
+      do j = 1, n
+        z(i, j, :) = az
+      enddo
+    enddo
+    return
+  end subroutine meshgrid3_ij
+
+  pure subroutine meshgrid2(ax, ay, x, y)
+    real(kind = DPRE), dimension(:), intent(in) :: ax, ay
+    real(kind = DPRE), dimension(:,:), allocatable, intent(out) :: x, y
+    integer(kind = IPRE) :: i, m, n
+
+    m = size(ax)
+    n = size(ay)
+    if (.not. allocated(x)) allocate(x(n, m))
+    if (.not. allocated(y)) allocate(y(n, m))
+    do i = 1, n
+      x(i,:) = ax
+    end do
+    do i = 1, m
+      y(:,i) = ay
+    end do
+    return
+  end subroutine meshgrid2
+
+  pure function interp2_0_dp(x, y, v, xq, yq) result(vq)
+    real(kind = DPRE) :: vq
+    real(kind = DPRE), intent(in) :: xq, yq
+    real(kind = DPRE), dimension(:), intent(in) :: x, y
+    real(kind = DPRE), dimension(:,:), intent(in) :: v
+    integer(kind = IPRE) :: i, x1, y1, x2, y2, ix(4), iy(4)
+    real(kind = DPRE) :: vn, xr(2), yr(2), N(4), vr(4)
+
+    x1 = minloc(xq - x, 1, mask = xq .ge. x)
+    y1 = minloc(yq - y, 1, mask = yq .ge. y)
+    x2 = maxloc(xq - x, 1, mask = xq .lt. x)
+    y2 = maxloc(yq - y, 1, mask = yq .lt. y)
+    vn = abs( (x(x2) - x(x1)) &
+            * (y(y2) - y(y1)) )
+    xr = x( [ x1, x2 ] )
+    yr = y( [ y1, y2 ] )
+    ix = [ 2, 1, 2, 1 ]
+    iy = [ 2, 2, 1, 1 ]
+    do i = 1, 4
+      N(i) = abs( (xr(ix(i)) - xq) * (yr(iy(i)) - yq) )
+    end do
+    vr = reshape(v( [ x1, x2 ], &
+                    [ y1, y2 ] ), shape = [ 4 ])
+    vq = dot_product(vr, N/vn)
+    return
+  end function interp2_0_dp
+
+  pure function interp2_1_dp(x, y, v, xq, yq) result(vq)
+    real(kind = DPRE), dimension(:), allocatable :: vq
+    real(kind = DPRE), dimension(:), intent(in) :: xq, yq, x, y
+    real(kind = DPRE), dimension(:,:), intent(in) :: v
+    integer(kind = IPRE) :: i, n
+
+    n = size(xq)
+    vq = zeros(n)
+    do i = 1, n
+      vq(i) = interp2_0_dp(x, y, v, xq(i), yq(i))
+    end do
+    return
+  end function interp2_1_dp
+
+  pure function interp2_2_dp(x, y, v, xq, yq) result(vq)
+    real(kind = DPRE), dimension(:,:), allocatable :: vq
+    real(kind = DPRE), dimension(:), intent(in) :: x, y
+    real(kind = DPRE), dimension(:,:), intent(in) :: v, xq, yq
+    integer(kind = IPRE) :: m, n
+
+    m = size(xq, 1)
+    n = size(xq, 2)
+    vq = reshape( interp2_1_dp(y, x, v, [ yq ], [ xq ]), shape = [ m, n ] )
+    return
+  end function interp2_2_dp
+
+  function interp3_0_dp(valx,valy,valz,valin,x,y,z) result(valout)
+
+
+    !*** Lookup 1D tables with Cartesian coordinates
+    real(kind=DPRE), dimension(:), intent(in) :: valx
+    real(kind=DPRE), dimension(:), intent(in) :: valy
+    real(kind=DPRE), dimension(:), intent(in) :: valz
+
+    !*** Input grid of data
+    real(kind=DPRE), dimension(:,:,:), intent(in) :: valin
+
+    !*** Coordinate for interpolated value
+    real(kind=DPRE), intent(in) :: x, y, z
+
+    !*** Temporary variables
+    real(kind=DPRE) :: xix1, xix2, yiy1, yiy2, ziz1, ziz2
+    real(kind=DPRE) :: x2x1, x1x2, y2y1, y1y2, z2z1, z1z2
+    real(kind=DPRE) :: facx1y1z1, facx1y1z2, facx1y2z1, facx1y2z2, facx2y1z1, facx2y1z2, facx2y2z1, facx2y2z2
+
+    !*** Output value to be interpolated
+    real(kind=DPRE) :: valout
+    integer :: indx, indy, indz  !!! Previous guest
+    integer :: kx, ky, kz, m, nx,ny,nz
+    
+    nx = size(valx)
+    ny = size(valy)
+    nz = size(valz)
+
+    call locate_bissection(valx,nx,x,indx)
+    call locate_bissection(valy,ny,y,indy)
+    call locate_bissection(valz,nz,z,indz)
+
+    m=2
+    kx = min(max(indx-(m-1)/2,1),nx+1-m)
+    ky = min(max(indy-(m-1)/2,1),ny+1-m)
+    kz = min(max(indz-(m-1)/2,1),nz+1-m)
+
+
+    !*** x_i - x1
+    xix1 = x - valx(kx)
+    yiy1 = y - valy(ky)
+    ziz1 = z - valz(kz)
+
+    !*** x_i - x2
+    xix2 = x - valx(kx+1)
+    yiy2 = y - valy(ky+1)
+    ziz2 = z - valz(kz+1)
+
+    !*** x1 - x2
+    x1x2 = 1./ (valx(kx) - valx(kx+1))
+    y1y2 = 1./ (valy(ky) - valy(ky+1))
+    z1z2 = 1./ (valz(kz) - valz(kz+1))
+
+    !*** x2 - x1
+    x2x1 = 1./(valx(kx+1) - valx(kx))
+    y2y1 = 1./(valy(ky+1) - valy(ky))
+    z2z1 = 1./(valz(kz+1) - valz(kz))
+
+    !*** Factors
+    facx1y1z1 = xix2*yiy2*ziz2 * x1x2*y1y2*z1z2 * valin(kx,ky,kz)
+    facx1y1z2 = xix2*yiy2*ziz1 * x1x2*y1y2*z2z1 * valin(kx,ky,kz+1)
+    facx1y2z1 = xix2*yiy1*ziz2 * x1x2*y2y1*z1z2 * valin(kx,ky+1,kz)
+    facx1y2z2 = xix2*yiy1*ziz1 * x1x2*y2y1*z2z1 * valin(kx,ky+1,kz+1)
+    facx2y1z1 = xix1*yiy2*ziz2 * x2x1*y1y2*z1z2 * valin(kx+1,ky,kz)
+    facx2y1z2 = xix1*yiy2*ziz1 * x2x1*y1y2*z2z1 * valin(kx+1,ky,kz+1)
+    facx2y2z1 = xix1*yiy1*ziz2 * x2x1*y2y1*z1z2 * valin(kx+1,ky+1,kz)
+    facx2y2z2 = xix1*yiy1*ziz1 * x2x1*y2y1*z2z1 * valin(kx+1,ky+1,kz+1)
+
+    !*** Final value
+    valout = facx1y1z1 + facx1y1z2 + facx1y2z1 + facx1y2z2 + facx2y1z1 + facx2y1z2 + facx2y2z1 + facx2y2z2
+  end function interp3_0_dp
+
+
+    function interp3_0_cr(valx,valy,valz,valin,x,y,z) result(valout)
+
+
+    !*** Lookup 1D tables with Cartesian coordinates
+    real(kind=RPRE), dimension(:), intent(in) :: valx
+    real(kind=RPRE), dimension(:), intent(in) :: valy
+    real(kind=RPRE), dimension(:), intent(in) :: valz
+
+    !*** Input grid of data
+    real(kind=RPRE), dimension(:,:,:), intent(in) :: valin
+
+    !*** Coordinate for interpolated value
+    real(kind=RPRE), intent(in) :: x, y, z
+
+    !*** Temporary variables
+    real(kind=RPRE) :: xix1, xix2, yiy1, yiy2, ziz1, ziz2
+    real(kind=RPRE) :: x2x1, x1x2, y2y1, y1y2, z2z1, z1z2
+    real(kind=RPRE) :: facx1y1z1, facx1y1z2, facx1y2z1, facx1y2z2, facx2y1z1, facx2y1z2, facx2y2z1, facx2y2z2
+
+    !*** Output value to be interpolated
+    real(kind=RPRE) :: valout
+    integer :: indx, indy, indz  !!! Previous guest
+    integer :: kx, ky, kz, m, nx,ny,nz
+    
+    nx = size(valx)
+    ny = size(valy)
+    nz = size(valz)
+
+    call locate_bissection(dble(valx),nx,dble(x),indx)
+    call locate_bissection(dble(valy),ny,dble(y),indy)
+    call locate_bissection(dble(valz),nz,dble(z),indz)
+
+    m=2
+    kx = min(max(indx-(m-1)/2,1),nx+1-m)
+    ky = min(max(indy-(m-1)/2,1),ny+1-m)
+    kz = min(max(indz-(m-1)/2,1),nz+1-m)
+
+
+    !*** x_i - x1
+    xix1 = x - valx(kx)
+    yiy1 = y - valy(ky)
+    ziz1 = z - valz(kz)
+
+    !*** x_i - x2
+    xix2 = x - valx(kx+1)
+    yiy2 = y - valy(ky+1)
+    ziz2 = z - valz(kz+1)
+
+    !*** x1 - x2
+    x1x2 = 1./ (valx(kx) - valx(kx+1))
+    y1y2 = 1./ (valy(ky) - valy(ky+1))
+    z1z2 = 1./ (valz(kz) - valz(kz+1))
+
+    !*** x2 - x1
+    x2x1 = 1./(valx(kx+1) - valx(kx))
+    y2y1 = 1./(valy(ky+1) - valy(ky))
+    z2z1 = 1./(valz(kz+1) - valz(kz))
+
+    !*** Factors
+    facx1y1z1 = xix2*yiy2*ziz2 * x1x2*y1y2*z1z2 * valin(kx,ky,kz)
+    facx1y1z2 = xix2*yiy2*ziz1 * x1x2*y1y2*z2z1 * valin(kx,ky,kz+1)
+    facx1y2z1 = xix2*yiy1*ziz2 * x1x2*y2y1*z1z2 * valin(kx,ky+1,kz)
+    facx1y2z2 = xix2*yiy1*ziz1 * x1x2*y2y1*z2z1 * valin(kx,ky+1,kz+1)
+    facx2y1z1 = xix1*yiy2*ziz2 * x2x1*y1y2*z1z2 * valin(kx+1,ky,kz)
+    facx2y1z2 = xix1*yiy2*ziz1 * x2x1*y1y2*z2z1 * valin(kx+1,ky,kz+1)
+    facx2y2z1 = xix1*yiy1*ziz2 * x2x1*y2y1*z1z2 * valin(kx+1,ky+1,kz)
+    facx2y2z2 = xix1*yiy1*ziz1 * x2x1*y2y1*z2z1 * valin(kx+1,ky+1,kz+1)
+
+    !*** Final value
+    valout = facx1y1z1 + facx1y1z2 + facx1y2z1 + facx1y2z2 + facx2y1z1 + facx2y1z2 + facx2y2z1 + facx2y2z2
+  end function interp3_0_cr
+
+
+  function interp3_nearest(x, y, z, model_on_FD_grid, x_sem, y_sem, z_sem) result(value)
+    use constants
+    real(kind=RPRE)                                 :: x_sem, y_sem, z_sem, min_dist, &
+                                                              xfd, yfd, zfd, dist
+    real(kind=RPRE)                                  :: value
+    real(kind=RPRE), dimension(:), allocatable, intent(in) :: x, y, z 
+    real(kind=RPRE), dimension(:,:,:), allocatable, intent(in) :: model_on_FD_grid
+    integer                                                :: ifd, jfd, kfd
+
+    min_dist = HUGEVAL
+    do kfd = 1, size(z)
+      zfd = z(kfd)
+      do jfd = 1, size(y)
+        yfd = y(jfd)
+        do ifd = 1, size(x)
+          xfd = x(ifd)
+          dist = sqrt((x_sem-xfd)**2+(y_sem-yfd)**2+(z_sem-zfd)**2)
+          if (dist < min_dist .and. model_on_FD_grid(ifd, jfd, kfd)/=0.) then
+            min_dist = dist
+            value = model_on_FD_grid(ifd, jfd, kfd)
+          endif
+        enddo
+      enddo
+    enddo
+
+  end function interp3_nearest
+
+  function get_nearest_bound_idx(x, x_sem) result(indx)
+    real(kind=RPRE), dimension(:), intent(in) :: x
+    real(kind=RPRE), intent(in) :: x_sem
+    integer(kind=IPRE) :: indx, i, n
+
+    n = size(x)
+    if (x_sem < x(1)) then
+      indx = 1
+    elseif(x_sem > x(n)) then
+      indx = n - 1
+    end if
+
+  end function get_nearest_bound_idx
+
+  function interp3_nearest_simple(x, y, z, model_on_FD_grid, x_sem, y_sem, z_sem) result(value)
+    use constants
+    real(kind=RPRE)                                 :: x_sem, y_sem, z_sem, min_dist, &
+                                                              xfd, yfd, zfd, dist
+    real(kind=RPRE)                                  :: value
+    real(kind=RPRE), dimension(:), allocatable, intent(in) :: x, y, z 
+    real(kind=RPRE), dimension(:,:,:), allocatable, intent(in) :: model_on_FD_grid
+    integer                                           :: ifd, jfd, kfd, &
+                                                         kx,ky,kz,indx,indy,indz,nx,ny,nz,m
+
+    nx = size(x)
+    ny = size(y)
+    nz = size(z)
+    min_dist = HUGEVAL
+
+    call locate_bissection(dble(x),nx,dble(x_sem),indx)
+    call locate_bissection(dble(y),ny,dble(y_sem),indy)
+    call locate_bissection(dble(z),nz,dble(z_sem),indz)
+
+    m=2
+    if (indx /= -1) then
+      kx = min(max(indx-(m-1)/2,1),nx+1-m)
+    else
+      kx = get_nearest_bound_idx(x, x_sem)
+    endif
+    if (indy /= -1) then
+      ky = min(max(indy-(m-1)/2,1),ny+1-m)
+    else
+      ky = get_nearest_bound_idx(y, y_sem)
+    endif
+    if (indz /= -1) then
+      kz = min(max(indz-(m-1)/2,1),nz+1-m)
+    else
+      kz = get_nearest_bound_idx(z, z_sem)
+    endif
+    do ifd = kx, kx+1
+      xfd = x(ifd)
+      do jfd = ky, ky+1
+        yfd = y(jfd)
+        do kfd = kz, kz+1
+          zfd = z(kfd)
+          dist = sqrt((x_sem-xfd)**2+(y_sem-yfd)**2+(z_sem-zfd)**2)
+          if (dist < min_dist .and. model_on_FD_grid(ifd, jfd, kfd)/=0.) then
+            min_dist = dist
+            value = model_on_FD_grid(ifd, jfd, kfd)
+          endif
+        enddo
+      enddo
+    enddo
+  end function interp3_nearest_simple
+
+
+  pure subroutine append_i(list, value)
+    integer(kind = IPRE), dimension(:), allocatable, intent(inout) :: list
+    integer(kind = IPRE), intent(in) :: value
+    integer(kind = IPRE), dimension(:), allocatable :: tmp
+
+    if (.not. allocated(list)) then
+      allocate(list(1))
+      list(1) = value
+      return
+    end if
+    allocate(tmp(size(list) + 1))
+    tmp = [ list, value ]
+    call move_alloc(tmp, list)
+    return
+  end subroutine append_i
+
+  pure subroutine append_r4(list, value)
+    real(kind = RPRE), dimension(:), allocatable, intent(inout) :: list
+    real(kind = RPRE), intent(in) :: value
+    real(kind = RPRE), dimension(:), allocatable :: tmp
+
+    if (.not. allocated(list)) then
+      allocate(list(1))
+      list(1) = value
+      return
+    end if
+    allocate(tmp(size(list) + 1))
+    tmp = [ list, value ]
+    call move_alloc(tmp, list)
+    return
+  end subroutine append_r4
+
+  pure subroutine append_r8(list, value)
+    real(kind = DPRE), dimension(:), allocatable, intent(inout) :: list
+    real(kind = DPRE), intent(in) :: value
+    real(kind = DPRE), dimension(:), allocatable :: tmp
+
+    if (.not. allocated(list)) then
+      allocate(list(1))
+      list(1) = value
+      return
+    end if
+    allocate(tmp(size(list) + 1))
+    tmp = [ list, value ]
+    call move_alloc(tmp, list)
+    return
+  end subroutine append_r8
+
+  pure subroutine append_ch_name(list, value)
+    character(len = MAX_STRING_LEN), dimension(:), allocatable, intent(inout) :: list
+    character(len = MAX_STRING_LEN), intent(in) :: value
+    character(len = MAX_STRING_LEN), dimension(:), allocatable :: tmp
+
+    if (.not. allocated(list)) then
+      allocate(list(1))
+      list(1) = value
+      return
+    end if
+    allocate(tmp(size(list) + 1))
+    tmp = [ list, value ]
+    call move_alloc(tmp, list)
+    return
+  end subroutine append_ch_name
+
+  pure function find_str_loc(strings, value) result(loc)
+    character(len=*), dimension(:), intent(in) :: strings
+    character(len=*), intent(in) :: value
+    integer :: loc, i
+    
+    loc = 0
+    do i = 1, size(strings)
+      if (trim(strings(i)) == trim(value)) then
+        loc = i
+        exit
+      end if
+    end do
+  end function find_str_loc
+
+  pure function find_int_loc(ints, value) result(loc)
+    integer, dimension(:), intent(in) :: ints
+    integer, intent(in) :: value
+    integer :: loc, i
+    
+    loc = 0
+    do i = 1, size(ints)
+      if (ints(i) == value) then
+        loc = i
+        exit
+      end if
+    end do
+  end function find_int_loc
+
+  pure function smooth_1(data, z, sigma) result(smdata)
+    real(kind=DPRE), intent(in) :: sigma
+    real(kind=DPRE), dimension(:), intent(in) :: data, z
+    real(kind=DPRE), dimension(:), allocatable :: smdata
+    real(kind=DPRE), dimension(:), allocatable :: w
+    integer :: i, n1, n2
+    real(kind=DPRE) :: sigma3, wsum, sigma_sq, dz
+    integer :: nx
+
+    sigma3 = sigma*3
+    sigma_sq = sigma**2
+    smdata = zeros(size(data))
+    dz = z(2)-z(1)
+    nx = sigma3/dz
+    do i = 1, size(data)
+      wsum = 0.
+      n1 = max(1, i - nx); n2 = min(size(data), i + nx)
+      w = exp(-((arange(n1,n2) - i)*dz)**2 / (2.0 * sigma_sq))
+      smdata(i) = sum(w*data(n1:n2))
+      smdata(i) = smdata(i) / sum(w)
+    end do
+  end function
+
+  pure function gps2dist_scalar(lat0, lon0, lat1, lon1) result(dist)
+    ! Input parameters
+    real(kind=DPRE), intent(in) :: lon0, lon1, lat0, lat1
+    ! Local variables
+    real(kind=DPRE) :: dlat, dlon, a, deg,dist
+
+    dlat = (lat0 - lat1) * deg2rad
+    dlon = (lon1 - lon0) * deg2rad
+    a = sin(dlat * 0.5) ** 2 + sin(dlon * 0.5) ** 2 &
+        * cos(lat0 * deg2rad) * cos(lat1 * deg2rad)
+    deg = 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
+    dist = R_EARTH_KM * deg
+  end function gps2dist_scalar
+
+  pure function gps2dist_1(lat0, lon0, lat1, lon1) result(dist)
+    ! Input parameters
+    real(kind=DPRE), intent(in) :: lon0, lat0
+    real(kind=DPRE), dimension(:), intent(in) :: lon1, lat1
+    real(kind=DPRE), dimension(:), allocatable :: dist
+    ! Local variables
+    real(kind=DPRE), dimension(:), allocatable :: dlat, dlon, a, deg
+
+    dlat = (lat0 - lat1) * deg2rad
+    dlon = (lon1 - lon0) * deg2rad
+    a = sin(dlat * 0.5) ** 2 + sin(dlon * 0.5) ** 2 &
+        * cos(lat0 * deg2rad) * cos(lat1 * deg2rad)
+    deg = 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
+    dist = R_EARTH_KM * deg
+  end function gps2dist_1
+
+  pure function gps2dist_2(lat0, lon0, lat1, lon1) result(dist)
+    ! Input parameters
+    real(kind=DPRE), intent(in) :: lon0, lat0
+    real(kind=DPRE), dimension(:,:), intent(in) :: lon1, lat1
+    real(kind=DPRE), dimension(:,:), allocatable :: dist
+    ! Local variables
+    real(kind=DPRE), dimension(:,:), allocatable :: dlat, dlon, a, deg
+
+    dlat = (lat0 - lat1) * deg2rad
+    dlon = (lon1 - lon0) * deg2rad
+    a = sin(dlat * 0.5) ** 2 + sin(dlon * 0.5) ** 2 &
+        * cos(lat0 * deg2rad) * cos(lat1 * deg2rad)
+    deg = 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
+    dist = R_EARTH_KM * deg
+  end function gps2dist_2
+
+! Locate with bisection
+  subroutine locate_bissection(valx,n,x,ind)
+
+    integer, intent(in) :: n
+    real(kind=DPRE), intent(in) :: x
+
+    real(kind=DPRE), dimension(n), intent(in) :: valx
+
+    integer, intent(out) :: ind
+
+    integer :: jl, ju, jm
+
+    if (x < valx(1) .or. x > valx(n)) then
+      ind = -1
+      return
+    endif
+
+    jl = 0
+    ju = n+1
+
+    do while ( (ju-jl) > 1 )
+        jm = (ju + jl) / 2
+        if ( x >= valx(jm) ) then
+            jl = jm
+        else
+            ju = jm
+        endif
+    enddo
+    if ( x == valx(1) ) then
+        ind = 1
+        else if ( x == valx(n) ) then
+            ind = n-1
+        else
+            ind = jl
+    endif
+
+  end subroutine locate_bissection
+
+  function inner_product(a, b, dx, dy, dz) result(res)
+    real(kind = RPRE), dimension(:,:,:,:), intent(in) :: a, b
+    real(kind = RPRE), intent(in) :: dx, dy, dz
+    real(kind = RPRE) :: res
+
+    res = sum(a * b * dx * dy * dz)
+
+  end function inner_product
+
+  function find_maxima_dp(x) result(idx)
+
+    real(kind=DPRE), dimension(:), intent(in) :: x
+    integer, dimension(:), allocatable :: idx
+    integer :: i, n, count
+    
+    logical, allocatable :: rising(:), falling(:)
+    integer, allocatable :: max_idx(:)
+
+    n = size(x)
+    if (n < 3) then
+      allocate(idx(0))
+      return
+    end if
+
+    allocate(rising(n-1), falling(n-1))
+
+    rising = (x(2:) - x(1:n-1)) > 0.0
+    falling = (x(2:) - x(1:n-1)) < 0.0
+
+    allocate(max_idx(n-2))
+    count = 0
+    do i = 1, n-2
+      if (rising(i) .and. falling(i+1)) then
+        count = count + 1
+        max_idx(count) = i + 1
+      end if
+    end do
+
+    allocate(idx(count))
+    idx = max_idx(1:count)
+
+  end function find_maxima_dp
+
+end module
