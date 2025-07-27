@@ -1,37 +1,22 @@
-# SpecFWI
+# SpecFWAT
 
-Full-waveform Inversion Based on SPECFEM3D
+ An easy, fast, and powerful full-waveform adjoint tomography (FWAT) tool for multiple seismic data.
 
 ## Installation
-Change directory to `build` and run the following commands to install the dependencies and build the project.
 
-### For PC
-```bash
-conda install -c conda-forge fortran-compiler c-compiler cmake openmpi hdf5
-```
+See [Installation Guide](https://specfwat.xumijian.me/docs/installation/download) to build SpecFWAT on local machine and HPC system
+
+## Quick Example
 
 ```bash
-cmake .. && make -j
-```
-
-### For HPC 
-
-#### N40@BSCC (NVIDIA RTX 4090)
-```bash
-module load openmpi/4.1.5_gcc11.2_ucx1.14.1_cuda11.8 cmake/3.30.0 cuda/11.8 hdf5/1.13.3
-```
-
-```bash
-CC=gcc FC=gfortran MPIFC=mpifort cmake .. -DUSE_CUDA=ON -DCUDA_ARCH=10
-make -j4
-```
-
-#### Beluga@CCDB (NVIDIA V100)
-```bash
-module load cuda/12.2 hdf5/1.14.2
-```
-
-```bash
-cmake .. -DUSE_CUDA=ON -DCUDA_ARCH=9
-make -j4
+for it in `seq 0 9`; do
+    model=`printf "M%02d" $it`
+    if [ $it -eq 0 ]; then
+        cp initial_model.h5 DATA/tomo_files/tomography_model.h5
+    fi
+    mpirun -np $NPROC ../../bin/xfwat_mesh_databases -s tele
+    mpirun -np $NPROC ../../bin/xfwat_fwd_measure_adj -m $model -s tele -r 3
+    mpirun -np $NPROC ../../bin/xfwat_post_proc -m $model
+    mpirun -np $NPROC ../../bin/xfwat_optimize -m $model
+done
 ```
