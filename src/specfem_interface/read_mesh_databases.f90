@@ -182,6 +182,7 @@
 
     read(IIN) kappastore
     read(IIN) mustore
+    read(IIN) rhostore
 
     read(IIN) ispec_is_acoustic
     read(IIN) ispec_is_elastic
@@ -220,6 +221,7 @@
 
   call bcast_all_cr_for_database(kappastore(1,1,1,1), size(kappastore,kind=4))
   call bcast_all_cr_for_database(mustore(1,1,1,1), size(mustore,kind=4))
+  call bcast_all_cr_for_database(rhostore(1,1,1,1), size(rhostore,kind=4))
 
   call bcast_all_l_for_database(ispec_is_acoustic(1), size(ispec_is_acoustic,kind=4))
   call bcast_all_l_for_database(ispec_is_elastic(1), size(ispec_is_elastic,kind=4))
@@ -291,11 +293,6 @@
     if (ier /= 0) stop 'Error allocating array rmassz_acoustic'
     rmassz_acoustic(:) = 0.0_CUSTOM_REAL
   endif
-
-! rho array is needed for acoustic simulations but also for elastic simulations with CPML,
-! read it in all cases (whether the simulation is acoustic, elastic, or acoustic/elastic)
-  if (I_should_read_the_database) read(IIN) rhostore
-  call bcast_all_cr_for_database(rhostore(1,1,1,1), size(rhostore,kind=4))
 
   ! elastic simulation
   if (ELASTIC_SIMULATION) then

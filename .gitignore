@@ -65,6 +65,5 @@ tomography_model.h5
 tests/*/*kernel*.h5
 tests/*/*test.ipynb
 
-check.ipynb
-adj_src_telecc.ipynb
+*.ipynb
 combine_ker.sh
