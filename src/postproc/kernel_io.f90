@@ -98,18 +98,52 @@ contains
   end subroutine read_event_kernel
 
   subroutine kernel_cijkl2hti(ievt, ker)
+    use specfem_par_elastic, only: c11store, c12store, c13store, c22store, c23store, c24store, &
+                                   c33store, c44store, c45store, c55store, c66store, &
+                                   rho_vp, rho_vs
+    use specfem_par, only: rhostore
     integer, intent(in) :: ievt
     real(kind=cr), dimension(:,:,:,:,:), allocatable, intent(out) :: ker
-    real(kind=cr), dimension(:,:,:,:), allocatable :: c44_kl, c55_kl, c45_kl
+    real(kind=cr), dimension(:,:,:,:), allocatable :: A, F, C, L, N, vp, vs, gc, gs, gcp, gsp
+    real(kind=cr), dimension(:,:,:,:), allocatable :: c11_kl, c44_kl, c55_kl, c45_kl, &
+                                                      c12_kl, c13_kl, c22_kl, c23_kl, &
+                                                      c33_kl, c66_kl, rhop_kl
+
+    ! define model parameters
+    L = 0.5 * (c44store + c55store)
+    gc = 0.5 * (c44store - c55store)
+    gs = c45store
+    gcp = gc/L
+    gsp = gs/L
+    vp = rho_vp / rhostore
+    vs = rho_vs / rhostore
+
+    deallocate(L, gc, gs)
 
     ! read event kernel
+    call read_event_kernel(ievt, 'rhop_kernel', rhop_kl)
+    call read_event_kernel(ievt, 'c11_kernel', c11_kl)
+    call read_event_kernel(ievt, 'c12_kernel', c12_kl)
+    call read_event_kernel(ievt, 'c13_kernel', c13_kl)
+    call read_event_kernel(ievt, 'c22_kernel', c22_kl)
+    call read_event_kernel(ievt, 'c23_kernel', c23_kl)
+    call read_event_kernel(ievt, 'c33_kernel', c33_kl)
     call read_event_kernel(ievt, 'c44_kernel', c44_kl)
-    call read_event_kernel(ievt, 'c55_kernel', c55_kl)
     call read_event_kernel(ievt, 'c45_kernel', c45_kl)
-    allocate(ker(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT,3),stat=ier)
-    ker(:,:,:,:,1) = c44_kl + c55_kl ! ker_L
-    ker(:,:,:,:,2) = c44_kl - c55_kl ! ker_Gc
-    ker(:,:,:,:,3) = c45_kl ! ker_Gs
+    call read_event_kernel(ievt, 'c55_kernel', c55_kl)
+    call read_event_kernel(ievt, 'c66_kernel', c66_kl)
+    allocate(ker(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT,nkernel),stat=ier)
+    ker(:,:,:,:,1) = c11_kl * rho_vp*2 + c12_kl * rho_vp*2 + c13_kl * rho_vp*2 &
+                   + c22_kl * rho_vp*2 + c23_kl * rho_vp*2 + c33_kl * rho_vp*2 ! ker_vp
+    ker(:,:,:,:,2) = c12_kl * rho_vs*-4 + c13_kl * rho_vs*-4 + c23_kl * rho_vs*-4 &
+                   + c44_kl * (-2*gcp*rho_vs + 2*rho_vs) + c45_kl * (-2*gsp*rho_vs) &
+                   + c55_kl * (2*gcp*rho_vs + 2*rho_vs) + c66_kl * rho_vs*2
+    ker(:,:,:,:,3) = rhop_kl + c11_kl * vp**2 + c12_kl * (vp**2 - 2*vp**2) &
+                   + c13_kl * (vp**2 - 2*vs**2) + c22_kl * vp**2 + c23_kl * (vp**2 - 2*vs**2) &
+                   + c33_kl * vp**2 + c44_kl * (-gcp*vs**2 + vs**2) + c45_kl * (-gsp*vs**2) &
+                   + c55_kl * (gcp*vs**2 + vs**2) + c66_kl * vs**2 ! ker_rho
+    ker(:,:,:,:,3) = c44_kl * (-rho_vs * vs) + c55_kl * (rho_vs * vs) ! ker_Gc
+    ker(:,:,:,:,4) = c45_kl * (-rho_vs * vs) ! ker_Gs
 
   end subroutine kernel_cijkl2hti
 

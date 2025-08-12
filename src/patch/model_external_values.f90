@@ -51,7 +51,7 @@
   ! only here to illustrate an example
   type model_external_variables
       sequence
-      real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp, vs, rho, L, Gc, Gs
+      real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: vp, vs, rho, Gcp, Gsp
       real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: qkappa_atten, qmu_atten
       real(kind=CUSTOM_REAL), dimension(:), allocatable :: x, y, z
       real(kind=CUSTOM_REAL) :: dx, dy, dz
@@ -102,9 +102,8 @@
   if(allocated(MEXT_V%vp)) deallocate(MEXT_V%vp)
   if(allocated(MEXT_V%vs)) deallocate(MEXT_V%vs)
   if(allocated(MEXT_V%rho)) deallocate(MEXT_V%rho)
-  if(allocated(MEXT_V%L)) deallocate(MEXT_V%L)
-  if(allocated(MEXT_V%Gc)) deallocate(MEXT_V%Gc)
-  if(allocated(MEXT_V%Gs)) deallocate(MEXT_V%Gs)
+  if(allocated(MEXT_V%Gcp)) deallocate(MEXT_V%Gcp)
+  if(allocated(MEXT_V%Gsp)) deallocate(MEXT_V%Gsp)
   if(allocated(MEXT_V%qkappa_atten)) deallocate(MEXT_V%qkappa_atten)
   if(allocated(MEXT_V%qmu_atten)) deallocate(MEXT_V%qmu_atten)
   if(allocated(MEXT_V%x)) deallocate(MEXT_V%x)
@@ -125,18 +124,16 @@
     allocate(MEXT_V%y(MEXT_V%ny))
     allocate(MEXT_V%z(MEXT_V%nz))
     if (parameter_type == 2) then
-      allocate(MEXT_V%L(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
-      allocate(MEXT_V%Gc(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
-      allocate(MEXT_V%Gs(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      allocate(MEXT_V%Gcp(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      allocate(MEXT_V%Gsp(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
     endif 
   endif
   call bcast_all_cr(MEXT_V%vp, size(MEXT_V%vp))
   call bcast_all_cr(MEXT_V%vs, size(MEXT_V%vs))
   call bcast_all_cr(MEXT_V%rho, size(MEXT_V%rho))    
   if (parameter_type == 2) then
-    call bcast_all_cr(MEXT_V%L, size(MEXT_V%L))
-    call bcast_all_cr(MEXT_V%Gc, size(MEXT_V%Gc))
-    call bcast_all_cr(MEXT_V%Gs, size(MEXT_V%Gs))
+    call bcast_all_cr(MEXT_V%Gcp, size(MEXT_V%Gcp))
+    call bcast_all_cr(MEXT_V%Gsp, size(MEXT_V%Gsp))
   endif
   call bcast_all_cr(MEXT_V%x, size(MEXT_V%x))
   call bcast_all_cr(MEXT_V%y, size(MEXT_V%y))
@@ -179,12 +176,10 @@
   MEXT_V%vs = transpose_3(MEXT_V%vs)
   MEXT_V%rho = transpose_3(MEXT_V%rho)    
   if (parameter_type == 2) then
-    call h5read(fname, '/L', MEXT_V%L)
-    call h5read(fname, '/Gc', MEXT_V%Gc)
-    call h5read(fname, '/Gs', MEXT_V%Gs)
-    MEXT_V%L = transpose_3(MEXT_V%L)
-    MEXT_V%Gc = transpose_3(MEXT_V%Gc)
-    MEXT_V%Gs = transpose_3(MEXT_V%Gs)
+    call h5read(fname, '/gcp', MEXT_V%Gcp)
+    call h5read(fname, '/gsp', MEXT_V%Gsp)
+    MEXT_V%Gcp = transpose_3(MEXT_V%Gcp)
+    MEXT_V%Gsp = transpose_3(MEXT_V%Gsp)
   endif
 
   end subroutine read_external_model
@@ -276,7 +271,7 @@
     real(kind=CUSTOM_REAL) :: xsem, ysem, zsem
     ! density, Vp and Vs
     real(kind=CUSTOM_REAL), intent(in) :: vp,vs,rho
-    real(kind=CUSTOM_REAL) :: AL, Gc, Gs
+    real(kind=CUSTOM_REAL) :: Gcp, Gsp
 
     ! anisotropy parameters
     real(kind=CUSTOM_REAL), intent(out) :: c11,c12,c13,c14,c15,c16, &
@@ -295,18 +290,16 @@
     if (xsem < MEXT_V%x(1) .or. xsem > MEXT_V%x(MEXT_V%nx) .or. &
       ysem < MEXT_V%y(1) .or. ysem > MEXT_V%y(MEXT_V%ny) .or. &
       zsem < MEXT_V%z(1) .or. zsem > MEXT_V%z(MEXT_V%nz)) then
-      AL = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
-      Gc = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
-      Gs = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
+      Gcp = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gcp, xsem, ysem, zsem)
+      Gsp = interp3_nearest_simple(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gsp, xsem, ysem, zsem)
     else
-      AL = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%L, xsem, ysem, zsem)
-      Gc = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gc, xsem, ysem, zsem)
-      Gs = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gs, xsem, ysem, zsem)
+      Gcp = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gcp, xsem, ysem, zsem)
+      Gsp = interp3(MEXT_V%x, MEXT_V%y, MEXT_V%z, MEXT_V%Gsp, xsem, ysem, zsem)
     endif
 
     call anistruct%init_iso(vp, vs, rho)
     if (parameter_type == 2) then
-      call anistruct%hti2aniso(AL, Gc, Gs)
+      call anistruct%hti2aniso(Gcp, Gsp)
     else
       call exit_mpi(0, 'Error: anisotropic model not available')
     endif
