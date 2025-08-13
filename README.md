@@ -2,6 +2,8 @@
 
  An easy, fast, and powerful full-waveform adjoint tomography (FWAT) tool for multiple seismic data.
 
+<img width="800" height="800" alt="fwat" src="https://github.com/user-attachments/assets/7e899d48-db6a-4d6a-bf5e-7c219f916943" />
+
 ## Installation
 
 See [Installation Guide](https://specfwat.xumijian.me/docs/installation/download) to build SpecFWAT on local machine and HPC system
@@ -20,3 +22,4 @@ for it in `seq 0 9`; do
     mpirun -np $NPROC ../../bin/xfwat_optimize -m $model
 done
 ```
+

@@ -328,8 +328,8 @@ contains
               rtmp(3:22),                                             & 
               rtmp(23), rtmp(24),                                     & 
               rtmp(25), rtmp(26)
-          misfit = misfit + rtmp(23)
           if (ios /= 0) exit
+          misfit = misfit + rtmp(23)
         enddo
         close(fp)
       endif

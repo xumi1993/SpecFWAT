@@ -59,12 +59,8 @@ contains
     if (this%iter_current == 0) then
       call this%interp_initial_model()
       call write_grid_model(trim(OPT_DIR)//'/model_M00.h5', this%model)
-      if (fpar%update%model_type > 1) then
-        call write_grid_model_iso(trim(OPT_DIR)//'/model_M00.h5', this%model_iso)
-      endif
     else
       call read_model_grid(this%iter_current, this%model)
-      call read_model_grid_iso(this%iter_current, this%model_iso)
     endif
     if (this%iter_current < fpar%update%ITER_START) then
       call log%write('ERROR: Iteration '//trim(model_current)//&
@@ -98,15 +94,6 @@ contains
         call model_interpolation(x, y, z, gm, rm)
         this%model(:,:,:,ipar) = rm
       enddo
-      if (fpar%update%model_type > 1) then
-        this%model_iso = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, 3)
-        do ipar = 1, 3
-          call h5file%get('/'//trim(MODEL_ISO(ipar)), gm)
-          gm = transpose_3(gm)
-          call model_interpolation(x, y, z, gm, rm)
-          this%model_iso(:,:,:,ipar) = rm
-        enddo
-      endif
       call h5file%close(finalize=.true.)
     endif
 
@@ -168,7 +155,9 @@ contains
         this%model = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
-        this%model = this%model + step_len*this%direction
+        this%model(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
+        call alpha_scaling(this%model)
+        this%model(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction(:,:,:,4:5)
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -186,7 +175,9 @@ contains
         this%model_tmp = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
-        this%model_tmp = this%model + step_len*this%direction
+        this%model_tmp(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
+        call alpha_scaling(this%model_tmp)
+        this%model_tmp(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction(:,:,:,4:5)
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -238,8 +229,8 @@ contains
       do istore=this%iter_current-1,iter_store,-1
         call read_gradient_grid(istore+1,gradient1)
         call read_gradient_grid(istore,gradient0)
-        call read_model_grid(istore+1,model1)
-        call read_model_grid(istore,model0)
+        call read_model_grid(istore+1,model1,.true.)
+        call read_model_grid(istore,model0,.true.)
 
         gradient_diff = gradient1-gradient0
         model_diff = model1-model0
@@ -257,8 +248,8 @@ contains
       istore = this%iter_current - 1
       call read_gradient_grid(istore+1, gradient1)
       call read_gradient_grid(istore, gradient0)
-      call read_model_grid(istore+1, model1)
-      call read_model_grid(istore, model0)
+      call read_model_grid(istore+1, model1,.true.)
+      call read_model_grid(istore, model0,.true.)
       gradient_diff = gradient1 - gradient0
       model_diff = model1 - model0
 
@@ -273,8 +264,8 @@ contains
       do istore = iter_store, this%iter_current-1, 1
         call read_gradient_grid(istore+1, gradient1)
         call read_gradient_grid(istore, gradient0)
-        call read_model_grid(istore+1, model1)
-        call read_model_grid(istore, model0)
+        call read_model_grid(istore+1, model1,.true.)
+        call read_model_grid(istore, model0,.true.)
 
         gradient_diff = gradient1-gradient0
         model_diff = model1-model0
@@ -392,9 +383,6 @@ contains
       call log%write(msg, .true.)
       call this%model_update_tmp()
       call write_grid_model(this%model_fname, this%model_tmp)
-      if (fpar%update%model_type > 1) then
-        call write_grid_model_iso(this%model_fname, this%model_iso)
-      endif
       call synchronize_all()
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
@@ -416,6 +404,11 @@ contains
       if (break_flag) exit      
       
     enddo
+    if (isub > fpar%update%MAX_SUB_ITER) then
+      call log%write('ERROR: Reached maximum number of line search iterations', .true.)
+      call log%write('Please try to use more sub-iterations or reset the L-BFGS', .true.)
+      call exit_MPI(0, 'ERROR: Reached maximum number of line search iterations')
+    endif
 
   end subroutine run_linesearch
 end module optimize_grid

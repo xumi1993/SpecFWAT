@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-set(project_version 0.4.0)
+set(project_version 0.4.1)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
@@ -20,7 +20,7 @@ if(USE_CUDA)
   elseif (CUDA_ARCH EQUAL 12)
     set(CMAKE_CUDA_ARCHITECTURES 90)
   elseif (CUDA_ARCH EQUAL 11)
-    set(CMAKE_CUDA_ARCHITECTURES 80 89)
+    set(CMAKE_CUDA_ARCHITECTURES 80)
   elseif (CUDA_ARCH EQUAL 10)
     set(CMAKE_CUDA_ARCHITECTURES 75)
   elseif (CUDA_ARCH EQUAL 9)
@@ -42,6 +42,7 @@ if(USE_CUDA)
     message(STATUS "CUDAToolkit_FOUND: ${CUDAToolkit_FOUND}")
     message(STATUS "CUDAToolkit_VERSION: ${CUDAToolkit_VERSION}")
     add_definitions(-DUSE_CUDA)
+    set(USE_CUDA ON)
   else()
     message(SEND_ERROR "-DUSE_CUDA=True is defined, but CUDAToolkit not found, Non-CUDA build is used")
     set(USE_CUDA OFF)
