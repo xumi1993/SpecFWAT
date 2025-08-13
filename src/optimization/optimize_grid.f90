@@ -156,7 +156,7 @@ contains
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
         this%model(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
-        call alpha_scaling(this%model_tmp)
+        call alpha_scaling(this%model)
         this%model(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction
       else
         call exit_MPI(0, 'Unknown model type')
