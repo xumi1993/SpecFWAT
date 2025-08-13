@@ -267,7 +267,7 @@ contains
     real(kind=cr), dimension(:,:,:), allocatable :: gm
 
     do iker = 1, nkernel
-      if((.not. ANISOTROPIC_KL) .and. fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
+      if(fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
         call log%write('This is scaling for rhop kernels...', .true.)
         if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
       else

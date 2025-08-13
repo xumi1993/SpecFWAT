@@ -57,14 +57,23 @@ contains
 
   end subroutine read_model_grid_iso
 
-  subroutine read_model_grid(iter, model_data)
+  subroutine read_model_grid(iter, model_data, log_iso)
+    use input_params, fpar => fwat_par_global
+
     integer, intent(in) :: iter
+    logical, intent(in), optional :: log_iso
+    logical :: log_iso_loc
     character(len=MAX_STRING_LEN) :: path, this_model, fprname
     integer :: imod
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: model_data
     real(kind=cr), dimension(:,:,:), allocatable :: gm
     type(hdf5_file) :: h5file
 
+    if (.not. present(log_iso)) then
+      log_iso_loc = .false.
+    else
+      log_iso_loc = log_iso
+    end if
     if (worldrank == 0) then
       allocate(model_data(ext_grid%nx,ext_grid%ny,ext_grid%nz,nkernel))
       write(this_model, '(A1,I2.2)') 'M', iter
@@ -74,6 +83,9 @@ contains
         call h5file%get('/'//trim(parameter_names(imod)), gm)
         model_data(:,:,:,imod) = transpose_3(gm)
       end do
+      if (log_iso_loc .and. fpar%update%model_type <= 2) then
+        model_data(:,:,:,1:3) = log(model_data(:,:,:,1:3)) ! log transform for vp, vs, rho
+      endif
       call h5file%close(finalize=.true.)
     endif
   end subroutine read_model_grid
