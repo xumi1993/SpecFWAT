@@ -45,7 +45,6 @@ contains
 
       call read_model_misfit(model_current, ievt, misfit_loc)
       misfit_prev = misfit_prev + misfit_loc
-        ! misfit_prev = total_misfit
 
       call synchronize_all()
     enddo

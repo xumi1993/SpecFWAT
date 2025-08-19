@@ -42,9 +42,10 @@ contains
 
     this%run_mode = run_mode
 
-    is_init_log_loc = .true.
     if (present(is_init_log)) then
       is_init_log_loc = is_init_log
+    else
+      is_init_log_loc = .true.
     endif
     if (is_init_log_loc) then
       if (single_run) then
@@ -58,6 +59,7 @@ contains
     call log%write('*******************************************', .false.)
 
     call setup_parameters_for_init()
+    call log%write('Read databases from '//trim(LOCAL_PATH), .true.)
 
     call force_ftz()
 
@@ -282,19 +284,19 @@ contains
       call log%write('Writing synthetic data ...', .true.)
       call this%semd2sac()
     elseif (this%run_mode >= FORWARD_MEASADJ .and. this%run_mode < FORWARD_SAVE) then
-      ! save simulation results
+      ! save adjoint source
       call log%write('Measuring adjoint source ...', .true.)
       call this%measure_adj()
     endif
 
     ! run adjoint simulation
     if (this%run_mode == FORWARD_ADJOINT .or. this%run_mode == ADJOINT_ONLY) then
-      ! save adjoint source
       call log%write('This is adjoint simulations...', .true.)
       call this%run_simulation(3)
       call this%postproc_adjoint()
     endif
     OUTPUT_FILES = output_files_backup
+    LOCAL_PATH = local_path_fwat
     call log%write('-------------------------------------------', .false.)
   end subroutine simulation
 
