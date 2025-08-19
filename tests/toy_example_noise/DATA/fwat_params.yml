@@ -87,5 +87,5 @@ MODEL_UPDATE:
   MAX_SLEN: 0.02 # Maximum step length
   MAX_SHRINK: 0.618 # Maximum shrink factor
   MAX_SUB_ITER: 10
-  DO_LS: false # Do line search
+  DO_LS: true # Do line search
   VPVS_RATIO_RANGE: [1.3, 2.5] # Min and max limitation of Vp/Vs ratio

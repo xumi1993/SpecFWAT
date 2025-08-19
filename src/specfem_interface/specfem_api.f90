@@ -378,8 +378,6 @@ contains
       call close_file_abs(IOABS_AC)
     endif
 
-    LOCAL_PATH = local_path_backup
-
     call synchronize_all()
 
   end subroutine FinalizeSpecfem
@@ -419,10 +417,10 @@ contains
       if( .not. allocated(rmassx)) allocate(rmassx(NGLOB_AB))
       if( .not. allocated(rmassy)) allocate(rmassy(NGLOB_AB))
       if( .not. allocated(rmassz)) allocate(rmassz(NGLOB_AB))
-      rmass=rmass_copy
-      rmassx=rmassx_copy
-      rmassy=rmassy_copy
-      rmassz=rmassz_copy
+      rmass(:)=rmass_copy(:)
+      rmassx(:)=rmassx_copy(:)
+      rmassy(:)=rmassy_copy(:)
+      rmassz(:)=rmassz_copy(:)
     endif
   end subroutine restore_rmass
 

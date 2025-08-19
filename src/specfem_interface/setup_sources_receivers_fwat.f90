@@ -79,8 +79,8 @@
     ! deallocate(anchor_iax,anchor_iay,anchor_iaz)
   !   ! no need to keep mesh adjacency after point searches
     ! deallocate(neighbors_xadj,neighbors_adjncy)
-  !   if (.not. DO_BRUTE_FORCE_POINT_SEARCH) call setup_free_kdtree()
   ! endif
+  if (.not. DO_BRUTE_FORCE_POINT_SEARCH) call setup_free_kdtree()
 
   ! synchronizes processes
   call synchronize_all()
