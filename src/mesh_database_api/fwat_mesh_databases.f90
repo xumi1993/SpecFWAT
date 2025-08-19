@@ -18,6 +18,8 @@ program fwat_mesh_databases
   ! read input parameters
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
+  local_path_backup = trim(LOCAL_PATH)
+
   if ( fpar%update%MODEL_TYPE > 1) then
     ANISOTROPY = .true.
     ANISOTROPIC_KL = .true. 

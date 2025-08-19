@@ -376,6 +376,7 @@ contains
     logical :: break_flag
 
     run_mode = FORWARD_MEASADJ
+    local_path_backup = trim(LOCAL_PATH)
     do isub = 1, fpar%update%MAX_SUB_ITER
       total_misfit = 0.0_dp
       misfit_prev = 0.0_dp
@@ -396,6 +397,8 @@ contains
         
         ! Forward simulation and measure misfits
         call forward_for_simu_type(total_misfit(itype), misfit_prev(itype))
+        write(msg, '(A,F20.6)') 'Total misfit for '//trim(simu_type)//': ', total_misfit(itype)
+        call log%write(msg, .true.)
       enddo
       call synchronize_all()
 

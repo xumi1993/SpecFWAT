@@ -22,6 +22,7 @@ call parse_args_fwd_meas_adj(ffwd%ievt)
 ! read input parameters
 call fpar%read(FWAT_PAR_FILE)
 call read_parameter_file(BROADCAST_AFTER_READ)
+local_path_backup = trim(LOCAL_PATH)
 
 ! select simu_type
 call fpar%select_simu_type()

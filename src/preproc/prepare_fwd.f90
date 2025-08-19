@@ -94,7 +94,6 @@ contains
     SAVE_MESH_FILES=.false.
     PRINT_SOURCE_TIME_FUNCTION=.false.
     MOVIE_VOLUME=.false.
-    local_path_backup = LOCAL_PATH
     LOCAL_PATH = local_path_fwat
     output_files_backup = OUTPUT_FILES
     APPROXIMATE_HESS_KL=.false.

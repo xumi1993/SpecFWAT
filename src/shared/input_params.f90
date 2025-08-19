@@ -520,7 +520,7 @@ contains
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
     if (is_joint) then
-      local_path_fwat = trim(LOCAL_PATH)//'/'//trim(simu_type)
+      local_path_fwat = trim(local_path_backup)//'/'//trim(simu_type)
     else
       local_path_fwat = trim(LOCAL_PATH)
     endif
