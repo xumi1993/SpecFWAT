@@ -904,8 +904,10 @@ subroutine measure_adj()
     conv_diff = conv1 - conv2
 
     call myconvolution_dp(datz(NSTEP:1:-1), conv_diff, adj_r, 0)
+    adj_r = adj_r * SPECFEM_DT
 
     call myconvolution_dp(-datr(NSTEP:1:-1), conv_diff, adj_z, 0)
+    adj_z = adj_z * SPECFEM_DT
 
     nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT) + 1
     nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT) + 1
