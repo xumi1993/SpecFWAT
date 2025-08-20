@@ -896,23 +896,16 @@ subroutine measure_adj()
     integer :: nstart, nend, i, n, nmax, nn
 
     nmax = int((tp+SPECFEM_T0)/SPECFEM_DT) + 1
-    nn = nmax * 2
 
-    call myconvolution_dp(synr, datz, conv1, 1)
-    call myconvolution_dp(synz, datr, conv2, 1)
+    call myconvolution_dp(synr, datz, conv1, 0)
+    call myconvolution_dp(synz, datr, conv2, 0)
     conv1 = conv1 * SPECFEM_DT
     conv2 = conv2 * SPECFEM_DT
     conv_diff = conv1 - conv2
 
-    call myconvolution_dp(datz, conv_diff, conv_full, 1)
-    adj_r = conv_full(nn:nn+NSTEP-1) * SPECFEM_DT
+    call myconvolution_dp(datz(NSTEP:1:-1), conv_diff, adj_r, 0)
 
-    call myconvolution_dp(-datr, conv_diff, conv_full, 1)
-    adj_z = conv_full(nn:nn+NSTEP-1) * SPECFEM_DT
-
-    conv1 = conv1(nmax:nmax+NSTEP-1)
-    conv2 = conv2(nmax:nmax+NSTEP-1)
-    conv_diff = conv1-conv2
+    call myconvolution_dp(-datr(NSTEP:1:-1), conv_diff, adj_z, 0)
 
     nstart = floor((tp + tstart + SPECFEM_T0)/SPECFEM_DT) + 1
     nend = floor((tp + tend + SPECFEM_T0)/SPECFEM_DT) + 1
@@ -935,11 +928,11 @@ subroutine measure_adj()
     window_chi = 0.
     window_chi(13) = 0.5 * sum( data_tw**2 )
     window_chi(14) = 0.5 * sum( synt_tw**2 )
-    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 )*SPECFEM_DT
+    window_chi(15) = 0.5 * sum( (data_tw-synt_tw)**2 ) * SPECFEM_DT
     window_chi(16) = (nend - nstart + 1)*SPECFEM_DT
     window_chi(17) = 0.5 * sum( conv2**2 )
     window_chi(18) = 0.5 * sum( conv1**2 )
-    window_chi(19) = 0.5 * sum( conv_diff**2 )
+    window_chi(19) = 0.5 * sum( conv_diff**2 ) * SPECFEM_DT
     window_chi(20) = NSTEP*SPECFEM_DT
 
   end subroutine measure_adj_cross_conv

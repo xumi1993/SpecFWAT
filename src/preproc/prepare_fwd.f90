@@ -59,7 +59,6 @@ contains
     call log%write('*******************************************', .false.)
 
     call setup_parameters_for_init()
-    call log%write('Read databases from '//trim(LOCAL_PATH), .true.)
 
     call force_ftz()
 

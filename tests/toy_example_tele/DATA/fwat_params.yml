@@ -17,7 +17,7 @@ NOISE:
   SIGMA_V: 5000
 
 TELE:
-  TELE_TYPE: 1 # 1: teleseismic data, 2: receiver function, 3: teleseismic Cross-convolution
+  TELE_TYPE: 3 # 1: teleseismic data, 2: receiver function, 3: teleseismic Cross-convolution
   MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   SAVE_FK: True
   COMPRESS_LEVEL: 1
@@ -25,9 +25,9 @@ TELE:
   CH_CODE: BX # Channel code
   NSTEP: 3000 # Number of time steps
   DT: 0.025 # Time step for the teleseismic data
-  SHORT_P: [2] # Short period of filters
-  LONG_P: [40] # Long period of filters
-  TIME_WIN: [-10, 35] # Time window for the teleseismic data
+  SHORT_P: [1] # Short period of filters
+  LONG_P: [20] # Long period of filters
+  TIME_WIN: [-5, 45] # Time window for the teleseismic data
   PRECOND_TYPE: 2 # 2: abs(Z); 3: root squared z
   SIGMA_H: 5000
   SIGMA_V: 5000
@@ -89,4 +89,5 @@ MODEL_UPDATE:
   MAX_SHRINK: 0.618 # Maximum shrink factor
   MAX_SUB_ITER: 6
   DO_LS: False # Do line search
+  C1: 0.1
   VPVS_RATIO_RANGE: [1.3, 2.5] # Min and max limitation of Vp/Vs ratio
