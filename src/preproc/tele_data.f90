@@ -3,7 +3,7 @@ module tele_data
   use ma_constants
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, get_gauss_fac, mkdir
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
-                    myconvolution_dp, time_deconv, mycorrelation_dp
+                    myconvolution_dp, time_deconv, mycorrelation_dp, interpolate_func_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
@@ -55,15 +55,19 @@ contains
     bazi = zeros(this%nrec)+this%baz
     call this%read(bazi)
 
-    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call mkdir(fpar%acqui%in_dat_path(this%ievt))
     call synchronize_all()
+
+    if (.not. supp_stf) then
+      if(worldrank == 0) call read_stf(stf_array)
+      if (worldrank > 0) allocate(stf_array(fpar%sim%nstep))
+      call bcast_all_dp(stf_array, fpar%sim%nstep)
+    endif
 
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         ! read stf
-        if (.not. supp_stf) call read_stf(stf_array)
         do icomp = 1, fpar%sim%NRCOMP
           if (.not. supp_stf) then
             ! convolve stf with seismogram
@@ -106,10 +110,10 @@ contains
         call sacio_readsac(datafile, header, datarray, ier)
         if (ier /= 0) call exit_MPI(0, 'Error reading STF file '//trim(datafile))
         ! interpolate to the same time step
-        if (abs(header%delta - fpar%sim%dt) > 1.0e-3 .or. header%npts /= fpar%sim%nstep) then
+        if (abs(header%delta - fpar%sim%dt) > 1.0e-4 .or. header%npts /= fpar%sim%nstep) then
           thalf = (header%npts - 1) * header%delta / 2.0_dp
-          call interpolate_syn_dp(datarray, -thalf, dble(header%delta), header%npts, &
-                                  -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+          datarray = interpolate_func_dp(datarray, dble(header%b), dble(header%delta), header%npts, &
+                                          -thalf, dble(fpar%sim%dt), fpar%sim%nstep)
         endif
       end subroutine read_stf
   end subroutine semd2sac
