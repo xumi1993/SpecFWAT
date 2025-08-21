@@ -1,0 +1,58 @@
+name: specfwat-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # Core Python
+  - python=3.11
+  
+  # Build tools
+  - cmake>=3.20
+  - make
+  - pkg-config
+  
+  # Compilers
+  - gfortran
+  - gcc_linux-64
+  - gxx_linux-64
+  
+  # MPI (required by SpecFWAT)
+  - openmpi
+  - openmpi-mpifort
+  
+  # Scientific libraries (required by SpecFWAT)
+  - hdf5
+  - hdf5-parallel
+  - openblas
+  - lapack
+  - blas
+  
+  # YAML parser (required by SpecFWAT) 
+  - yaml-cpp
+  
+  # Optional: CUDA toolkit (if available)
+  # - cudatoolkit
+  
+  # Python scientific stack (for analysis/visualization)
+  - numpy
+  - scipy
+  - matplotlib
+  - h5py
+  - pyyaml
+  
+  # Development tools
+  - git
+  - vim
+  
+  # Optional: Jupyter for analysis
+  - jupyter
+  - ipython
+  
+  # Optional: Additional scientific tools
+  - vtk
+  - netcdf4
+  
+  # pip packages not available via conda
+  - pip
+  - pip:
+    - pytest  # for testing if needed

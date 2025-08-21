@@ -8,6 +8,21 @@
 
 See [Installation Guide](https://specfwat.xumijian.me/docs/installation/download) to build SpecFWAT on local machine and HPC system
 
+### Quick Setup with Conda
+
+For a streamlined setup using conda:
+
+```bash
+# Automated setup (recommended)
+./setup_conda_env.sh
+
+# Or manually create environment
+conda env create -f environment.yml
+conda activate specfwat-env
+```
+
+See [CONDA_SETUP.md](CONDA_SETUP.md) for detailed conda environment setup instructions.
+
 ## Quick Example
 
 ```bash
