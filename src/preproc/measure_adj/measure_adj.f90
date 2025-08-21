@@ -890,10 +890,10 @@ subroutine measure_adj()
     real(kind=dp), intent(in) :: tstart, tend, tp
     real(kind=dp), dimension(NCHI), intent(inout) :: window_chi
     real(kind=dp), dimension(:), allocatable, intent(out) :: adj_r_tw, adj_z_tw
-    real(kind=dp), dimension(:), allocatable :: conv1, conv2, conv_diff, adj_r, adj_z, conv_full
+    real(kind=dp), dimension(:), allocatable :: conv1, conv2, conv_diff, adj_r, adj_z
     real(kind=dp), dimension(:), allocatable :: data_tw, synt_tw, conv_diff_tw         
     real(kind=dp) :: fac                        
-    integer :: nstart, nend, i, n, nmax, nn
+    integer :: nstart, nend, i, n, nmax
 
     nmax = int((tp+SPECFEM_T0)/SPECFEM_DT) + 1
 

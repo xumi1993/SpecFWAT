@@ -36,10 +36,9 @@ module tele_data
 
 contains
 
-  subroutine semd2sac(this, ievt, is_conv_stf)
+  subroutine semd2sac(this, ievt)
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
-    logical, intent(in), optional :: is_conv_stf
     integer :: irec, irec_local, icomp
     logical :: is_conv_stf_local
     real(kind=dp), dimension(:), allocatable :: stf_array, seismo_syn
@@ -47,12 +46,6 @@ contains
     character(len=MAX_STRING_LEN) :: datafile
     type(sachead) :: header
     real(kind=cr) :: az, baz, dist, gcarc
-
-    if (present(is_conv_stf)) then
-      is_conv_stf_local = is_conv_stf
-    else
-      is_conv_stf_local = .false.
-    endif
 
     call this%init(ievt)
 
@@ -69,12 +62,10 @@ contains
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
-        if (is_conv_stf_local) then
-          ! read stf
-          call read_stf(stf_array)
-        endif
+        ! read stf
+        if (.not. supp_stf) call read_stf(stf_array)
         do icomp = 1, fpar%sim%NRCOMP
-          if (is_conv_stf_local) then
+          if (.not. supp_stf) then
             ! convolve stf with seismogram
             call myconvolution_dp(this%data(:, icomp, irec), stf_array, seismo_syn, 0)
             seismo_syn = seismo_syn * fpar%sim%dt

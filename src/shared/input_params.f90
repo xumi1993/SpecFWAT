@@ -254,6 +254,8 @@ contains
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
+        supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
         list => tele%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_string_list(list, this%sim%RCOMPS)
@@ -405,6 +407,7 @@ contains
 
     ! broadcast tele parameters
     call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
+    call bcast_all_singlel(supp_stf)
     call bcast_all_singlei(tele_par%NSTEP)
     call bcast_all_singlei(tele_par%IMEAS)
     call bcast_all_singlei(tele_par%ITAPER)
