@@ -21,8 +21,7 @@ dependencies:
   - openmpi-mpifort
   
   # Scientific libraries (required by SpecFWAT)
-  - hdf5
-  - hdf5-parallel
+  - hdf5=*=mpi_openmpi_*
   - openblas
   - lapack
   - blas

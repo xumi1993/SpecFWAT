@@ -69,8 +69,7 @@ jobs:
           make \
           gfortran \
           openmpi \
-          hdf5 \
-          hdf5-parallel \
+          "hdf5=*=mpi_openmpi_*" \
           openblas \
           lapack \
           yaml-cpp \
