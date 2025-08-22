@@ -322,13 +322,13 @@ contains
                             -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
     if (maxval(abs(data_den_win)) < 1.0e-10) &
       call exit_MPI(0, 'Error: data_den_win is zero')
-    call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
-                     fpar%sim%nstep,NITER,stf_dp)
+    ! call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
+                    !  fpar%sim%nstep,NITER,stf_dp)
     stf = real(stf_dp)
-    ! f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 4
-    ! call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
-    call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
-                     1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+    f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1)))
+    call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
+    ! call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
+                    !  1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
 
   end subroutine deconv_for_stf
 
