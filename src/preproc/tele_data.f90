@@ -302,33 +302,29 @@ contains
     real(kind=cr), dimension(:), allocatable :: stf_dp
     real(kind=cr), intent(in) :: tref
     real(kind=cr) :: tb, te, f0, time_shift
-    integer :: nstep_cut
+    integer :: nstep_cut, nb, ne
     real(kind=dp), dimension(:), allocatable :: data_num_win, data_den_win
 
     ! cut data to from fpar%sim%time_win(1) to fpar%sim%time_win(2)
-    data_num_win = data_num(1:fpar%sim%nstep)
-    data_den_win = data_den(1:fpar%sim%nstep)
-    tb = tref + fpar%sim%time_win(1)
-    te = tref + fpar%sim%time_win(2)
-    time_shift = (NSTEP / 2) * DT
-    nstep_cut = int((te - tb) / fpar%sim%dt) + 1
-    call interpolate_syn_dp(data_num_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
-                            dble(tb), dble(fpar%sim%dt), nstep_cut)
-    call interpolate_syn_dp(data_den_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
-                            dble(tb), dble(fpar%sim%dt), nstep_cut)
-    call interpolate_syn_dp(data_num_win, dble(tb), dble(fpar%sim%dt), nstep_cut, &
-                            -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
-    call interpolate_syn_dp(data_den_win, dble(tb), dble(fpar%sim%dt), nstep_cut, &
-                            -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+    data_num_win = zeros_dp(fpar%sim%nstep)
+    data_den_win = zeros_dp(fpar%sim%nstep)
+    tb = tref + fpar%sim%time_win(1) + T0
+    te = tref + fpar%sim%time_win(2) + T0
+    nb = int((tb / fpar%sim%dt)) + 1
+    ne = int((te / fpar%sim%dt)) + 1
+    time_shift = ((NSTEP-1) / 2) * DT
+    nstep_cut = ne - nb + 1
+    data_num_win(1:nstep_cut) = data_num(nb:ne)
+    data_den_win(1:nstep_cut) = data_den(nb:ne)
     if (maxval(abs(data_den_win)) < 1.0e-10) &
       call exit_MPI(0, 'Error: data_den_win is zero')
-    ! call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
-                    !  fpar%sim%nstep,NITER,stf_dp)
+    call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
+                     fpar%sim%nstep,NITER,stf_dp)
     stf = real(stf_dp)
-    f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1)))
-    call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
-    ! call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
-                    !  1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+    ! f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 4
+    ! call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
+    call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
+                     1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), 2)
 
   end subroutine deconv_for_stf
 
