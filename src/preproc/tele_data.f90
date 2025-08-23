@@ -111,7 +111,7 @@ contains
         if (ier /= 0) call exit_MPI(0, 'Error reading STF file '//trim(datafile))
         ! interpolate to the same time step
         if (abs(header%delta - fpar%sim%dt) > 1.0e-4 .or. header%npts /= fpar%sim%nstep) then
-          thalf = (header%npts - 1) * header%delta / 2.0_dp
+          thalf = (fpar%sim%nstep - 1) * fpar%sim%dt / 2.0_dp
           datarray = interpolate_func_dp(datarray, dble(header%b), dble(header%delta), header%npts, &
                                           -thalf, dble(fpar%sim%dt), fpar%sim%nstep)
         endif
