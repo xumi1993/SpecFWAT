@@ -50,19 +50,11 @@
   ! real array for data
   real,dimension(:,:,:,:),allocatable :: data_sp
   integer :: i, j, k, ier
-  character(len=MAX_STRING_LEN) :: arg(9), indir, outdir, replace_zero
-  character(len=MAX_STRING_LEN) :: prname, prname_lp, data_filename, fname, grid_file, model_name, hstr
+  character(len=MAX_STRING_LEN) :: indir, outdir, replace_zero
+  character(len=MAX_STRING_LEN) :: prname, prname_lp, data_filename, fname, model_name
   character(len=MAX_STRING_LEN*2) :: local_data_file
   logical :: BROADCAST_AFTER_READ
-  integer :: ios
   integer :: sizeprocs, NSPEC_IRREGULAR
-  real(kind=CUSTOM_REAL) :: distance_min_glob,distance_max_glob, &
-                            elemsize_min_glob,elemsize_max_glob, &
-                            x_min_glob, x_max_glob, &
-                            y_min_glob, y_max_glob, &
-                            z_min_glob, z_max_glob, &
-                            x_min, y_min, z_min, &
-                            x_max, y_max, z_max
 
   type(profd)  :: projection_fd
   real(kind=CUSTOM_REAL), dimension(:,:,:), allocatable :: model_on_FD_grid
