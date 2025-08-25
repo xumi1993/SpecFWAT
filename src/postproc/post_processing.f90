@@ -25,16 +25,16 @@ module post_processing
     integer :: nker, ks_win
     character(len=MAX_STRING_LEN) :: kernel_path
     contains
-    procedure :: sum_kernel, init=>init_post_flow, sum_precond, init_for_type,apply_precond, &
+    procedure :: init=>init_post_flow
+    procedure :: sum_kernel, sum_precond, init_for_type,apply_precond, &
                  write_gradient_grid, remove_ekernel, pde_smooth, taper_kernel_grid, finalize, &
                  read_sum_kernel
   end type PostFlow
 contains
 
-  subroutine init_post_flow(this, is_read_database)
+  subroutine init_post_flow(this)
     class(PostFlow), intent(inout) :: this
-    logical, intent(in) :: is_read_database
-    integer :: itype
+    ! logical, intent(in) :: is_read_database
 
     call get_kernel_names()
 
@@ -151,7 +151,6 @@ contains
   subroutine read_sum_kernel(this)
     class(PostFlow), intent(inout) :: this
     integer :: iker
-    character(len=MAX_STRING_LEN) :: fname
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
 
     call log%write('This is reading sum of kernels...', .true.)
@@ -164,7 +163,7 @@ contains
 
   subroutine apply_precond(this)
     class(PostFlow), intent(inout) :: this
-    integer :: iker,  ievt, i, j, k, iglob, ispec
+    integer :: iker,  ievt
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
 
     call log%write('This is applying preconditioned kernels...', .true.)
@@ -201,12 +200,9 @@ contains
     class(PostFlow), intent(inout) :: this
     character(len=MAX_STRING_LEN), parameter :: hess_name = 'hess'
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, total_hess_smooth, ker
-    real(kind=cr), dimension(:), allocatable :: z_precond
-    real(kind=cr), dimension(:,:), allocatable :: gk
     real(kind=cr), dimension(:,:,:), allocatable :: gm
-    real(kind=cr) :: precond
     character(len=MAX_STRING_LEN) :: fname
-    integer :: iker, ievt, i, j, k, iglob
+    integer :: ievt
 
     call log%write('This is saving preconditioned kernels...', .true.)
     if (fpar%sim%PRECOND_TYPE <= 1) then
@@ -243,7 +239,6 @@ contains
     real(kind=cr) :: precond
     real(kind=cr) :: z_max, min_z_pre=1.0_cr
     real(kind=cr), intent(in) :: z
-    integer :: ndep
 
     if (z >= 0) then
       precond = min_z_pre
@@ -283,9 +278,7 @@ contains
 
   subroutine write_gradient_grid(this)
     class(PostFlow), intent(inout) :: this
-    integer :: iker, ievt
     character(len=MAX_STRING_LEN) :: fname, suffix
-    logical :: is_simu_type
     
     if (is_joint) then
       suffix = trim(model_name)//'_'//trim(simu_type)
@@ -302,7 +295,7 @@ contains
     class(PostFlow), intent(inout) :: this
     type(taper_cls) :: tap
     integer :: iker, i, j, k
-    real(kind=cr) :: dh, val
+    real(kind=cr) :: dh
     real(kind=cr), dimension(:,:,:), allocatable :: taper
     call log%write('This is tapering kernels...', .true.)
 
@@ -436,7 +429,7 @@ contains
   end subroutine remove_ekernel
 
   subroutine sum_joint_kernel_grid()
-    integer :: itype, iker
+    integer :: itype
     character(len=MAX_STRING_LEN) :: type_name, fname
     real(kind=cr), dimension(:,:,:,:), allocatable :: kernel, total_kernel
     real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, linf_val, mean_val

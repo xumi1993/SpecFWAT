@@ -17,7 +17,6 @@ contains
 
   subroutine create_grid()
     integer :: i
-    character(len=MAX_STRING_LEN) :: msg
     real(kind=cr) :: hx, hy, hz, ox, oy, oz
     integer :: nx, ny, nz
 
@@ -56,7 +55,6 @@ contains
   end subroutine create_grid
 
   subroutine database2model(model_data)
-    integer :: igll, jgll, kgll, ispec, iker
     real(kind=cr), dimension(:,:,:,:,:), allocatable, intent(out) :: model_data
 
     if (fpar%update%model_type == 1) then
@@ -144,7 +142,6 @@ contains
   subroutine write_grid(filename, key_name, grid_data)
     real(kind=cr), dimension(:,:,:), intent(in) :: grid_data
     character(len=*), intent(in) :: filename, key_name
-    integer :: iker
     type(hdf5_file) :: h5file
     
     if (worldrank == 0) then
@@ -162,7 +159,6 @@ contains
     real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
     character(len=*), intent(in) :: filename, key_name
     real(kind=cr), dimension(:,:,:), allocatable :: gm  
-    integer :: iker
     type(hdf5_file) :: h5file
 
     if (worldrank == 0) then
@@ -214,9 +210,7 @@ contains
 
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(in) :: gll_data
     real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: grid_data
-    real(kind=cr), dimension(:,:,:), allocatable :: model_on_FD_grid
     type(profd)  :: projection_fd
-    integer :: ier
 
     ! Get regular grid properties, and precomputes all interpolation coefficients
     call zwgljd(xigll,wxgll,NGLLX,GAUSSALPHA,GAUSSBETA)
@@ -237,7 +231,6 @@ contains
 
     real(kind=cr), dimension(:,:,:), allocatable, intent(in) :: grid_data
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: gll_data
-    integer :: ier
 
     gll_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_AB)
     call Project_model_FD_grid2SEM(gll_data, grid_data, worldrank)

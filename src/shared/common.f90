@@ -148,7 +148,7 @@ contains
     real(kind=cr), dimension(:), intent(out) :: ve, vn
     real(kind=cr), dimension(:), allocatable :: vt
     real(kind=cr) :: baz
-    integer :: it, nt
+    integer :: nt
 
     nt = size(vr)
     allocate(vt(nt))
@@ -165,7 +165,7 @@ contains
     real(kind=dp), dimension(:), intent(out) :: ve, vn
     real(kind=dp), dimension(:), allocatable :: vt
     real(kind=cr) :: baz
-    integer :: it, nt
+    integer :: nt
 
     nt = size(vr)
     allocate(vt(nt))
@@ -182,7 +182,7 @@ contains
     real(kind=dp), dimension(:), intent(out) :: ve, vn
     real(kind=dp), dimension(:), allocatable :: vr
     real(kind=cr) :: baz
-    integer :: it, nt
+    integer :: nt
 
     nt = size(vt)
     allocate(vr(nt))

@@ -33,7 +33,7 @@
   use specfem_par_acoustic
   use specfem_par_poroelastic
   use specfem_par_movie
-  use config, only: run_mode, local_path_backup, output_files_backup
+  ! use config, only: run_mode, local_path_backup, output_files_backup
   use fwat_constants, only: FORWARD_ADJOINT, SIMU_TYPE_TELE
   use input_params, fpar => fwat_par_global
 
@@ -45,7 +45,7 @@
   include 'version.fh'
 
   integer :: ier
-  logical :: BROADCAST_AFTER_READ
+  ! logical :: BROADCAST_AFTER_READ
   character(len=MAX_STRING_LEN) :: path_to_add
   logical :: simul_run_flag
 

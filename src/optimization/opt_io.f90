@@ -37,7 +37,7 @@ contains
 
   subroutine read_model_grid_iso(iter, model_data)
     integer, intent(in) :: iter
-    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    character(len=MAX_STRING_LEN) :: this_model, fprname
     integer :: imod
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: model_data
     real(kind=cr), dimension(:,:,:), allocatable :: gm
@@ -63,7 +63,7 @@ contains
     integer, intent(in) :: iter
     logical, intent(in), optional :: log_iso
     logical :: log_iso_loc
-    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    character(len=MAX_STRING_LEN) :: this_model, fprname
     integer :: imod
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: model_data
     real(kind=cr), dimension(:,:,:), allocatable :: gm
@@ -116,7 +116,7 @@ contains
 
   subroutine read_gradient_grid(iter, gradient_data)
     integer, intent(in) :: iter
-    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    character(len=MAX_STRING_LEN) :: this_model, fprname
     integer :: imod
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: gradient_data
     real(kind=cr), dimension(:,:,:), allocatable :: gm
@@ -138,7 +138,7 @@ contains
   subroutine write_model(OUTPUT_MODEL_PATH, model_data)
     character(len=*), intent(in) :: OUTPUT_MODEL_PATH
     real(kind=cr), dimension(:,:,:,:,:), intent(in) :: model_data
-    character(len=MAX_STRING_LEN) :: path, this_model, fprname
+    character(len=MAX_STRING_LEN) :: fprname
     integer :: imod
 
     call create_name_database(fprname, worldrank, OUTPUT_MODEL_PATH)
@@ -169,7 +169,7 @@ contains
     ! try double precision
     double precision                                            :: jacobianl, weight, qp_dp, qp_tmp
     double precision                                            :: coeff_n1_dp, coeff_n2_dp
-    integer                                                     :: ipar, i, j, k, ispec, ispec_irreg
+    integer                                                     :: i, j, k, ispec, ispec_irreg
 
     ! initializes
     qp = 0._CUSTOM_REAL

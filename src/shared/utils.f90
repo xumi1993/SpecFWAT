@@ -1555,4 +1555,47 @@ end function
 
   end function find_maxima_dp
 
+  function split_by_spaces(str) result(tokens)
+    character(len=*), intent(in) :: str
+    character(len=MAX_STRING_LEN), allocatable :: tokens(:)
+
+    integer :: i, len_str, start, count
+    logical :: in_word
+    character(len=MAX_STRING_LEN), allocatable :: tmp(:)
+
+    len_str = len_trim(str)
+    allocate(tmp(len_str))
+    count = 0
+    in_word = .false.
+    start = 1
+
+    do i = 1, len_str+1
+      if (i <= len_str) then
+        if (str(i:i) /= ' ') then
+          if (.not. in_word) then
+            start = i
+            in_word = .true.
+          end if
+        else
+          if (in_word) then
+            count = count + 1
+            tmp(count) = str(start:i-1)
+            in_word = .false.
+          end if
+        end if
+      else
+        ! 字符串末尾
+        if (in_word) then
+          count = count + 1
+          tmp(count) = str(start:i-1)
+          in_word = .false.
+        end if
+      end if
+    end do
+
+    allocate(tokens(count))
+    tokens = tmp(1:count)
+
+  end function split_by_spaces
+
 end module

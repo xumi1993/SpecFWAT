@@ -4,14 +4,12 @@ use fwat_mpi
 use common_lib, only: get_dat_type
 use input_params, only: fpar => fwat_par_global
 use preproc_fwd
-use specfem_par, only: DT, NSTEP
 use argparse, only: parse_args_fwd_meas_adj
 
 implicit none
-integer :: nargs, nsim, ievt, evt_idx, i
+integer :: nsim
 integer, parameter :: max_num_args = 4
 type(PrepareFWD) :: ffwd
-character(len=MAX_STRING_LEN) :: usage, evt_index_str, run_mode_str
 logical :: BROADCAST_AFTER_READ = .true.
 
 call init_mpi()
