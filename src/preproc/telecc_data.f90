@@ -33,7 +33,6 @@ contains
   subroutine preprocess(this, ievt)
     class(TeleCCData), intent(inout) :: this
     integer, intent(in) :: ievt
-    integer :: irec_local, irec
     character(len=MAX_STRING_LEN) :: msg
 
     fpar%sim%NRCOMP = 1
@@ -82,7 +81,7 @@ contains
 
   subroutine pre_proc(this)
     class(TeleCCData), intent(inout) :: this
-    integer :: irec_local, irec, nstep_cut, icomp
+    integer :: irec_local, irec, icomp
     real(kind=dp), dimension(:), allocatable :: seismo_inp
     real(kind=dp) :: tstart, tend, t01, max_amp
 
@@ -138,7 +137,6 @@ contains
     real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
     real(kind=dp), dimension(:,:), allocatable :: adj_src
     real(kind=dp), dimension(NCHI) :: window_chi_local
-    real(kind=dp) :: f0, tt0
     type(sachead) :: header
 
 
@@ -205,8 +203,8 @@ contains
         this%am_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi_local(15)
         this%T_pmax_dat(irec_local, 1) = 0.
         this%T_pmax_syn(irec_local, 1) = 0.
-        this%sta(irec_local) = this%od%stnm(irec)
-        this%net(irec_local) = this%od%netwk(irec)
+        this%sta(irec_local) = trim(this%od%stnm(irec))
+        this%net(irec_local) = trim(this%od%netwk(irec))
         this%tstart(irec_local) = this%ttp(irec) + fpar%sim%time_win(1)
         this%tend(irec_local) = this%ttp(irec) + fpar%sim%time_win(2)
       enddo

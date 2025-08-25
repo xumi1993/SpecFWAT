@@ -40,12 +40,10 @@ contains
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
     integer :: irec, irec_local, icomp
-    logical :: is_conv_stf_local
     real(kind=dp), dimension(:), allocatable :: stf_array, seismo_syn
     real(kind=cr), dimension(:), allocatable :: bazi
     character(len=MAX_STRING_LEN) :: datafile
     type(sachead) :: header
-    real(kind=cr) :: az, baz, dist, gcarc
 
     call this%init(ievt)
 
@@ -88,8 +86,8 @@ contains
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
-          header%knetwk = this%od%netwk(irec)
-          header%kstnm = this%od%stnm(irec)
+          header%knetwk = trim(this%od%netwk(irec))
+          header%kstnm = trim(this%od%stnm(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
           header%t0 = this%ttp(irec)
           call sacio_writesac(datafile, header, seismo_syn, ier)
@@ -122,8 +120,7 @@ contains
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
     integer :: irec, irec_local, icomp
-    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat,&
-         seismo_syn, seismo_dat_glob, seismo_syn_glob
+    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat_glob, seismo_syn_glob
     real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
     character(len=MAX_STRING_LEN) :: msg
@@ -301,7 +298,7 @@ contains
     real(kind=dp), dimension(:), allocatable, intent(out) :: stf
     real(kind=cr), dimension(:), allocatable :: stf_dp
     real(kind=cr), intent(in) :: tref
-    real(kind=cr) :: tb, te, f0, time_shift
+    real(kind=cr) :: tb, te, time_shift
     integer :: nstep_cut, nb, ne
     real(kind=dp), dimension(:), allocatable :: data_num_win, data_den_win
 
@@ -408,7 +405,7 @@ contains
     real(kind=dp), dimension(:), allocatable :: seismo_syn_local, tmpl
     real(kind=dp), dimension(:, :), allocatable :: adj_src
     real(kind=dp), dimension(NCHI) :: window_chi_local
-    real(kind=dp), dimension(NDIM_MA) :: adj_syn_local, dat_meas, syn_meas
+    real(kind=dp), dimension(:), allocatable :: adj_syn_local, dat_meas, syn_meas
     ! real(kind=dp), dimension(:), allocatable :: adj_syn_local
     real(kind=dp) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
     integer :: out_imeas, irec, icomp, irec_local
@@ -424,6 +421,9 @@ contains
     allocate(this%net(this%nrec_loc))
     allocate(this%tstart(this%nrec_loc))
     allocate(this%tend(this%nrec_loc))
+    allocate(adj_syn_local(fpar%sim%nstep))
+    allocate(dat_meas(fpar%sim%nstep))
+    allocate(syn_meas(fpar%sim%nstep))
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
@@ -503,8 +503,8 @@ contains
           ! this%T_pmax_syn(irec_local, icomp) = T_pmax_syn_local
           this%T_pmax_syn(irec_local, icomp) = (dt*NSTEP)/maxloc(abs(this%seismo_syn(:, icomp, irec_local)), dim=1)
           if (icomp == 1) then
-            this%sta(irec_local) = this%od%stnm(irec)
-            this%net(irec_local) = this%od%netwk(irec)
+            this%sta(irec_local) = trim(this%od%stnm(irec))
+            this%net(irec_local) = trim(this%od%netwk(irec))
             this%tstart(irec_local) = tstart
             this%tend(irec_local) = tend
           endif

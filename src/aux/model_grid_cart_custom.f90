@@ -89,8 +89,8 @@
   ! parse command line arguments
   if (command_argument_count() ==0) then
     if (myrank == 0) then
-      print *,'USAGE:  mpirun -np NPROC bin/xcombine_vol_data_on_regular_grid &
-               data_filename input_dir output_dir model_name [is_replace_zero]'
+      print *,'USAGE:  mpirun -np NPROC bin/xcombine_vol_data_on_regular_grid'// &
+               'data_filename input_dir output_dir model_name [is_replace_zero]'
       stop 'Please check command line arguments'
     endif
   endif

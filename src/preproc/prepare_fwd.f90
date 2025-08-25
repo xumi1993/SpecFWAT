@@ -269,7 +269,6 @@ contains
 
   subroutine simulation(this)
     class(PrepareFWD), intent(inout) :: this
-    type(TeleData) :: td
 
     ! run forward simulation
     if (this%run_mode <= FORWARD_SAVE) then

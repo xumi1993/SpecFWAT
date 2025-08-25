@@ -4,7 +4,6 @@ program fwat_optimize
   use config
   use input_params, fpar => fwat_par_global
   use argparse, only: parse_args_optimize
-  use specfem_par, only: LOCAL_PATH
   use opt_io, only: write_model
   use model_grid_data
   use logger
