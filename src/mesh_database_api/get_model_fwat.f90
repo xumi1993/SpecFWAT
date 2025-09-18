@@ -527,7 +527,6 @@
                               c34,c35,c36,c44,c45,c46,c55,c56,c66, &
                               ANISOTROPY)
 
-  use constants, only: myrank
   use generate_databases_par, only: IMODEL,IMODEL_DEFAULT,IMODEL_GLL,IMODEL_1D_PREM,IMODEL_1D_CASCADIA,IMODEL_1D_SOCAL, &
     IMODEL_SALTON_TROUGH,IMODEL_TOMO,IMODEL_USER_EXTERNAL,IMODEL_IPATI,IMODEL_IPATI_WATER, &
     IMODEL_1D_PREM_PB,IMODEL_GLL, IMODEL_SEP,IMODEL_COUPLED, &
