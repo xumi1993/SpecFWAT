@@ -98,13 +98,12 @@ contains
   end subroutine read_event_kernel
 
   subroutine kernel_cijkl2hti(ievt, ker)
-    use specfem_par_elastic, only: c11store, c12store, c13store, c22store, c23store, c24store, &
-                                   c33store, c44store, c45store, c55store, c66store, &
+    use specfem_par_elastic, only: c44store, c45store, c55store, &
                                    rho_vp, rho_vs
     use specfem_par, only: rhostore
     integer, intent(in) :: ievt
     real(kind=cr), dimension(:,:,:,:,:), allocatable, intent(out) :: ker
-    real(kind=cr), dimension(:,:,:,:), allocatable :: A, F, C, L, N, vp, vs, gc, gs, gcp, gsp
+    real(kind=cr), dimension(:,:,:,:), allocatable ::  L, vp, vs, gc, gs, gcp, gsp
     real(kind=cr), dimension(:,:,:,:), allocatable :: c11_kl, c44_kl, c55_kl, c45_kl, &
                                                       c12_kl, c13_kl, c22_kl, c23_kl, &
                                                       c33_kl, c66_kl, rho_kl

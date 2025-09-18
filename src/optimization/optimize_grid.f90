@@ -78,7 +78,6 @@ contains
     real(kind=cr), dimension(:,:,:), allocatable :: rm, gm
     type(hdf5_file) :: h5file
     integer :: ipar
-    character(len=256), dimension(:), allocatable :: keys
 
     if(worldrank == 0) then
       this%model = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)      
@@ -141,8 +140,6 @@ contains
 
   subroutine model_update(this)
     class(OptGridFlow), intent(inout) :: this
-    real(kind=cr) :: max_dir_loc, max_dir
-    integer :: ipar
 
     if (worldrank == 0) then
       if (is_output_direction) then
@@ -167,7 +164,6 @@ contains
 
   subroutine model_update_tmp(this)
     class(OptGridFlow), intent(inout) :: this
-    integer :: ipar
 
     if (worldrank == 0) then
       this%model_tmp = zeros(ext_grid%nx,ext_grid%ny,ext_grid%nz, nkernel)
@@ -204,10 +200,10 @@ contains
     class(OptGridFlow), intent(inout) :: this
 
     integer :: iter_store, istore
-    real(kind=cr) :: max_dir_loc, max_dir
+    real(kind=cr) :: max_dir
     real(kind=cr), dimension(:,:,:,:), allocatable :: model0, model1, gradient0, gradient1, grad_bak
     real(kind=cr), dimension(:,:,:,:), allocatable :: q_vector, r_vector, gradient_diff, model_diff
-    real(kind=cr) :: p_sum, a_sum, b_sum, p(1000), a(1000), b, p_k_up_sum, p_k_down_sum, p_k, angle
+    real(kind=cr) :: p_sum, a_sum, b_sum, p(1000), a(1000), b, p_k_up_sum, p_k_down_sum, p_k
 
     ! get direction
     if (this%iter_current == fpar%update%ITER_START) then
@@ -300,7 +296,7 @@ contains
 
   subroutine get_CG_direction(this)
     class(OptGridFlow), intent(inout) :: this
-    real(kind=cr) :: max_dir_loc, max_dir, alpha
+    real(kind=cr) :: max_dir, alpha
     real(kind=cr), dimension(:,:,:,:), allocatable :: gradient0, gradient1, r_vector
     real(kind=cr), dimension(:), allocatable :: norm0, norm1, ratio
     integer :: i
@@ -376,6 +372,7 @@ contains
     logical :: break_flag
 
     run_mode = FORWARD_MEASADJ
+    local_path_backup = trim(LOCAL_PATH)
     do isub = 1, fpar%update%MAX_SUB_ITER
       total_misfit = 0.0_dp
       misfit_prev = 0.0_dp
@@ -396,6 +393,8 @@ contains
         
         ! Forward simulation and measure misfits
         call forward_for_simu_type(total_misfit(itype), misfit_prev(itype))
+        write(msg, '(A,F20.6)') 'Total misfit for '//trim(simu_type)//': ', total_misfit(itype)
+        call log%write(msg, .true.)
       enddo
       call synchronize_all()
 

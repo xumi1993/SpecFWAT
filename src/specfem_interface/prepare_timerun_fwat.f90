@@ -112,8 +112,8 @@
       else
         call couple_with_injection_prepare_boundary_fwat(fpar%acqui%evtid_names(ievt))
       endif
-      call log%write('Finished calculating FK wavefield', .true.)
     endif
+    call log%write('Finished FK wavefield preparation', .true.)
   endif
 
   ! prepares GPU arrays

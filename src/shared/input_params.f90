@@ -2,6 +2,7 @@ module input_params
   use config
   use fwat_mpi
   use ma_variables
+  use utils, only: split_by_spaces
 
   implicit none
 
@@ -22,7 +23,8 @@ module input_params
 
     contains
     procedure, private :: alloc => acqui_alloc
-    procedure :: read => acqui_read_source_set, finalize => acqui_finalize
+    procedure :: read => acqui_read_source_set
+    procedure :: finalize => acqui_finalize
   end type acqui_params
 
   type rf_params
@@ -70,7 +72,8 @@ module input_params
     type(update_params) :: update
     type(model_grid) :: grid
     contains
-    procedure :: read => read_fwat_parameter_file, select_simu_type
+    procedure :: read => read_fwat_parameter_file
+    procedure :: select_simu_type
   end type fwat_params
 
   type(sim_params), target :: tele_par, noise_par
@@ -81,7 +84,8 @@ contains
     implicit none
 
     class(acqui_params), intent(inout) :: this
-    character(len=MAX_STRING_LEN) :: evtnm, line
+    character(len=MAX_STRING_LEN) :: evtnm, line, msg
+    character(len=MAX_STRING_LEN), allocatable :: line_sp(:)
     real(kind=cr) :: junk_cr
     integer, parameter :: FID = 878
     integer :: ievt
@@ -92,7 +96,7 @@ contains
       if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
       ievt = 0
       do 
-        read(FID, *, iostat=ier) evtnm
+        read(FID, *, iostat=ier) line
         if (ier /= 0) exit
         ievt = ievt + 1
       end do
@@ -108,9 +112,30 @@ contains
       open(unit=FID, file=this%evtset_file, status='old', iostat=ier)
       if (ier /= 0) call exit_mpi(worldrank, 'ERROR: cannot open file '//trim(this%evtset_file))
       do ievt = 1, this%nevents
-        read(FID,*,iostat=ier) evtnm,this%evla(ievt),this%evlo(ievt), &
-                                this%evdp(ievt),junk_cr,&
-                                this%src_weight(ievt)
+        read(FID, '(a)', iostat=ier) line
+        if (ier/=0) call exit_mpi(worldrank, 'error read line')
+        line_sp = split_by_spaces(trim(line))
+        if (size(line_sp) < 5) then
+          write(msg, '(a,i2,a,i2,a,a)') 'ERROR: wrong format in line ', ievt, '. ', size(line_sp), ' columns found.', &
+                                        ' At least 5 columns are required.'
+          call exit_mpi(worldrank, trim(msg))
+        end if
+        evtnm = trim(line_sp(1))
+        read(line_sp(2),*) this%evla(ievt)
+        read(line_sp(3),*) this%evlo(ievt)
+        read(line_sp(4),*) this%evdp(ievt)
+        read(line_sp(5),*) junk_cr
+        if (size(line_sp) == 5) then
+          this%src_weight(ievt) = 1.0_cr
+        else if (size(line_sp) == 6) then
+          read(line_sp(6),*) this%src_weight(ievt)
+        else
+          write(msg, '(a,i2,a,i2,a,a)') 'ERROR: wrong format in line ', ievt, '. ', size(line_sp), ' columns found.', &
+                                        ' At most 6 columns are allowed.'
+          call exit_mpi(worldrank, trim(msg))
+        end if
+        if (ier /= 0) print *, 'error read line ', trim(evtnm), this%evla(ievt),this%evlo(ievt), &
+                                this%evdp(ievt), junk_cr, this%src_weight(ievt)
         if (ier /= 0) this%src_weight(ievt) = 1.0_cr
         this%station_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(STATIONS_PREFIX)//'_'//trim(evtnm)
         if (simu_type == SIMU_TYPE_NOISE) then
@@ -189,7 +214,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, tomo, rf, output, post, update, ma, grid
+    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, ma, grid
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -254,6 +279,8 @@ contains
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
+        if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
+        supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
         list => tele%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_string_list(list, this%sim%RCOMPS)
@@ -405,6 +432,7 @@ contains
 
     ! broadcast tele parameters
     call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
+    call bcast_all_singlel(supp_stf)
     call bcast_all_singlei(tele_par%NSTEP)
     call bcast_all_singlei(tele_par%IMEAS)
     call bcast_all_singlei(tele_par%ITAPER)
@@ -503,7 +531,6 @@ contains
     use specfem_par, only: NSTEP, DT, LOCAL_PATH
     use ma_variables
     class(fwat_params), intent(inout) :: this
-    integer :: icomp
 
     select case (simu_type)
       case (SIMU_TYPE_TELE)
@@ -520,7 +547,7 @@ contains
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
     if (is_joint) then
-      local_path_fwat = trim(LOCAL_PATH)//'/'//trim(simu_type)
+      local_path_fwat = trim(local_path_backup)//'/'//trim(simu_type)
     else
       local_path_fwat = trim(LOCAL_PATH)
     endif

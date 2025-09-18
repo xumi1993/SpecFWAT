@@ -18,7 +18,7 @@ program fwat_post_proc
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
 
-  call fpp%init(.true.)
+  call fpp%init()
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then
 

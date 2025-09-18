@@ -3,7 +3,7 @@ module tele_data
   use ma_constants
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, get_gauss_fac, mkdir
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
-                    myconvolution_dp, time_deconv, mycorrelation_dp
+                    myconvolution_dp, time_deconv, mycorrelation_dp, interpolate_func_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
@@ -36,23 +36,14 @@ module tele_data
 
 contains
 
-  subroutine semd2sac(this, ievt, is_conv_stf)
+  subroutine semd2sac(this, ievt)
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
-    logical, intent(in), optional :: is_conv_stf
     integer :: irec, irec_local, icomp
-    logical :: is_conv_stf_local
     real(kind=dp), dimension(:), allocatable :: stf_array, seismo_syn
     real(kind=cr), dimension(:), allocatable :: bazi
     character(len=MAX_STRING_LEN) :: datafile
     type(sachead) :: header
-    real(kind=cr) :: az, baz, dist, gcarc
-
-    if (present(is_conv_stf)) then
-      is_conv_stf_local = is_conv_stf
-    else
-      is_conv_stf_local = .false.
-    endif
 
     call this%init(ievt)
 
@@ -62,19 +53,21 @@ contains
     bazi = zeros(this%nrec)+this%baz
     call this%read(bazi)
 
-    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call mkdir(fpar%acqui%in_dat_path(this%ievt))
     call synchronize_all()
+
+    if (.not. supp_stf) then
+      if(worldrank == 0) call read_stf(stf_array)
+      if (worldrank > 0) allocate(stf_array(fpar%sim%nstep))
+      call bcast_all_dp(stf_array, fpar%sim%nstep)
+    endif
 
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
-        if (is_conv_stf_local) then
-          ! read stf
-          call read_stf(stf_array)
-        endif
+        ! read stf
         do icomp = 1, fpar%sim%NRCOMP
-          if (is_conv_stf_local) then
+          if (.not. supp_stf) then
             ! convolve stf with seismogram
             call myconvolution_dp(this%data(:, icomp, irec), stf_array, seismo_syn, 0)
             seismo_syn = seismo_syn * fpar%sim%dt
@@ -93,8 +86,8 @@ contains
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
-          header%knetwk = this%od%netwk(irec)
-          header%kstnm = this%od%stnm(irec)
+          header%knetwk = trim(this%od%netwk(irec))
+          header%kstnm = trim(this%od%stnm(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
           header%t0 = this%ttp(irec)
           call sacio_writesac(datafile, header, seismo_syn, ier)
@@ -115,10 +108,10 @@ contains
         call sacio_readsac(datafile, header, datarray, ier)
         if (ier /= 0) call exit_MPI(0, 'Error reading STF file '//trim(datafile))
         ! interpolate to the same time step
-        if (abs(header%delta - fpar%sim%dt) > 1.0e-3 .or. header%npts /= fpar%sim%nstep) then
-          thalf = (header%npts - 1) * header%delta / 2.0_dp
-          call interpolate_syn_dp(datarray, -thalf, dble(header%delta), header%npts, &
-                                  -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+        if (abs(header%delta - fpar%sim%dt) > 1.0e-4 .or. header%npts /= fpar%sim%nstep) then
+          thalf = (fpar%sim%nstep - 1) * fpar%sim%dt / 2.0_dp
+          datarray = interpolate_func_dp(datarray, dble(header%b), dble(header%delta), header%npts, &
+                                          -thalf, dble(fpar%sim%dt), fpar%sim%nstep)
         endif
       end subroutine read_stf
   end subroutine semd2sac
@@ -127,8 +120,7 @@ contains
     class(TeleData), intent(inout) :: this
     integer, intent(in) :: ievt
     integer :: irec, irec_local, icomp
-    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat,&
-         seismo_syn, seismo_dat_glob, seismo_syn_glob
+    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat_glob, seismo_syn_glob
     real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
     character(len=MAX_STRING_LEN) :: msg
@@ -306,25 +298,21 @@ contains
     real(kind=dp), dimension(:), allocatable, intent(out) :: stf
     real(kind=cr), dimension(:), allocatable :: stf_dp
     real(kind=cr), intent(in) :: tref
-    real(kind=cr) :: tb, te, f0, time_shift
-    integer :: nstep_cut
+    real(kind=cr) :: tb, te, time_shift
+    integer :: nstep_cut, nb, ne
     real(kind=dp), dimension(:), allocatable :: data_num_win, data_den_win
 
     ! cut data to from fpar%sim%time_win(1) to fpar%sim%time_win(2)
-    data_num_win = data_num(1:fpar%sim%nstep)
-    data_den_win = data_den(1:fpar%sim%nstep)
-    tb = tref + fpar%sim%time_win(1)
-    te = tref + fpar%sim%time_win(2)
-    time_shift = (NSTEP / 2) * DT
-    nstep_cut = int((te - tb) / fpar%sim%dt) + 1
-    call interpolate_syn_dp(data_num_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
-                            dble(tb), dble(fpar%sim%dt), nstep_cut)
-    call interpolate_syn_dp(data_den_win, -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep, &
-                            dble(tb), dble(fpar%sim%dt), nstep_cut)
-    call interpolate_syn_dp(data_num_win, dble(tb), dble(fpar%sim%dt), nstep_cut, &
-                            -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
-    call interpolate_syn_dp(data_den_win, dble(tb), dble(fpar%sim%dt), nstep_cut, &
-                            -dble(T0), dble(fpar%sim%dt), fpar%sim%nstep)
+    data_num_win = zeros_dp(fpar%sim%nstep)
+    data_den_win = zeros_dp(fpar%sim%nstep)
+    tb = tref + fpar%sim%time_win(1) + T0
+    te = tref + fpar%sim%time_win(2) + T0
+    nb = int((tb / fpar%sim%dt)) + 1
+    ne = int((te / fpar%sim%dt)) + 1
+    time_shift = ((NSTEP-1) / 2) * DT
+    nstep_cut = ne - nb + 1
+    data_num_win(1:nstep_cut) = data_num(nb:ne)
+    data_den_win(1:nstep_cut) = data_den(nb:ne)
     if (maxval(abs(data_den_win)) < 1.0e-10) &
       call exit_MPI(0, 'Error: data_den_win is zero')
     call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
@@ -333,7 +321,7 @@ contains
     ! f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 4
     ! call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
     call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
-                     1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+                     1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), 2)
 
   end subroutine deconv_for_stf
 
@@ -417,7 +405,7 @@ contains
     real(kind=dp), dimension(:), allocatable :: seismo_syn_local, tmpl
     real(kind=dp), dimension(:, :), allocatable :: adj_src
     real(kind=dp), dimension(NCHI) :: window_chi_local
-    real(kind=dp), dimension(NDIM_MA) :: adj_syn_local, dat_meas, syn_meas
+    real(kind=dp), dimension(:), allocatable :: adj_syn_local, dat_meas, syn_meas
     ! real(kind=dp), dimension(:), allocatable :: adj_syn_local
     real(kind=dp) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
     integer :: out_imeas, irec, icomp, irec_local
@@ -433,6 +421,9 @@ contains
     allocate(this%net(this%nrec_loc))
     allocate(this%tstart(this%nrec_loc))
     allocate(this%tend(this%nrec_loc))
+    allocate(adj_syn_local(fpar%sim%nstep))
+    allocate(dat_meas(fpar%sim%nstep))
+    allocate(syn_meas(fpar%sim%nstep))
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
@@ -512,8 +503,8 @@ contains
           ! this%T_pmax_syn(irec_local, icomp) = T_pmax_syn_local
           this%T_pmax_syn(irec_local, icomp) = (dt*NSTEP)/maxloc(abs(this%seismo_syn(:, icomp, irec_local)), dim=1)
           if (icomp == 1) then
-            this%sta(irec_local) = this%od%stnm(irec)
-            this%net(irec_local) = this%od%netwk(irec)
+            this%sta(irec_local) = trim(this%od%stnm(irec))
+            this%net(irec_local) = trim(this%od%netwk(irec))
             this%tstart(irec_local) = tstart
             this%tend(irec_local) = tend
           endif

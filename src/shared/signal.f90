@@ -316,7 +316,8 @@ contains
     integer, parameter  :: part=0
 
     real(kind=cr), intent(in) :: dt
-    real(kind=cr)             :: amp_corr
+    real(kind=cr)             :: amp_corr, invpow, invpowu,  sumsq_i, sumsq,&
+                                 minderr, d_error, amp
 
     real(kind=cr), dimension(nt), intent(in)    :: dobs, dcal
     real(kind=cr), dimension(:), allocatable, intent(inout) :: src_sum
@@ -342,24 +343,38 @@ contains
 
     !* 2. Time iteration to estimate sources
     dobs2 = dobs
+    invpow = 1. / (dt * sum(dcal**2))
+    invpowu = 1. / (dt * sum(dobs2**2))
+    minderr = 0.001 
+    d_error = 100 * invpow + minderr
     do i = 1, nit
+      if (abs(d_error) < minderr) exit
+      !* Compute correlation
+      call mycorrelation(dobs2,dcal,crosscorr,part)
+      crosscorr = crosscorr * dt
 
-       !* Compute correlation
-       call mycorrelation(dobs2,dcal,crosscorr,part)
-       crosscorr = crosscorr * dt
+      !* Find maximum of correlation
+      ii = maxloc(abs(crosscorr),dim=1)
 
-       !* Find maximum of correlation
-       ii = maxloc(abs(crosscorr),dim=1)
+      !* Put local contibution to src_one and src_sum
+      ! src_one     = 0._cr
+      ! src_one(ii) = crosscorr(ii) * amp_corr
+      ! src_sum     = src_sum + src_one
+      amp = crosscorr(ii) * invpow / dt
+      src_sum(ii) = src_sum(ii) + amp
+      src_one(ii) = amp
+    
+      !* Convolve
+      call myconvolution(src_one,dcal,new_obs,part)
+      new_obs = new_obs * dt
+      dobs2 = dobs2 - new_obs
 
-       !* Put local contibution to src_one and src_sum
-       src_one     = 0._cr
-       src_one(ii) = crosscorr(ii) * amp_corr
-       src_sum     = src_sum + src_one
+      ! * Estimate error
+      sumsq = sum(dobs**2) * dt * invpowu
+      d_error = 100 * (sumsq_i - sumsq)
+      sumsq_i = sumsq
 
-       !* Convolve
-       call myconvolution(src_one,dcal,new_obs,part)
-       new_obs = new_obs * dt
-       dobs2 = dobs2 - new_obs
+      src_one = 0._cr
 
     enddo
 

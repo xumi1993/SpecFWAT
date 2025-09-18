@@ -45,7 +45,6 @@ contains
 
       call read_model_misfit(model_current, ievt, misfit_loc)
       misfit_prev = misfit_prev + misfit_loc
-        ! misfit_prev = total_misfit
 
       call synchronize_all()
     enddo
@@ -68,7 +67,7 @@ contains
     logical, intent(out) :: break_flag
     real(kind=dp) :: f1, f0, qt
     real(kind=cr) :: qp
-    real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, linf_val, mean_val
+    real(kind=cr) :: norm_val(NUM_INV_TYPE), std_val, linf_val
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker, direc_gll
     real(kind=cr), dimension(:,:,:), allocatable :: direc_grid
     character(len=MAX_STRING_LEN) :: kernel_path

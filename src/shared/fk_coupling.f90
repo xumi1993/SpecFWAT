@@ -71,8 +71,8 @@ contains
   subroutine couple_with_injection_prepare_boundary_fwat(evtid)
     character(len=*), intent(in) :: evtid
     character(len=MAX_STRING_LEN)  :: out_dir, fkprname
-    logical :: findfile
-    integer :: ier, FID=858
+    ! logical :: findfile
+    integer :: ier
 
     !! for FK point for intialization injected wavefield
     ! real(kind=cr) :: Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box
@@ -395,7 +395,7 @@ contains
 
   subroutine read_fk_coupling_file(evtid)
     use hdf5_interface
-    integer :: ier, FID=858
+    integer :: ier
     character(len=*) :: evtid
     character(len=MAX_STRING_LEN) :: out_dir, fkprname
     real(kind=cr) :: DF_FK
