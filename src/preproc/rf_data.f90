@@ -76,8 +76,8 @@ module rf_data
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
-          header%knetwk = this%od%netwk(irec)
-          header%kstnm = this%od%stnm(irec)
+          header%knetwk = trim(this%od%netwk(irec))
+          header%kstnm = trim(this%od%stnm(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
           header%user1 = fpar%sim%rf%f0(igauss)
           header%kuser1 = 'gauss'
@@ -92,7 +92,6 @@ module rf_data
   subroutine preprocess(this, ievt)
     class(RFData), intent(inout) :: this
     integer, intent(in) :: ievt    
-    integer :: irec_local, irec
     real(kind=cr), dimension(:), allocatable :: bazi
     
     fpar%sim%NRCOMP = 1
@@ -120,9 +119,8 @@ module rf_data
   subroutine measure_adj(this)
     use measure_adj_mod, only: measure_adj_rf
     class(RFData), intent(inout) :: this
-    type(sachead) :: header
-    character(len=MAX_STRING_LEN) :: chan, msg
-    integer :: irec_local, irec, igaus, icomp
+    character(len=MAX_STRING_LEN) :: msg
+    integer :: irec_local, irec, igaus
     real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
     real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
     real(kind=dp), dimension(:,:,:), allocatable :: window_chi, adj_src
@@ -167,8 +165,8 @@ module rf_data
           T_pmax_dat(irec_local, 1) = 0.0_dp
           T_pmax_syn(irec_local, 1) = 0.0_dp
           if (igaus == 1) then
-            sta(irec_local) = this%od%stnm(irec)
-            net(irec_local) = this%od%netwk(irec)
+            sta(irec_local) = trim(this%od%stnm(irec))
+            net(irec_local) = trim(this%od%netwk(irec))
             tstart(irec_local) = this%ttp(irec) - dble(fpar%sim%TIME_WIN(1)) 
             tend(irec_local) =  this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
           endif
@@ -268,8 +266,8 @@ module rf_data
           call sacio_newhead(header, real(DT), NSTEP, -real(T0))
           header%az = this%az
           header%baz = this%baz
-          header%kstnm = this%od%stnm(irec)
-          header%knetwk = this%od%netwk(irec)
+          header%kstnm = trim(this%od%stnm(irec))
+          header%knetwk = trim(this%od%netwk(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
           header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
           header%t0 = this%ttp(irec)
@@ -290,8 +288,8 @@ module rf_data
             write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
             header%az = this%az
             header%baz = this%baz
-            header%kstnm = this%od%stnm(irec)
-            header%knetwk = this%od%netwk(irec)
+            header%kstnm = trim(this%od%stnm(irec))
+            header%knetwk = trim(this%od%netwk(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
             header%user1 = fpar%sim%rf%f0(igaus)
             header%kuser1 = 'gauss'

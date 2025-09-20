@@ -7,15 +7,15 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   use constants
   use config, only : distance_min_glob
   use specfem_par
-  use specfem_par_elastic, only: ispec_is_elastic, &
+  ! use specfem_par_elastic, only: ispec_is_elastic, &
+  use specfem_par_elastic, only: &
       nspec_inner_elastic,nspec_outer_elastic,phase_ispec_inner_elastic
-  use specfem_par_acoustic, only: ispec_is_acoustic
-  use specfem_par_poroelastic, only: ispec_is_poroelastic
+  ! use specfem_par_acoustic, only: ispec_is_acoustic
+  ! use specfem_par_poroelastic, only: ispec_is_poroelastic
   use pml_par, only: is_CPML
   ! use wavefield_discontinuity_par,only: IS_WAVEFIELD_DISCONTINUITY
 
   implicit none 
-  integer ::  NARGS
   integer, parameter :: PRINT_INFO_PER_STEP = 1000
   logical, parameter :: ZERO_PML = .true.
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), intent(in) :: dat_in
@@ -40,9 +40,9 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
 
   !character(len=MAX_STRING_LEN) :: kernel_names(MAX_KERNEL_NAMES)
   !character(len=MAX_STRING_LEN) :: kernel_names_comma_delimited
-  character(len=MAX_STRING_LEN) :: kernel_name
+  ! character(len=MAX_STRING_LEN) :: kernel_name
   integer :: num_elements
-  real t1,t2,tnow,tlast
+  ! real t1,t2,tnow,tlast
 
   real(kind=CUSTOM_REAL) :: ch, cv, cmax
   real(kind=CUSTOM_REAL) :: min_val, max_val, min_val_glob, max_val_glob
@@ -62,7 +62,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   !real(kind=CUSTOM_REAL), dimension(MAX_KERNEL_NAMES) :: min_old,min_new,min_old_all,min_new_all
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: buffer_send_vector_ext_mesh_smooth
   real(kind=CUSTOM_REAL), dimension(:,:), allocatable :: buffer_recv_vector_ext_mesh_smooth
-  logical :: BROADCAST_AFTER_READ
+  ! logical :: BROADCAST_AFTER_READ
  
   call world_size(sizeprocs)
   call world_rank(myrank)
@@ -382,7 +382,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
                           ibool_interfaces_ext_mesh,dat_bak,dat,rvol,dat_glob,ddat_glob)
   endif
   call synchronize_all()
-  call cpu_time(t2)
+  ! call cpu_time(t2)
   ! if (myrank == 0) & 
     ! print *, 'Computation time with PDE-based smoothing on CPU:', t2-t1
   !! output

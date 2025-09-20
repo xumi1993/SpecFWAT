@@ -13,7 +13,7 @@ program decompose_h5_gll
 
   integer, parameter :: NARGS = 3, FID=27
 
-  character(len=MAX_STRING_LEN) :: fname,outdir,grid_file,data_filename,key_name,prname_lp,arg(9)
+  character(len=MAX_STRING_LEN) :: fname,outdir,data_filename,key_name,prname_lp,arg(9)
   integer :: ierr, NSPEC_IRREGULAR, i
   ! double precision, dimension(:), allocatable :: xfd, yfd, zfd
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable :: model_on_SEM_mesh

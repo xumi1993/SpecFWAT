@@ -74,7 +74,7 @@ contains
     real(kind=cr), dimension(:,:,:), allocatable, intent(out) :: hess
     real(kind=cr), dimension(:), allocatable :: zl
     real(kind=cr) :: maxh
-    integer :: iz, ix, iy, ispec, iglob
+    integer :: ix, iy
 
     if (worldrank == 0) then
       call get_1d_precond(zl)
