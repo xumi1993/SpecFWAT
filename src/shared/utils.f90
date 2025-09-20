@@ -1598,4 +1598,56 @@ end function
 
   end function split_by_spaces
 
+  function gradient(y, dx)
+    real(kind=DPRE), dimension(:), intent(in) :: y
+    real(kind=DPRE), intent(in) :: dx
+    real(kind=DPRE), dimension(:), allocatable :: gradient
+    integer :: n, i
+
+    n = size(y)
+    allocate(gradient(n))
+
+    do i = 2, n-1
+      gradient(i) = (y(i+1) - y(i-1)) / (2.0_dp * dx)
+    end do
+    gradient(1) = (y(2) - y(1)) / dx
+    gradient(n) = (y(n) - y(n-1)) / dx
+
+  end function gradient
+
+  real(kind=DPRE) function simpson(y, dx)
+    implicit none
+    real(kind=DPRE), dimension(:), intent(in) :: y
+    real(kind=DPRE), intent(in) :: dx
+    integer :: m, n, i
+    real(kind=DPRE) :: sum
+
+    n = size(y)
+    m = n 
+
+    if (m < 2) then
+      simpson = 0.0_dp
+      return
+    end if
+
+    ! the closest even number to m
+    if (mod(m,2)==0) then
+      sum = y(1) + y(n-1)
+      do i = 2, n-2, 2
+        sum = sum + 4.0_dp*y(i) + 2.0_dp*y(i+1)
+      end do
+      simpson = (dx/3.0_dp)*sum + 0.5_dp*dx*(y(n-1)+y(n))
+    else
+      sum = y(1) + y(n)
+      do i = 2, n-1, 2
+        sum = sum + 4.0_dp*y(i)
+      end do
+      do i = 3, n-2, 2
+        sum = sum + 2.0_dp*y(i)
+      end do
+      simpson = (dx/3.0_dp)*sum
+    end if
+
+  end function simpson
+
 end module

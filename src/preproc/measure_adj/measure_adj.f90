@@ -40,7 +40,7 @@ contains
   implicit none
 
   character(len=150) :: datafile,file_prefix,file_prefix0,file_prefix2,measure_file_prefix,adj_file_prefix
-  integer :: num_meas, j, npts, nn !, ios, npt3
+  integer :: num_meas, j, npts !, ios, npt3
   double precision, dimension(:), intent(in) :: data_in, syn_in
   character(len=*), intent(in) :: net_in,sta_in,chan_dat_in
   double precision, dimension(:), intent(inout) :: window_chi
@@ -48,7 +48,7 @@ contains
 
   double precision, dimension(NDIM_MA) :: data, syn, syn_phydisp, adj_syn_all, &
                         tr_adj_src, am_adj_src, recon_cc_all, syn_dtw_cc, syn_dtw_mt
-  double precision :: t0, dt, tt, dtt, df
+  double precision :: t0, dt, dtt, df
   double precision :: fend0, fstart0, fend, fstart
 
   character(len=10) :: net,sta,chan_dat,chan,cmp,chan_syn

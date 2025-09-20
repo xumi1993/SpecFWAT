@@ -59,8 +59,8 @@ contains
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
-          header%knetwk = this%od%netwk(irec)
-          header%kstnm = this%od%stnm(irec)
+          header%knetwk = trim(this%od%netwk(irec))
+          header%kstnm = trim(this%od%stnm(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
           call sacio_writesac(datafile, header, this%data(:, icomp_syn, irec), ier)
           if (ier /= 0) call exit_MPI(0, 'Error writing SAC file '//trim(datafile))
@@ -96,7 +96,7 @@ contains
     real(kind=dp), dimension(:,:,:), allocatable :: window_chi
     real(kind=dp), dimension(NCHI) :: window_chi_loc
     real(kind=dp), dimension(:,:,:,:), allocatable :: adj_src
-    real(kind=dp), dimension(:), allocatable :: tstart, tend, seismo_tmp, seismo_dat,seismo_syn
+    real(kind=dp), dimension(:), allocatable :: tstart, tend, seismo_dat,seismo_syn
     real(kind=dp), dimension(:), allocatable :: adj_2, adj_3, adj_1
     real(kind=dp), dimension(NDIM_MA) :: adj_syn_local
     real(kind=dp) :: dist_min, max_amp, tr_chi_loc, am_chi_loc, T_pmax_dat_loc, T_pmax_syn_loc
@@ -193,8 +193,8 @@ contains
             endif
             ! write adjoint source
             if (iflt == 1) then
-              sta(irec_local) = this%od%stnm(irec)
-              net(irec_local) = this%od%netwk(irec)
+              sta(irec_local) = trim(this%od%stnm(irec))
+              net(irec_local) = trim(this%od%netwk(irec))
             endif
             if (IS_OUTPUT_ADJ_SRC) then
               block
@@ -290,8 +290,8 @@ contains
     header%stla = this%od%stla(irec)
     header%stlo = this%od%stlo(irec)
     header%stel = this%od%stel(irec)
-    header%knetwk = this%od%netwk(irec)
-    header%kstnm = this%od%stnm(irec)
+    header%knetwk = trim(this%od%netwk(irec))
+    header%kstnm = trim(this%od%stnm(irec))
     header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
     header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
     header%t1 = real(tb)
@@ -302,7 +302,7 @@ contains
 
   subroutine calc_distaz(this)
     class(NoiseData), intent(inout) :: this
-    integer :: irec_local, irec
+    integer :: irec
     real(kind=dp) :: dist, bazi, azi, delta
 
     if (worldrank == 0) then

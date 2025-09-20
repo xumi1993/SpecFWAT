@@ -60,11 +60,25 @@ module fwat_constants
   ! meas_adj
   integer, parameter :: NITER = 200
   logical :: supp_stf = .false.
+  real(kind=dp), parameter :: TRBDNDW = 0.3
+  real(kind=dp), parameter :: APARM = 30.
+  integer, parameter :: IORD = 2
+  integer, parameter :: PASSES = 2
+
+  ! Measurement types
+  integer, parameter :: IMEAS_WAVEFORM = 1
+  integer, parameter :: IMEAS_WAVEFORM_CONV = 2
+  integer, parameter :: IMEAS_RF = 3
+  integer, parameter :: IMEAS_EXP_PHASE = 4
+  integer, parameter :: IMEAS_CC_TT = 11
+  integer, parameter :: IMEAS_CC_DLNA = 12
+  integer, parameter :: IMEAS_CC_TT_MT = 13
+  integer, parameter :: IMEAS_CC_DLNA_MT = 14
 
 end module fwat_constants
 
 module config
-  use fwat_constants, only: cr, MAX_STRING_LEN
+  use fwat_constants
 
   integer :: worldrank, worldsize
   integer :: noderank, nodesize
@@ -157,10 +171,10 @@ module ma_constants
 
   ! filter parameters for xapiir bandpass subroutine (filter type is BP)
   ! (These should match the filter used in pre-processing.)
-  real(kind=dp), parameter :: TRBDNDW = 0.3
-  real(kind=dp), parameter :: APARM = 30.
-  integer, parameter :: IORD = 2
-  integer, parameter :: PASSES = 2
+  ! real(kind=dp), parameter :: TRBDNDW = 0.3
+  ! real(kind=dp), parameter :: APARM = 30.
+  ! integer, parameter :: IORD = 2
+  ! integer, parameter :: PASSES = 2
   integer, parameter :: MAX_STR_CHI = 30
 
   ! takes waveform of first trace dat_dtw, without taking the difference waveform to the second trace syn_dtw

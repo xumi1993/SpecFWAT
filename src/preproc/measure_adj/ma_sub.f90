@@ -938,7 +938,7 @@ contains
   subroutine bandpass(x,n,delta_t,f1,f2)
     ! a double-precision wrapper around sac xapiir()
     ! modified from FLEXWIN subroutines on 26-July-2009
-
+    use fwat_constants
     implicit none
     integer, intent(in) :: n
     double precision, intent(inout),  dimension(*) :: x

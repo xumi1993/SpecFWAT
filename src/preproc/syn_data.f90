@@ -14,7 +14,6 @@ module syn_data
 
   implicit none
 
-  integer, private :: ier
   integer, parameter, private :: NCOMP=3
 
   type :: SynData
@@ -51,7 +50,7 @@ contains
     class(SynData), intent(inout) :: this
     real(kind=cr), dimension(:), intent(in) :: bazi
     integer :: irec, irec_local, ispec, iproc, nsta_irank, i
-    real(kind=dp), dimension(:, :, :), allocatable :: data_local, dat_sum
+    real(kind=dp), dimension(:, :, :), allocatable :: data_local
     real(kind=dp), dimension(:,:,:), allocatable :: recv_buffer
     integer, dimension(:), allocatable :: recv_indices, send_indices
 

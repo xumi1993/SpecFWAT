@@ -4,6 +4,7 @@ include_directories(
 
 add_subdirectory(telesubs)
 add_subdirectory(measure_adj)
+add_subdirectory(adjoint_sources)
 
 # object libraries of preproc
 file(GLOB SOURCES_Fortran "*.f90")
@@ -32,7 +33,7 @@ foreach(execsourcefile ${APP_SOURCES})
   target_link_libraries(${EXEC_NAME} PUBLIC preproc_objs shared_fwat_objs
                         shared_objs cuda_objs specfem3D_objs window_chi_objs
                         specfem_api_objs tele_objs measadj_objs
-                        config_objs hdf5_interface_objs utils_objs
+                        config_objs hdf5_interface_objs utils_objs fftpack_objs
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

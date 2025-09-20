@@ -5,7 +5,7 @@ module yaml
   
   private
   
-  integer,parameter :: string_length = 1024
+  integer,parameter :: string_length = 512
   integer,parameter :: error_length = 1024
   
   public :: parse, error_length

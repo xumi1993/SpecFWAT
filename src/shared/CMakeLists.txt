@@ -28,6 +28,7 @@ list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/util
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/hdf5_interface.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/config.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/aniso.f90")
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/fftpack.f90")
 
 add_library(shared_fwat_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(shared_fwat_objs PUBLIC shared_objs ${MPI_LIBRARIES} 

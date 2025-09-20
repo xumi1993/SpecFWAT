@@ -28,7 +28,7 @@ contains
     ! BU - butterworth
     ! BP - bandpass
     ! LQY: Shouldn't  delta_t_sngl = sngl(delta_t) still be done? same for f1,f2?
-    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),order,'BP',sngl(f1),sngl(f2),sngl(delta_t),PASSES)
+    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),order,'BP',real(f1),real(f2),sngl(delta_t),PASSES)
 
     x(1:n) = dble(x_sngl(1:n))
 
@@ -433,5 +433,186 @@ contains
     x = x - sum(x)/n
 
   end subroutine demean
+
+  subroutine window_taper(signal, taper_percentage, itaper_type)
+    real(kind=dp), intent(inout) :: signal(:)
+    real(kind=dp), intent(in) :: taper_percentage
+    integer, intent(in) :: itaper_type
+
+    integer :: frac, idx1, idx2, i, npts
+    real(kind=dp), allocatable :: taper(:)
+    real(kind=dp) :: power
+
+    if (taper_percentage < 0.0_dp .or. taper_percentage > 1.0_dp) then
+      print *, "taper_percentage must be 0 < % < 1"
+      stop
+    end if
+
+    npts = size(signal)
+    if (taper_percentage == 0.0_dp .or. taper_percentage == 1.0_dp) then
+      frac = int(npts*taper_percentage/2.0_dp)
+    else
+      frac = int(npts*taper_percentage/2.0_dp + 0.5_dp)
+    end if
+
+    idx1 = frac
+    idx2 = npts - frac
+
+    if (frac > 0) then
+      allocate(taper(frac))
+      select case (itaper_type)
+      case (1) ! "hanning"
+        do i = 1, frac
+          taper(i) = 0.5_dp - 0.5_dp * cos(2.0_dp*pi*real(i-1, dp)/(2*frac-1))
+        end do
+        signal(1:idx1) = signal(1:idx1) * taper(:)
+        do i = 1, frac
+          taper(i) = 0.5_dp - 0.5_dp * cos(2.0_dp*pi*real(frac+i-1, dp)/(2*frac-1))
+        end do
+        signal(idx2+1:npts) = signal(idx2+1:npts) * taper(:)
+      case (2) ! "hamming"
+        do i = 1, frac
+          taper(i) = 0.54_dp - 0.46_dp * cos(2.0_dp*pi*real(i-1, dp)/(2*frac-1))
+        end do
+        signal(1:idx1) = signal(1:idx1) * taper(:)
+        do i = 1, frac
+          taper(i) = 0.54_dp - 0.46_dp * cos(2.0_dp*pi*real(frac+i-1, dp)/(2*frac-1))
+        end do
+        signal(idx2+1:npts) = signal(idx2+1:npts) * taper(:)
+      case (3) ! "cos"
+        power = 1.0_dp
+        do i = 1, frac
+          taper(i) = cos(pi*real(i-1, dp)/(2*frac-1) - pi/2.0_dp)**power
+        end do
+        signal(1:idx1) = signal(1:idx1) * taper(:)
+        do i = 1, frac
+          taper(i) = cos(pi*real(frac+i-1, dp)/(2*frac-1) - pi/2.0_dp)**power
+        end do
+        signal(idx2+1:npts) = signal(idx2+1:npts) * taper(:)
+      case (4) ! "cos^10"
+        power = 10.0_dp
+        do i = 1, frac
+          taper(i) = 1.0_dp - cos(pi*real(i-1, dp)/(2*frac-1))**power
+        end do
+        signal(1:idx1) = signal(1:idx1) * taper(:)
+        do i = 1, frac
+          taper(i) = 1.0_dp - cos(pi*real(frac+i-1, dp)/(2*frac-1))**power
+        end do
+        signal(idx2+1:npts) = signal(idx2+1:npts) * taper(:)
+      case default
+        print *, "Taper type not supported!"
+        stop
+      end select
+      deallocate(taper)
+    end if
+
+  end subroutine window_taper
+
+  subroutine get_window_info(window, dt, nb, ne, nlen_win)
+    real(kind=dp), intent(in) :: window(2)
+    real(kind=dp), intent(in) :: dt
+    integer, intent(out) :: nb, ne, nlen_win
+
+    ! Calculate the number of samples in the window
+    nb = int(window(1) / dt) + 1
+    ne = int(window(2) / dt)
+    nlen_win = ne - nb + 1
+
+    if (nlen_win <= 0) then
+      print *, "Error: Invalid window length."
+      stop
+    end if
+
+  end subroutine get_window_info
+
+  subroutine process_cycle_skipping(phi_w, nfreq_min, nfreq_max, wvec, &
+                                  nlen_f, phase_step, verbose)
+    !
+    ! Check for cycle skipping by looking at the smoothness of phi
+    !
+    ! Arguments:
+    !   phi_w      - phase anomaly from transfer functions (real array)
+    !   nfreq_max  - maximum frequency for suitable MTM measurement (integer)
+    !   nfreq_min  - minimum frequency for suitable MTM measurement (integer)
+    !   wvec       - angular frequency array from DFT sample frequencies (complex array)
+    !   nlen_f     - length of frequency arrays (integer)
+    !   phase_step - maximum step for cycle skip correction (real, optional)
+    !
+    implicit none
+    
+    ! Arguments
+    integer, intent(in) :: nfreq_max, nfreq_min, nlen_f
+    real(kind=dp), intent(inout) :: phi_w(nlen_f)
+    real(kind=dp), intent(in) :: wvec(nlen_f)
+    real(kind=dp), intent(in), optional :: phase_step
+    logical, intent(in), optional :: verbose
+    
+    ! Local variables
+    integer :: iw, i
+    real(kind=dp) :: smth0, smth1, smth2
+    real(kind=dp) :: phase_diff, temp_period
+    real(kind=dp) :: phase_step_use
+    logical :: verbose_use
+
+
+    ! Set default phase_step if not provided
+    if (present(phase_step)) then
+        phase_step_use = phase_step
+    else
+        phase_step_use = 1.5_dp
+    endif
+
+    if (present(verbose)) then
+        verbose_use = verbose
+    else
+        verbose_use = .false.
+    end if
+    
+    ! Main loop for cycle skipping detection and correction
+    do iw = nfreq_min + 2, nfreq_max - 1 
+        
+      ! Calculate smoothness measures
+      smth0 = abs(phi_w(iw + 1) + phi_w(iw - 1) - 2.0_dp * phi_w(iw))
+      smth1 = abs((phi_w(iw + 1) + 2.0_dp * pi) + phi_w(iw - 1) - 2.0_dp * phi_w(iw))
+      smth2 = abs((phi_w(iw + 1) - 2.0_dp * pi) + phi_w(iw - 1) - 2.0_dp * phi_w(iw))
+      
+      ! Calculate phase difference
+      phase_diff = phi_w(iw) - phi_w(iw + 1)
+      
+      ! Check if phase difference exceeds threshold
+      if (abs(phase_diff) > phase_step_use) then
+          
+        ! Calculate period for logging (optional)
+        temp_period = 2.0_dp * pi / wvec(iw)
+        
+        ! Apply +2π correction if smth1 is smallest
+        if (smth1 < smth0 .and. smth1 < smth2) then
+          ! Optional: print warning message
+          if (verbose_use) then
+            write(*,*) '2pi phase shift at', iw, 'T=', temp_period, 'diff=', phase_diff
+          end if
+
+          ! Apply correction: phi_w[iw+1:nfreq_max] += 2*pi
+          do i = iw + 1, nfreq_max
+            phi_w(i) = phi_w(i) + 2.0_dp * pi
+          end do
+        endif
+        
+        ! Apply -2π correction if smth2 is smallest
+        if (smth2 < smth0 .and. smth2 < smth1) then
+          ! Optional: print warning message
+          if (verbose_use) then
+            write(*,*) '-2pi phase shift at', iw, 'T=', temp_period, 'diff=', phase_diff
+          end if
+
+          ! Apply correction: phi_w[iw+1:nfreq_max] -= 2*pi
+          do i = iw + 1, nfreq_max
+            phi_w(i) = phi_w(i) - 2.0_dp * pi
+          end do
+        endif
+      endif
+    end do
+    
+end subroutine process_cycle_skipping
 
 end module signal

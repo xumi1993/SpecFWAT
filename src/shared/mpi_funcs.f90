@@ -102,7 +102,7 @@ contains
   subroutine prepare_shm_array_cr_1d(buffer, n_elem, win)
     USE, INTRINSIC :: ISO_C_BINDING
     real(kind=cr), dimension(:), pointer :: buffer
-    integer :: ierr, istat,n_elem,n
+    integer :: ierr, n_elem, n
     integer(kind=MPI_ADDRESS_KIND) :: size
     integer :: win, real_size
     type(C_PTR) :: c_window_ptr
@@ -124,7 +124,7 @@ contains
   subroutine prepare_shm_array_cr_4d(buffer, nx, ny, nz, nk, win)
     USE, INTRINSIC :: ISO_C_BINDING
     real(kind=cr), dimension(:,:,:,:), pointer :: buffer
-    integer :: ierr, istat,n_elem,n, nx, ny, nz, nk
+    integer :: ierr,n, nx, ny, nz, nk
     integer(kind=MPI_ADDRESS_KIND) :: size
     integer :: win, real_size
     type(C_PTR) :: c_window_ptr
@@ -209,7 +209,7 @@ contains
 
   subroutine prepare_shm_array_ch_1d(buffer, n_elem, nlen, win)
     USE, INTRINSIC :: ISO_C_BINDING
-    integer :: ierr, istat,n_elem,n,nlen
+    integer :: ierr,n_elem,n,nlen
     character(len=nlen), dimension(:), pointer :: buffer
     integer(kind=MPI_ADDRESS_KIND) :: size
     integer :: win, char_size

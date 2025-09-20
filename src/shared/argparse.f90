@@ -4,8 +4,6 @@ module argparse
 
   implicit none
 
-  integer, private :: ier
-
 contains
   subroutine parse_args_fwd_meas_adj(ievt)
     integer, parameter :: max_num_args = 8
