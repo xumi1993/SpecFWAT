@@ -24,6 +24,8 @@ contains
     integer :: nlen_win, nlen, nb, ne
 
     this%nwin = 1
+    call this%initialize()
+
     nlen = size(dat_r)
     if (allocated(this%adj_src_r)) deallocate(this%adj_src_r)
     if (allocated(this%adj_src_z)) deallocate(this%adj_src_z)
@@ -47,7 +49,7 @@ contains
     ! calculate adjoint sources
     call myconvolution_dp(sr, dz, c1, 0)
     call myconvolution_dp(dr, sz, c2, 0)
-    conv_diff = c1 - c2
+    conv_diff = (c1 - c2) * dt
     call myconvolution_dp(dz(nlen_win:1:-1), &
                           conv_diff, adj_tw_r, 0)
     adj_tw_r = adj_tw_r * dt
@@ -55,7 +57,7 @@ contains
                           conv_diff, adj_tw_z, 0)
     adj_tw_z = adj_tw_z * dt
 
-    ! add windwow to adjoint source
+    ! add window to adjoint source
     call window_taper(adj_tw_r, cfg%taper_percentage, cfg%itaper_type)
     call window_taper(adj_tw_z, cfg%taper_percentage, cfg%itaper_type)
 
