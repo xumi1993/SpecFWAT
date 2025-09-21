@@ -385,7 +385,6 @@ module rf_data
 
   subroutine finalize(this)
     class(RFData), intent(inout) :: this
-    integer :: igaus
 
     call this%od%finalize()
     call free_shm_array(this%dat_win)

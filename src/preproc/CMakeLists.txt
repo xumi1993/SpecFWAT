@@ -16,7 +16,7 @@ target_link_libraries(window_chi_objs PRIVATE shared_objs shared_fwat_objs
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
                       specfem_api_objs cuda_objs tele_objs measadj_objs
-                      window_chi_objs)
+                      window_chi_objs adjsrc_objs config_objs)
 
 # executables
 set(APP_SOURCES
