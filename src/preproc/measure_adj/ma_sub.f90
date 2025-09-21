@@ -959,7 +959,7 @@ contains
     ! BU - butterworth
     ! BP - bandpass
     ! LQY: Shouldn't  delta_t_sngl = sngl(delta_t) still be done? same for f1,f2?
-    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),IORD,'BP',sngl(f1),sngl(f2),sngl(delta_t),PASSES)
+    call xapiir(x_sngl,n,'BU',0.3,30.0,2,'BP',sngl(f1),sngl(f2),sngl(delta_t),2)
 
     x(1:n) = dble(x_sngl(1:n))
 

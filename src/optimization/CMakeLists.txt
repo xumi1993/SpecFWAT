@@ -27,6 +27,7 @@ foreach(execsourcefile ${APP_SOURCES})
                         external_values_objs config_objs 
                         hdf5_interface_objs utils_objs window_chi_objs
                         mesh_subs_objs databases_subs_objs fftpack_objs
+                        adjsrc_objs
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

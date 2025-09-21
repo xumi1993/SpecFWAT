@@ -1,6 +1,8 @@
 module rf_data
   use config
-  use ma_constants
+  ! use ma_constants
+  use rf_misfit
+  use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
@@ -117,22 +119,26 @@ module rf_data
   end subroutine preprocess
 
   subroutine measure_adj(this)
-    use measure_adj_mod, only: measure_adj_rf
+    ! use measure_adj_mod, only: measure_adj_rf
     class(RFData), intent(inout) :: this
     character(len=MAX_STRING_LEN) :: msg
     integer :: irec_local, irec, igaus
     real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
-    real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
+    ! real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
+    real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3
     real(kind=dp), dimension(:,:,:), allocatable :: window_chi, adj_src
-    real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
-    character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
-    
+    ! real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
+    ! character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
+    type(RFMisfit) :: rfm
+    type(RECMisfit), dimension(:), allocatable :: recm
+    type(EVTMisfit) :: evtm
+
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, 2, this%nrec_loc)
-      allocate(sta(this%nrec_loc))
-      allocate(net(this%nrec_loc))
-      tstart = zeros_dp(this%nrec_loc)
-      tend = zeros_dp(this%nrec_loc)
+      allocate(recm(this%nrec_loc))
+      do irec_local = 1, this%nrec_loc
+        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP, 1, fpar%sim%rf%NGAUSS)
+      enddo
     endif
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
@@ -151,35 +157,53 @@ module rf_data
           ! adj_r_tw = zeros_dp(NSTEP)
           call bandpass_dp(synz, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call bandpass_dp(synr, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-          call measure_adj_rf(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec),&
-                              synr, synz, -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
-                              dble(-t0), dble(this%ttp(irec)), dble(DT), NSTEP, fpar%sim%rf%f0(igaus),&
-                              fpar%sim%rf%tshift, fpar%sim%rf%maxit, fpar%sim%rf%minderr, &
-                              window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
-                              this%od%netwk(irec), this%od%stnm(irec) &
-                              )
-          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw 
-          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw
-          tr_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
-          am_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
-          T_pmax_dat(irec_local, 1) = 0.0_dp
-          T_pmax_syn(irec_local, 1) = 0.0_dp
+          call rfm%calc_adjoint_source(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec), synr, synz, DT, &
+                                       dble(-this%ttp(irec)+T0), dble([ fpar%sim%TIME_WIN(1), fpar%sim%TIME_WIN(2) ]), &
+                                       dble(fpar%sim%rf%f0(igaus)), dble(fpar%sim%rf%tshift), &
+                                       fpar%sim%rf%maxit, dble(fpar%sim%rf%minderr))
+          ! call measure_adj_rf(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec),&
+          !                     synr, synz, -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
+          !                     dble(-t0), dble(this%ttp(irec)), dble(DT), NSTEP, fpar%sim%rf%f0(igaus),&
+          !                     fpar%sim%rf%tshift, fpar%sim%rf%maxit, fpar%sim%rf%minderr, &
+          !                     window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
+          !                     this%od%netwk(irec), this%od%stnm(irec) &
+          !                     )
+          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_r 
+          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_z
+          recm(irec_local)%misfits(1, 1, igaus) = rfm%misfits(1)
+          recm(irec_local)%residuals(1, 1, igaus) = rfm%residuals(1)
+          recm(irec_local)%imeas(1, 1, igaus) = rfm%imeas(1)
+          recm(irec_local)%total_misfit(igaus) = recm(irec_local)%total_misfit(igaus) + rfm%total_misfit
+          recm(irec_local)%band_name(igaus) = trim(this%band_name)
           if (igaus == 1) then
-            sta(irec_local) = trim(this%od%stnm(irec))
-            net(irec_local) = trim(this%od%netwk(irec))
-            tstart(irec_local) = this%ttp(irec) - dble(fpar%sim%TIME_WIN(1)) 
-            tend(irec_local) =  this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
+            recm(irec_local)%sta = trim(this%od%stnm(irec))
+            recm(irec_local)%net = trim(this%od%netwk(irec))
+            recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
+            recm(irec_local)%tstart(1, igaus) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
+            recm(irec_local)%tend(1, igaus) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
           endif
         enddo
       endif
-      call this%wchi(igaus)%assemble_window_chi(window_chi, tr_chi, am_chi,&
-                                               T_pmax_dat, T_pmax_syn, sta, net,&
-                                               tstart, tend)
-      call this%wchi(igaus)%write()
-      this%total_misfit(igaus) = this%wchi(igaus)%sum_chi(29)
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(igaus)
-      call log%write(msg, .true.)
+      ! call this%wchi(igaus)%assemble_window_chi(window_chi, tr_chi, am_chi,&
+      !                                          T_pmax_dat, T_pmax_syn, sta, net,&
+      !                                          tstart, tend)
+      ! call this%wchi(igaus)%write()
+      ! this%total_misfit(igaus) = this%wchi(igaus)%sum_chi(29)
+      ! write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(igaus)
+      ! call log%write(msg, .true.)
     enddo
+    call synchronize_all()
+
+    if (worldrank == 0) evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec, fpar%sim%rf%NGAUSS)
+    call evtm%assemble(recm)
+    if (worldrank == 0) then
+      do igaus = 1, fpar%sim%rf%NGAUSS
+        write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(igaus)
+        call log%write(msg, .true.)
+      enddo
+    end if
+    call evtm%write()
+
     call synchronize_all()
 
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
