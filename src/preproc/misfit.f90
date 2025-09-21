@@ -7,7 +7,8 @@ module misfit_mod
     character(len=MAX_STRING_LEN) :: net, sta
     character(len=MAX_STRING_LEN), dimension(:), allocatable :: chan, band_name
     real(kind=dp), dimension(:,:), allocatable :: tstart, tend
-    real(kind=dp), dimension(:,:,:), allocatable :: misfits, residuals, imeas
+    real(kind=dp), dimension(:,:,:), allocatable :: misfits, residuals
+    integer, dimension(:,:,:), allocatable :: imeas
     real(kind=dp), dimension(:), allocatable :: total_misfit
     integer :: nwin
   end type RECMisfit
@@ -69,7 +70,7 @@ contains
     evtm%evtname = trim(evtname)
     evtm%nrec = nrec
     evtm%nflt = nflt
-    allocate(evtm%rec_misfits(nrec))
+    if (worldrank == 0) allocate(evtm%rec_misfits(nrec))
     allocate(evtm%total_misfit(nflt))
     evtm%total_misfit = 0.0_dp
 
@@ -84,16 +85,17 @@ contains
     integer :: irec_loc, irec_glob, iproc, i
     integer, dimension(:), allocatable :: recv_indices, send_indices, recv_nwin
     real(kind=dp), dimension(:,:), allocatable :: recv_tstart, recv_tend, recv_total_misfit
-    real(kind=dp), dimension(:,:,:), allocatable :: recv_misfits, recv_residuals, recv_imeas
+    real(kind=dp), dimension(:,:,:), allocatable :: recv_misfits, recv_residuals
+    integer, dimension(:,:,:), allocatable :: recv_imeas
     character(len=MAX_STRING_LEN), dimension(:), allocatable :: recv_net, recv_sta
     character(len=MAX_STRING_LEN), dimension(:,:), allocatable :: recv_chan, recv_band_name
     
-    ncomp = size(misfit_loc(1)%misfits, 1)
     nflt = this%nflt
+    nrec_loc = 0
+    ncomp = 0
     if (allocated(misfit_loc)) then
       nrec_loc = size(misfit_loc)
-    else
-      nrec_loc = 0
+      ncomp = size(misfit_loc(1)%misfits, 1)
     endif
 
     if (worldrank == 0) then
@@ -160,7 +162,7 @@ contains
             call recv_dp(recv_tend, nwin*nflt, iproc, targ)
             call recv_dp(recv_misfits, ncomp*nwin*nflt, iproc, targ)
             call recv_dp(recv_residuals, ncomp*nwin*nflt, iproc, targ)
-            call recv_dp(recv_imeas, ncomp*nwin*nflt, iproc, targ)
+            call recv_i(recv_imeas, ncomp*nwin*nflt, iproc, targ)
             
             ! Direct assignment - no reshape needed
             this%rec_misfits(irec_glob)%tstart = recv_tstart
@@ -215,7 +217,7 @@ contains
           call send_dp(misfit_loc(irec_loc)%tend, nwin*nflt, 0, targ)
           call send_dp(misfit_loc(irec_loc)%misfits, ncomp*nwin*nflt, 0, targ)
           call send_dp(misfit_loc(irec_loc)%residuals, ncomp*nwin*nflt, 0, targ)
-          call send_dp(misfit_loc(irec_loc)%imeas, ncomp*nwin*nflt, 0, targ)
+          call send_i(misfit_loc(irec_loc)%imeas, ncomp*nwin*nflt, 0, targ)
         enddo
         
         deallocate(send_indices, recv_nwin, recv_net, recv_sta, recv_chan, recv_band_name, recv_total_misfit)

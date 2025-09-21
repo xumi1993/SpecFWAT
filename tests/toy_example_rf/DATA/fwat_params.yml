@@ -17,7 +17,7 @@ NOISE:
   SIGMA_V: 5000
 
 TELE:
-  TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function
+  TELE_TYPE: 2 # 1: teleseismic data, 2: receiver function; 3: Cross-convolution
   MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
   RCOMPS: ['Z', 'R'] # Components of the receiver
   CH_CODE: BX # Channel code

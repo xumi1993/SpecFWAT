@@ -2,7 +2,6 @@
 set -e
 
 
-rm -rf DATABASES_MPI
 rm -rf OUTPUT_FILES
 
 mkdir -p DATABASES_MPI

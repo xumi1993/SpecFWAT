@@ -51,7 +51,6 @@ module rf_data
 
     call this%calc_times()
 
-    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call mkdir(fpar%acqui%in_dat_path(this%ievt))
     call synchronize_all()
 
@@ -119,55 +118,44 @@ module rf_data
   end subroutine preprocess
 
   subroutine measure_adj(this)
-    ! use measure_adj_mod, only: measure_adj_rf
     class(RFData), intent(inout) :: this
     character(len=MAX_STRING_LEN) :: msg
     integer :: irec_local, irec, igaus
-    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
-    ! real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
     real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3
-    real(kind=dp), dimension(:,:,:), allocatable :: window_chi, adj_src
-    ! real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
-    ! character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
+    real(kind=dp), dimension(:,:,:), allocatable :: adj_src
     type(RFMisfit) :: rfm
     type(RECMisfit), dimension(:), allocatable :: recm
     type(EVTMisfit) :: evtm
 
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, 2, this%nrec_loc)
-      allocate(recm(this%nrec_loc))
+      
+      allocate(recm(this%nrec_loc), stat=ier)
+      if (ier /= 0) then
+        call exit_MPI_without_rank('error allocating array 5000')
+        call exit_MPI('Failed to allocate recm array on ', worldrank)
+      endif
+      
       do irec_local = 1, this%nrec_loc
         recm(irec_local) = RECMisfit(fpar%sim%NRCOMP, 1, fpar%sim%rf%NGAUSS)
       enddo
     endif
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
-      call this%wchi(igaus)%init(this%ievt, this%band_name)
       if (this%nrec_loc > 0) then
-        window_chi = zeros_dp(this%nrec_loc, NCHI, 1)
-        tr_chi = zeros_dp(this%nrec_loc, 1)
-        am_chi = zeros_dp(this%nrec_loc, 1)
-        T_pmax_dat = zeros_dp(this%nrec_loc, 1)
-        T_pmax_syn = zeros_dp(this%nrec_loc, 1)
         do irec_local = 1, this%nrec_loc
           irec = select_global_id_for_rec(irec_local)
           synz = this%data(:, 1, irec)
           synr = this%data(:, 2, irec)
-          ! adj_z_tw = zeros_dp(NSTEP)
-          ! adj_r_tw = zeros_dp(NSTEP)
           call bandpass_dp(synz, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call bandpass_dp(synr, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
+
+          ! Measure adjoint source using RF
           call rfm%calc_adjoint_source(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec), synr, synz, DT, &
-                                       dble(-this%ttp(irec)+T0), dble([ fpar%sim%TIME_WIN(1), fpar%sim%TIME_WIN(2) ]), &
+                                       dble(this%ttp(irec)+T0), dble([ fpar%sim%TIME_WIN(1), fpar%sim%TIME_WIN(2) ]), &
                                        dble(fpar%sim%rf%f0(igaus)), dble(fpar%sim%rf%tshift), &
                                        fpar%sim%rf%maxit, dble(fpar%sim%rf%minderr))
-          ! call measure_adj_rf(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec),&
-          !                     synr, synz, -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
-          !                     dble(-t0), dble(this%ttp(irec)), dble(DT), NSTEP, fpar%sim%rf%f0(igaus),&
-          !                     fpar%sim%rf%tshift, fpar%sim%rf%maxit, fpar%sim%rf%minderr, &
-          !                     window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
-          !                     this%od%netwk(irec), this%od%stnm(irec) &
-          !                     )
+
           adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_r 
           adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_z
           recm(irec_local)%misfits(1, 1, igaus) = rfm%misfits(1)
@@ -184,25 +172,19 @@ module rf_data
           endif
         enddo
       endif
-      ! call this%wchi(igaus)%assemble_window_chi(window_chi, tr_chi, am_chi,&
-      !                                          T_pmax_dat, T_pmax_syn, sta, net,&
-      !                                          tstart, tend)
-      ! call this%wchi(igaus)%write()
-      ! this%total_misfit(igaus) = this%wchi(igaus)%sum_chi(29)
-      ! write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(igaus)
-      ! call log%write(msg, .true.)
     enddo
     call synchronize_all()
 
-    if (worldrank == 0) evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec, fpar%sim%rf%NGAUSS)
+    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec, fpar%sim%rf%NGAUSS)
     call evtm%assemble(recm)
-    if (worldrank == 0) then
-      do igaus = 1, fpar%sim%rf%NGAUSS
-        write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(igaus)
-        call log%write(msg, .true.)
-      enddo
-    end if
+    do igaus = 1, fpar%sim%rf%NGAUSS
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(igaus)
+      call log%write(msg, .true.)
+    enddo
     call evtm%write()
+
+    ! Clean up local arrays to prevent memory leaks
+    if (allocated(recm)) deallocate(recm)
 
     call synchronize_all()
 
@@ -232,11 +214,17 @@ module rf_data
 
     call this%get_comp_name_adj()
     if (this%nrec_loc > 0) then
+      ! Allocate temporary arrays outside loop to avoid repeated allocation
+      adj_2 = zeros_dp(NSTEP)
+      adj_3 = zeros_dp(NSTEP)
+      
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         call this%write_adj(adj_src(:, 1, irec_local), this%comp_name(1), irec)
-        adj_2 = zeros_dp(NSTEP)
-        adj_3 = zeros_dp(NSTEP)
+        
+        ! Reuse existing arrays instead of reallocating
+        adj_2 = 0.0_dp
+        adj_3 = 0.0_dp
         call rotate_R_to_NE_dp(adj_src(:, 2, irec_local), adj_3, adj_2, this%baz)
         ! write N component
         call this%write_adj(adj_2, this%comp_name(2), irec)
@@ -400,9 +388,6 @@ module rf_data
     integer :: igaus
 
     call this%od%finalize()
-    do igaus = 1, fpar%sim%rf%NGAUSS
-      call this%wchi(igaus)%finalize()
-    enddo
     call free_shm_array(this%dat_win)
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%rf_win)
