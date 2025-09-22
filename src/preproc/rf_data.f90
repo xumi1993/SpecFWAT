@@ -158,7 +158,7 @@ module rf_data
 
           adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_r 
           adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_z
-          recm(irec_local)%misfits(1, 1, igaus) = rfm%misfits(1)
+          recm(irec_local)%misfits(1, 1, igaus) = rfm%misfits(1) * fpar%acqui%src_weight(this%ievt)
           recm(irec_local)%residuals(1, 1, igaus) = rfm%residuals(1)
           recm(irec_local)%imeas(1, 1, igaus) = rfm%imeas(1)
           recm(irec_local)%total_misfit(igaus) = recm(irec_local)%total_misfit(igaus) + rfm%total_misfit

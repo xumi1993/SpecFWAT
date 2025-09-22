@@ -1,7 +1,9 @@
 module telecc_data
   use config
-  use measure_adj_mod, only: measure_adj_cross_conv
-  use ma_constants
+  ! use measure_adj_mod, only: measure_adj_cross_conv
+  ! use ma_constants
+  use waveform_conv_misfit
+  use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, &
                         get_gauss_fac
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
@@ -21,6 +23,7 @@ module telecc_data
   implicit none
 
   integer, private :: ier, ncomp
+  character(len=MAX_STRING_LEN), private :: msg
 
   type, extends(TeleData) :: TeleCCData
   contains
@@ -33,7 +36,6 @@ contains
   subroutine preprocess(this, ievt)
     class(TeleCCData), intent(inout) :: this
     integer, intent(in) :: ievt
-    character(len=MAX_STRING_LEN) :: msg
 
     fpar%sim%NRCOMP = 1
     ncomp = size(fpar%sim%RCOMPS)
@@ -51,9 +53,6 @@ contains
 
     call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
 
-    ! initialize misfits
-    call this%wchi(1)%init(ievt, this%band_name)
-
     call this%get_comp_name_adj()
 
     ! call this%calc_fktimes()
@@ -65,16 +64,6 @@ contains
 
     call this%measure_adj()
 
-    call this%wchi(1)%assemble_window_chi(this%window_chi, this%tr_chi, this%am_chi,&
-                                          this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net,&
-                                          this%tstart, this%tend)
-
-    if (worldrank == 0) then
-      call this%wchi(1)%write()
-      this%total_misfit(1) = this%wchi(1)%sum_chi(29)
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(1)
-      call log%write(msg, .true.)
-    endif
     call synchronize_all()
 
   end subroutine preprocess
@@ -94,6 +83,7 @@ contains
     if (this%nrec_loc > 0) then
       this%seismo_dat = zeros_dp(NSTEP, ncomp, this%nrec_loc)
       this%seismo_syn = zeros_dp(NSTEP, ncomp, this%nrec_loc)
+      seismo_inp = zeros_dp(NSTEP) 
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         tstart = this%ttp(irec) + fpar%sim%time_win(1)
@@ -105,7 +95,8 @@ contains
         endif
         do icomp = 1, ncomp
           t01 = this%od%tbeg(irec) - (this%od%tarr(irec) - this%ttp(irec))
-          seismo_inp = interpolate_func_dp(this%od%data(:, icomp, irec), t01,&
+          seismo_inp = 0.0_dp
+          seismo_inp(:) = interpolate_func_dp(this%od%data(:, icomp, irec), t01,&
                                            dble(this%od%dt), this%od%npts, &
                                            -dble(T0), dble(DT), NSTEP)/max_amp
           call detrend(seismo_inp)
@@ -125,8 +116,9 @@ contains
           !                         tstart, dble(dt), NSTEP)
           this%seismo_syn(:, icomp, irec_local) = seismo_inp(1:NSTEP)
         enddo
-      enddo
+      enddo      
     endif
+    if (allocated(seismo_inp)) deallocate(seismo_inp)
     call synchronize_all()
   
   end subroutine pre_proc
@@ -136,21 +128,19 @@ contains
     integer :: irec_local, irec
     real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
     real(kind=dp), dimension(:,:), allocatable :: adj_src
-    real(kind=dp), dimension(NCHI) :: window_chi_local
+    real(kind=dp), dimension(2) :: window
     type(sachead) :: header
-
+    type(WaveformConvMisfit) :: wcm
+    type(RECMisfit), dimension(:), allocatable :: recm
+    type(EVTMisfit) :: evtm
 
     if (this%nrec_loc > 0) then
-      allocate(this%window_chi(this%nrec_loc, NCHI, fpar%sim%NRCOMP))
-      allocate(this%tr_chi(this%nrec_loc, fpar%sim%NRCOMP))
-      allocate(this%am_chi(this%nrec_loc, fpar%sim%NRCOMP))
-      allocate(this%T_pmax_dat(this%nrec_loc, fpar%sim%NRCOMP))
-      allocate(this%T_pmax_syn(this%nrec_loc, fpar%sim%NRCOMP))
-      allocate(this%sta(this%nrec_loc))
-      allocate(this%net(this%nrec_loc))
-      allocate(this%tstart(this%nrec_loc))
-      allocate(this%tend(this%nrec_loc))
+      allocate(recm(this%nrec_loc))
+      adj_src = zeros_dp(NSTEP, 2)
+      allocate(adj_r_tw(NSTEP))
+      allocate(adj_z_tw(NSTEP))
       do irec_local = 1, this%nrec_loc
+        recm(irec_local) = RECMisfit(1, 1, 1)
         irec = select_global_id_for_rec(irec_local)
         if (IS_OUTPUT_PREPROC) then
           block
@@ -185,31 +175,49 @@ contains
           end block
         endif
 
-        call measure_adj_cross_conv(this%seismo_dat(:, 2, irec_local), this%seismo_dat(:, 1, irec_local), &
-                                    this%seismo_syn(:, 2, irec_local), this%seismo_syn(:, 1, irec_local), &
-                                    dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)), dble(this%ttp(irec)), &
-                                    window_chi_local, adj_r_tw, adj_z_tw)
+        window = dble([ fpar%sim%TIME_WIN(1), fpar%sim%TIME_WIN(2) ] + this%ttp(irec) + T0)
+        call wcm%calc_adjoint_source(this%seismo_dat(:, 2, irec_local), this%seismo_dat(:, 1, irec_local), &
+                                     this%seismo_syn(:, 2, irec_local), this%seismo_syn(:, 1, irec_local), &
+                                     dble(DT), window)
 
-        adj_r_tw = adj_r_tw * fpar%acqui%src_weight(this%ievt)
-        adj_z_tw = adj_z_tw * fpar%acqui%src_weight(this%ievt)
+        adj_r_tw = 0.0_dp
+        adj_z_tw = 0.0_dp
+        adj_r_tw(:) = wcm%adj_src_r(:) * fpar%acqui%src_weight(this%ievt)
+        adj_z_tw(:) = wcm%adj_src_z(:) * fpar%acqui%src_weight(this%ievt)
+        
         call this%write_adj(adj_z_tw(1:NSTEP), trim(this%comp_name(1)), irec)
-        adj_src = zeros_dp(NSTEP, 2)
+        adj_src = 0.0_dp  
         call rotate_R_to_NE_dp(adj_r_tw(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
         call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
         call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
 
-        this%window_chi(irec_local, :, 1) = window_chi_local
-        this%tr_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi_local(15)
-        this%am_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi_local(15)
-        this%T_pmax_dat(irec_local, 1) = 0.
-        this%T_pmax_syn(irec_local, 1) = 0.
-        this%sta(irec_local) = trim(this%od%stnm(irec))
-        this%net(irec_local) = trim(this%od%netwk(irec))
-        this%tstart(irec_local) = this%ttp(irec) + fpar%sim%time_win(1)
-        this%tend(irec_local) = this%ttp(irec) + fpar%sim%time_win(2)
-      enddo
+        recm(irec_local)%misfits(1, 1, 1) = wcm%misfits(1) * fpar%acqui%src_weight(this%ievt)
+        recm(irec_local)%residuals(1, 1, 1) = wcm%residuals(1)
+        recm(irec_local)%imeas(1, 1, 1) = wcm%imeas(1)
+        recm(irec_local)%total_misfit(1) = recm(irec_local)%total_misfit(1) + wcm%total_misfit
+        recm(irec_local)%band_name(1) = trim(this%band_name)
+        recm(irec_local)%sta = trim(this%od%stnm(irec))
+        recm(irec_local)%net = trim(this%od%netwk(irec))
+        recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
+        recm(irec_local)%tstart(1, 1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
+        recm(irec_local)%tend(1, 1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
+
+      enddo      
+      if (allocated(adj_src)) deallocate(adj_src)
+      if (allocated(adj_r_tw)) deallocate(adj_r_tw)
+      if (allocated(adj_z_tw)) deallocate(adj_z_tw)
     endif
     call synchronize_all()
+
+    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec, 1)
+    call evtm%assemble(recm)
+    write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(1)
+    call log%write(msg, .true.)
+    call evtm%write()
+    ! Clean up local arrays to prevent memory leaks
+    if (allocated(recm)) deallocate(recm)
+    call synchronize_all()
+
   end subroutine measure_adj
 
   subroutine calc_times(this)
@@ -241,20 +249,10 @@ contains
     class(TeleCCData), intent(inout) :: this
 
     call this%od%finalize()
-    call this%wchi(1)%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
     deallocate(this%seismo_dat, stat=ier)
     deallocate(this%seismo_syn, stat=ier)
-    deallocate(this%window_chi, stat=ier)
-    deallocate(this%tr_chi, stat=ier)
-    deallocate(this%am_chi, stat=ier)
-    deallocate(this%T_pmax_dat, stat=ier)
-    deallocate(this%T_pmax_syn, stat=ier)
-    deallocate(this%sta, stat=ier)
-    deallocate(this%net, stat=ier)
-    deallocate(this%tstart, stat=ier)
-    deallocate(this%tend, stat=ier)
   end subroutine finalize
 
 end module telecc_data
