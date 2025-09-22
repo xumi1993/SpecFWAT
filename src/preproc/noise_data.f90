@@ -1,7 +1,8 @@
 module noise_data
   use config
-  use fwat_constants
-  use ma_constants
+  use misfit_mod
+  use adjoint_source, only: calculate_adjoint_source
+  use adj_config, only: AdjointMeasurement
   use syn_data, only: SynData
   use input_params, fpar => fwat_par_global
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
@@ -13,9 +14,10 @@ module noise_data
   use signal, only: interpolate_func_dp, dif1, detrend, demean, bandpass_dp
   use sacio
   use logger, only: log
-
-
   implicit none
+
+  character(len=MAX_STRING_LEN), private :: msg
+
   integer, private :: ier
   type, extends(SynData) :: NoiseData
   contains
@@ -88,46 +90,47 @@ contains
   end subroutine preprocess
 
   subroutine measure_adj(this)
-    use measure_adj_mod, only: measure_adj_fwat
-    use ma_variables, only: OUT_DIR
     class(NoiseData), intent(inout) :: this
-    integer :: irec_local, irec, iflt, icomp, icomp_syn, nb, ne, out_imeas
-    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn, adj_loc
-    real(kind=dp), dimension(:,:,:), allocatable :: window_chi
-    real(kind=dp), dimension(NCHI) :: window_chi_loc
+    integer :: irec_local, irec, iflt, icomp, icomp_syn, nb, ne
+    real(kind=dp), dimension(:,:), allocatable :: adj_loc
     real(kind=dp), dimension(:,:,:,:), allocatable :: adj_src
-    real(kind=dp), dimension(:), allocatable :: tstart, tend, seismo_dat,seismo_syn
+    real(kind=dp), dimension(:), allocatable :: seismo_dat,seismo_syn
     real(kind=dp), dimension(:), allocatable :: adj_2, adj_3, adj_1
-    real(kind=dp), dimension(NDIM_MA) :: adj_syn_local
-    real(kind=dp) :: dist_min, max_amp, tr_chi_loc, am_chi_loc, T_pmax_dat_loc, T_pmax_syn_loc
+    real(kind=dp), dimension(1, 2) :: windows 
+    real(kind=dp) :: dist_min, max_amp, tstart, tend
     logical :: is_reject
-    character(len=MAX_STRING_LEN) :: file_prefix, msg
-    character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
-
-    ! save OUTPUT_FILES to measure_adj
-    OUT_DIR = trim(OUTPUT_FILES)
+    type(RECMisfit), dimension(:), allocatable :: recm
+    type(EVTMisfit) :: evtm
+    class(AdjointMeasurement), allocatable :: misfit_out
 
     ! allocate for adjoint src
-    if (this%nrec_loc > 0) adj_src = zeros_dp(NSTEP, fpar%sim%NRCOMP, this%nrec_loc, fpar%sim%NUM_FILTER)
+    if (this%nrec_loc > 0) then
+      adj_src = zeros_dp(NSTEP, fpar%sim%NRCOMP, this%nrec_loc, fpar%sim%NUM_FILTER)
+      allocate(recm(this%nrec_loc))
+      do irec_local = 1, this%nrec_loc
+        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP, 1, fpar%sim%NUM_FILTER)
+      enddo
+      seismo_dat = zeros_dp(NSTEP)
+      seismo_syn = zeros_dp(NSTEP)
+    endif
+    call synchronize_all()
     do iflt = 1, fpar%sim%NUM_FILTER
       call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), this%band_name)
-      call this%wchi(iflt)%init(this%ievt, this%band_name)
       if (this%nrec_loc > 0) then
-        window_chi = zeros_dp(this%nrec_loc, NCHI, fpar%sim%NRCOMP)
-        tr_chi = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
-        am_chi = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
-        T_pmax_dat = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
-        T_pmax_syn = zeros_dp(this%nrec_loc, fpar%sim%NRCOMP)
-        tstart = zeros_dp(this%nrec_loc)
-        tend = zeros_dp(this%nrec_loc)
-        if (iflt == 1) then
-          allocate(sta(this%nrec_loc))
-          allocate(net(this%nrec_loc))
-        endif
         do irec_local = 1, this%nrec_loc
           irec = select_global_id_for_rec(irec_local)
+          ! time window
+          tstart = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
+          tend = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
+          tstart = max(tstart, -t0)
+          tend = min(tend, (NSTEP-2)*dble(DT)-t0)
+          windows(1, :) = [tstart, tend] + t0
+          recm(irec_local)%sta = trim(this%od%stnm(irec))
+          recm(irec_local)%net = trim(this%od%netwk(irec))
           do icomp = 1, fpar%sim%NRCOMP
             ! get data component
+            seismo_dat = 0.0_dp
+            seismo_syn = 0.0_dp
             seismo_dat = interpolate_func_dp(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)), &
                                              dble(this%od%dt), this%od%npts, -dble(t0), dble(DT), NSTEP)
             if (.not. fpar%sim%SUPPRESS_EGF) call dif1(seismo_dat, dble(DT))
@@ -143,11 +146,6 @@ contains
             call demean(seismo_syn)
             call bandpass_dp(seismo_syn, fpar%sim%nstep, dble(fpar%sim%dt),&
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
-            ! time window
-            tstart(irec_local) = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
-            tend(irec_local) = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
-            tstart(irec_local) = max(tstart(irec_local), -t0)
-            tend(irec_local) = min(tend(irec_local), (NSTEP-2)*dble(DT)-t0)
 
             ! reject near offsets
             is_reject = .false.
@@ -161,40 +159,28 @@ contains
             end if
 
             ! normalization
-            nb = floor((tstart(irec_local)+t0)/dble(DT)+1)
-            ne = floor((tend(irec_local)+t0)/dble(DT)+1)
+            nb = floor((tstart+ t0)/dble(DT)+1)
+            ne = floor((tend+ t0)/dble(DT)+1)
             seismo_dat = seismo_dat / maxval(abs(seismo_dat(nb:ne))) * maxval(abs(seismo_syn(nb:ne)))
             if (is_output_preproc) then
-              call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'syn', seismo_syn)
-              call this%write_in_preocess(irec, icomp, tstart(irec_local), tend(irec_local), 'obs', seismo_dat)
+              call this%write_in_preocess(irec, icomp, tstart, tend, 'syn', seismo_syn)
+              call this%write_in_preocess(irec, icomp, tstart, tend, 'obs', seismo_dat)
             end if
-            if (is_reject) then
-              window_chi(irec_local, :, icomp) = 0.0_dp
-              adj_src(:, icomp, irec_local, iflt) = 0.0_dp
-              tr_chi(irec_local, icomp) = 0.0_dp
-              am_chi(irec_local, icomp) = 0.0_dp
-              T_pmax_dat(irec_local, icomp) = 0.0_dp
-              T_pmax_syn(irec_local, icomp) = 0.0_dp
-            else
-              call measure_adj_fwat(seismo_dat, seismo_syn, tstart(irec_local), tend(irec_local),&
-                                    dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)),&
-                                    this%od%netwk(irec), this%od%stnm(irec),&
-                                    trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
-                                    window_chi_loc, tr_chi_loc,&
-                                    am_chi_loc, T_pmax_dat_loc, &
-                                    T_pmax_syn_loc, adj_syn_local, &
-                                    file_prefix, out_imeas)
-              window_chi(irec_local, :, icomp) = window_chi_loc
-              adj_src(:, icomp, irec_local, iflt) = adj_syn_local(1:NSTEP)
-              tr_chi(irec_local, icomp) = tr_chi_loc * fpar%acqui%src_weight(this%ievt)
-              am_chi(irec_local, icomp) = am_chi_loc * fpar%acqui%src_weight(this%ievt)
-              T_pmax_dat(irec_local, icomp) = T_pmax_dat_loc
-              T_pmax_syn(irec_local, icomp) = T_pmax_syn_loc
+
+            ! calculate adjoint source
+            if (.not. is_reject) then
+              call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows, misfit_out)
+              adj_src(:, icomp, irec_local, iflt) = misfit_out%adj_src(:) * fpar%acqui%src_weight(this%ievt)
+              recm(irec_local)%misfits(icomp, 1, iflt) = misfit_out%misfits(1)
+              recm(irec_local)%residuals(icomp, 1, iflt) = misfit_out%residuals(1)
+              recm(irec_local)%imeas(icomp, 1, iflt) = misfit_out%imeas(1)
+              recm(irec_local)%tstart(1, iflt) = tstart
+              recm(irec_local)%tend(1, iflt) = tend
+              recm(irec_local)%total_misfit(iflt) = recm(irec_local)%total_misfit(iflt) + misfit_out%total_misfit
             endif
             ! write adjoint source
             if (iflt == 1) then
-              sta(irec_local) = trim(this%od%stnm(irec))
-              net(irec_local) = trim(this%od%netwk(irec))
+              recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
             endif
             if (IS_OUTPUT_ADJ_SRC) then
               block
@@ -209,21 +195,24 @@ contains
                       '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                       '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
                       '.adj.sac.'//trim(this%band_name)
-                call sacio_writesac(sacfile, header, adj_syn_local(1:NSTEP), ier)
+                call sacio_writesac(sacfile, header, adj_src(:, icomp, irec_local, iflt), ier)
               end block
             end if
           end do
         end do
       end if
       call synchronize_all()
-      call this%wchi(iflt)%assemble_window_chi(window_chi, tr_chi, am_chi,&
-                                              T_pmax_dat, T_pmax_syn, sta, net,&
-                                              tstart, tend)
-      call this%wchi(iflt)%write()
-      this%total_misfit(iflt) = this%wchi(iflt)%sum_chi(29)
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(iflt)
-      call log%write(msg, .true.) 
     end do
+    call synchronize_all()
+
+    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec, fpar%sim%NUM_FILTER)
+    call evtm%assemble(recm)
+    do iflt = 1, fpar%sim%NUM_FILTER
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(iflt)
+      call log%write(msg, .true.)
+    end do
+    call evtm%write()
+    if (allocated(recm)) deallocate(recm)
     call synchronize_all()
 
     call this%get_comp_name_adj()
@@ -259,12 +248,8 @@ contains
 
   subroutine finalize(this)
     class(NoiseData), intent(inout) :: this
-    integer :: iflt
 
     call this%od%finalize()
-    do iflt = 1, fpar%sim%NUM_FILTER
-      call this%wchi(iflt)%finalize()
-    end do
     call free_shm_array(this%dat_win)
   end subroutine finalize
 

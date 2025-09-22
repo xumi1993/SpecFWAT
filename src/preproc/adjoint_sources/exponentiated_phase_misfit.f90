@@ -75,11 +75,13 @@ contains
 
       this%residuals_real(iwin) = sum(diff_real)/nlen_win
       this%residuals_imag(iwin) = sum(diff_imag)/nlen_win
+      this%residuals(iwin) = this%residuals_real(iwin) + this%residuals_imag(iwin)
 
       this%misfits_real(iwin) = 0.5_dp * simpson(diff_real**2, dt)
       this%misfits_imag(iwin) = 0.5_dp * simpson(diff_imag**2, dt)
+      this%misfits(iwin) = this%misfits_real(iwin) + this%misfits_imag(iwin)
 
-      this%total_misfit = this%total_misfit + this%misfits_real(iwin) + this%misfits_imag(iwin)
+      this%total_misfit = this%total_misfit + this%misfits(iwin)
 
       env_s_wtr_cubic = env_s_wl**3
       adj_real = -1.0_dp * (diff_real * hilb_s ** 2 / env_s_wtr_cubic) - &
@@ -103,7 +105,8 @@ contains
   subroutine initialize(this)
     class(ExponentiatedPhaseMisfit), intent(inout) :: this
 
-    if (allocated(this%adj_src)) deallocate(this%adj_src)
+    if (allocated(this%residuals)) deallocate(this%residuals)
+    if (allocated(this%misfits)) deallocate(this%misfits)
     if (allocated(this%misfits_real)) deallocate(this%misfits_real)
     if (allocated(this%misfits_imag)) deallocate(this%misfits_imag)
     if (allocated(this%select_meas)) deallocate(this%select_meas)
@@ -117,6 +120,9 @@ contains
     allocate(this%imeas(this%nwin))
     allocate(this%residuals_real(this%nwin))
     allocate(this%residuals_imag(this%nwin))
+    allocate(this%misfits(this%nwin))
+    allocate(this%residuals(this%nwin))
+
     this%select_meas = .true.
     this%imeas = IMEAS_EXP_PHASE
     this%misfits_real = 0.0_dp
@@ -124,6 +130,8 @@ contains
     this%residuals_real = 0.0_dp
     this%residuals_imag = 0.0_dp
     this%total_misfit = 0.0_dp
+    this%misfits = 0.0_dp
+    this%residuals = 0.0_dp
 
   end subroutine initialize
 
