@@ -203,6 +203,8 @@ contains
       end if
       call synchronize_all()
     end do
+    if (allocated(seismo_dat)) deallocate(seismo_dat)
+    if (allocated(seismo_syn)) deallocate(seismo_syn)
     call synchronize_all()
 
     evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec, fpar%sim%NUM_FILTER)
@@ -243,6 +245,9 @@ contains
         call this%write_adj(adj_3, trim(this%comp_name(3)), irec)
       end do
     end if
+    if(allocated(adj_loc)) deallocate(adj_loc)
+    if(allocated(adj_src)) deallocate(adj_src)
+
     call synchronize_all()
   end subroutine measure_adj
 
