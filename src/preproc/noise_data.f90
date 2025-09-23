@@ -106,10 +106,6 @@ contains
     ! allocate for adjoint src
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, fpar%sim%NRCOMP, this%nrec_loc, fpar%sim%NUM_FILTER)
-      allocate(recm(this%nrec_loc))
-      do irec_local = 1, this%nrec_loc
-        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP, 1, fpar%sim%NUM_FILTER)
-      enddo
       seismo_dat = zeros_dp(NSTEP)
       seismo_syn = zeros_dp(NSTEP)
     endif
@@ -117,7 +113,12 @@ contains
     do iflt = 1, fpar%sim%NUM_FILTER
       call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), this%band_name)
       if (this%nrec_loc > 0) then
+        ! allocate receiver misfit
+        allocate(recm(this%nrec_loc))
         do irec_local = 1, this%nrec_loc
+          ! initialize recm
+          recm(irec_local) = RECMisfit(fpar%sim%NRCOMP)
+          ! Initialize TraceMisfit for each component with 1 window
           irec = select_global_id_for_rec(irec_local)
           ! time window
           tstart = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
@@ -168,20 +169,19 @@ contains
             end if
 
             ! calculate adjoint source
+            recm(irec_local)%trm(icomp) = TraceMisfit(1)
             if (.not. is_reject) then
               call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows, misfit_out)
               adj_src(:, icomp, irec_local, iflt) = misfit_out%adj_src(:) * fpar%acqui%src_weight(this%ievt)
-              recm(irec_local)%misfits(icomp, 1, iflt) = misfit_out%misfits(1)
-              recm(irec_local)%residuals(icomp, 1, iflt) = misfit_out%residuals(1)
-              recm(irec_local)%imeas(icomp, 1, iflt) = misfit_out%imeas(1)
-              recm(irec_local)%tstart(1, iflt) = tstart
-              recm(irec_local)%tend(1, iflt) = tend
-              recm(irec_local)%total_misfit(iflt) = recm(irec_local)%total_misfit(iflt) + misfit_out%total_misfit
+              recm(irec_local)%trm(icomp)%misfits(1) = misfit_out%misfits(1)
+              recm(irec_local)%trm(icomp)%residuals(1) = misfit_out%residuals(1)
+              recm(irec_local)%trm(icomp)%imeas(1) = misfit_out%imeas(1)
+              recm(irec_local)%trm(icomp)%tstart(1) = tstart
+              recm(irec_local)%trm(icomp)%tend(1) = tend
+              recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit
             endif
-            ! write adjoint source
-            if (iflt == 1) then
-              recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
-            endif
+            recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+
             if (IS_OUTPUT_ADJ_SRC) then
               block
                 type(sachead) :: header
@@ -198,24 +198,24 @@ contains
                 call sacio_writesac(sacfile, header, adj_src(:, icomp, irec_local, iflt), ier)
               end block
             end if
-          end do
-        end do
-      end if
+          end do ! icomp
+        end do ! irec_local
+      end if ! this%nrec_loc > 0
       call synchronize_all()
-    end do
+
+      ! assemble and write event misfit for this frequency band
+      evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec)
+      evtm%band_name = trim(this%band_name)
+      call evtm%assemble(recm)
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
+      call log%write(msg, .true.)
+      call evtm%write()
+      if (allocated(recm)) deallocate(recm)
+      call synchronize_all()
+    end do ! iflt
+    call synchronize_all()
     if (allocated(seismo_dat)) deallocate(seismo_dat)
     if (allocated(seismo_syn)) deallocate(seismo_syn)
-    call synchronize_all()
-
-    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec, fpar%sim%NUM_FILTER)
-    call evtm%assemble(recm)
-    do iflt = 1, fpar%sim%NUM_FILTER
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(iflt)
-      call log%write(msg, .true.)
-    end do
-    call evtm%write()
-    if (allocated(recm)) deallocate(recm)
-    call synchronize_all()
 
     call this%get_comp_name_adj()
     if (this%nrec_loc > 0) then

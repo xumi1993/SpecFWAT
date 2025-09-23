@@ -140,7 +140,8 @@ contains
       allocate(adj_r_tw(NSTEP))
       allocate(adj_z_tw(NSTEP))
       do irec_local = 1, this%nrec_loc
-        recm(irec_local) = RECMisfit(1, 1, 1)
+        recm(irec_local) = RECMisfit(1)
+        recm(irec_local)%trm(1) = TraceMisfit(1)
         irec = select_global_id_for_rec(irec_local)
         if (IS_OUTPUT_PREPROC) then
           block
@@ -191,16 +192,15 @@ contains
         call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
         call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
 
-        recm(irec_local)%misfits(1, 1, 1) = wcm%misfits(1) * fpar%acqui%src_weight(this%ievt)
-        recm(irec_local)%residuals(1, 1, 1) = wcm%residuals(1)
-        recm(irec_local)%imeas(1, 1, 1) = wcm%imeas(1)
-        recm(irec_local)%total_misfit(1) = recm(irec_local)%total_misfit(1) + wcm%total_misfit
-        recm(irec_local)%band_name(1) = trim(this%band_name)
+        recm(irec_local)%trm(1)%misfits(1) = wcm%misfits(1) * fpar%acqui%src_weight(this%ievt)
+        recm(irec_local)%trm(1)%residuals(1) = wcm%residuals(1)
+        recm(irec_local)%trm(1)%imeas(1) = wcm%imeas(1)
+        recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wcm%total_misfit
         recm(irec_local)%sta = trim(this%od%stnm(irec))
         recm(irec_local)%net = trim(this%od%netwk(irec))
         recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
-        recm(irec_local)%tstart(1, 1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
-        recm(irec_local)%tend(1, 1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
+        recm(irec_local)%trm(1)%tstart(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
+        recm(irec_local)%trm(1)%tend(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
 
       enddo      
       if (allocated(adj_src)) deallocate(adj_src)
@@ -209,9 +209,10 @@ contains
     endif
     call synchronize_all()
 
-    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec, 1)
+    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec)
+    evtm%band_name = trim(this%band_name)
     call evtm%assemble(recm)
-    write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(1)
+    write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
     call log%write(msg, .true.)
     call evtm%write()
     ! Clean up local arrays to prevent memory leaks

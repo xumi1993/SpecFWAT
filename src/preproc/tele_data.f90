@@ -24,11 +24,8 @@ module tele_data
 
   type, extends(SynData) :: TeleData
     real(kind=cr), dimension(:), pointer :: ttp ! travel time of P
-    real(kind=dp), dimension(:), allocatable :: tstart, tend
     real(kind=dp), dimension(:,:), allocatable :: stf_array
-    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
-    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat, seismo_syn, window_chi
-    character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
+    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat, seismo_syn
     real(kind=cr) :: baz, az, avgamp
     integer :: ttp_win
     contains
@@ -213,18 +210,6 @@ contains
 
     call this%measure_adj()
 
-    ! print *, shape(this%window_chi), shape(this%tr_chi), shape(this%am_chi)
-    ! call this%wchi(1)%assemble_window_chi(this%window_chi, this%tr_chi, this%am_chi,&
-    !                                       this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net,&
-    !                                       this%tstart, this%tend)
-
-    ! if (worldrank == 0) then
-    !   call this%wchi(1)%write()
-    !   this%total_misfit(1) = this%wchi(1)%sum_chi(29)
-    !   write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(1)
-    !   call log%write(msg, .true.)
-    ! endif
-    call synchronize_all()
   end subroutine preprocess
 
   subroutine measure_adj(this)
@@ -245,9 +230,11 @@ contains
     if (this%nrec_loc > 0) then
       allocate(recm(this%nrec_loc))
       do irec_local = 1, this%nrec_loc
-        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP, 1, fpar%sim%NUM_FILTER)
+        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP)
         irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
+          ! allocate trace misfit
+          recm(irec_local)%trm(icomp) = TraceMisfit(1)
           ! convolution with STF
           call myconvolution_dp(this%seismo_syn(:, icomp, irec_local), this%stf_array(:, icomp), seismo_syn_local, 0)
           this%seismo_syn(:, icomp, irec_local) = seismo_syn_local * fpar%sim%dt
@@ -301,27 +288,26 @@ contains
             call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
           end select
           ! save misfits
-          recm(irec_local)%misfits(icomp, 1, 1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt)&
-                                                  /this%avgamp/this%avgamp*dt
-          recm(irec_local)%residuals(icomp, 1, 1) = wm%residuals(1)
-          recm(irec_local)%imeas(icomp, 1, 1) = wm%imeas(1)
-          recm(irec_local)%total_misfit(1) = recm(irec_local)%total_misfit(1) + wm%total_misfit
-          recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
+          recm(irec_local)%trm(icomp)%misfits(1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt) / this%avgamp / this%avgamp * dt
+          recm(irec_local)%trm(icomp)%residuals(1) = wm%residuals(1)
+          recm(irec_local)%trm(icomp)%imeas(1) = wm%imeas(1)
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wm%total_misfit
+          recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+          recm(irec_local)%trm(icomp)%tstart(1) = tstart
+          recm(irec_local)%trm(icomp)%tend(1) = tend
           if (icomp == 1) then
-            recm(irec_local)%band_name(1) = trim(this%band_name)
             recm(irec_local)%sta = trim(this%od%stnm(irec))
             recm(irec_local)%net = trim(this%od%netwk(irec))
-            recm(irec_local)%tstart(1, 1) = tstart
-            recm(irec_local)%tend(1, 1) = tend
           endif
-        enddo
-      enddo
-    end if
+        enddo ! icomp
+      enddo ! irec_local
+    end if ! this%nrec_loc > 0
     call synchronize_all()
 
-    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec, 1)
+    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec)
+    evtm%band_name = trim(this%band_name)
     call evtm%assemble(recm)
-    write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(1)
+    write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
     call log%write(msg, .true.)
     call evtm%write()
     if (allocated(recm)) deallocate(recm)
@@ -467,21 +453,11 @@ contains
     class(TeleData), intent(inout) :: this
 
     call this%od%finalize()
-    ! call this%wchi(1)%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
     deallocate(this%stf_array, stat=ier)
     deallocate(this%seismo_dat, stat=ier)
     deallocate(this%seismo_syn, stat=ier)
-    ! deallocate(this%window_chi, stat=ier)
-    ! deallocate(this%tr_chi, stat=ier)
-    ! deallocate(this%am_chi, stat=ier)
-    ! deallocate(this%T_pmax_dat, stat=ier)
-    ! deallocate(this%T_pmax_syn, stat=ier)
-    ! deallocate(this%sta, stat=ier)
-    ! deallocate(this%net, stat=ier)
-    ! deallocate(this%tstart, stat=ier)
-    ! deallocate(this%tend, stat=ier)
 
   end subroutine finalize
 

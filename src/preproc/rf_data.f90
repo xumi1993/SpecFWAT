@@ -129,21 +129,13 @@ module rf_data
 
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, 2, this%nrec_loc)
-      
-      allocate(recm(this%nrec_loc), stat=ier)
-      if (ier /= 0) then
-        call exit_MPI_without_rank('error allocating array 5000')
-        call exit_MPI('Failed to allocate recm array on ', worldrank)
-      endif
-      
-      do irec_local = 1, this%nrec_loc
-        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP, 1, fpar%sim%rf%NGAUSS)
-      enddo
     endif
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
       if (this%nrec_loc > 0) then
+        allocate(recm(this%nrec_loc), stat=ier)
         do irec_local = 1, this%nrec_loc
+          recm(irec_local) = RECMisfit(fpar%sim%NRCOMP)
           irec = select_global_id_for_rec(irec_local)
           synz = this%data(:, 1, irec)
           synr = this%data(:, 2, irec)
@@ -155,61 +147,61 @@ module rf_data
                                        dble(this%ttp(irec)+T0), dble([ fpar%sim%TIME_WIN(1), fpar%sim%TIME_WIN(2) ]), &
                                        dble(fpar%sim%rf%f0(igaus)), dble(fpar%sim%rf%tshift), &
                                        fpar%sim%rf%maxit, dble(fpar%sim%rf%minderr))
-
+          recm(irec_local)%trm(1) = TraceMisfit(1)
           adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_r 
           adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_z
-          recm(irec_local)%misfits(1, 1, igaus) = rfm%misfits(1) * fpar%acqui%src_weight(this%ievt)
-          recm(irec_local)%residuals(1, 1, igaus) = rfm%residuals(1)
-          recm(irec_local)%imeas(1, 1, igaus) = rfm%imeas(1)
-          recm(irec_local)%total_misfit(igaus) = recm(irec_local)%total_misfit(igaus) + rfm%total_misfit
-          recm(irec_local)%band_name(igaus) = trim(this%band_name)
+          recm(irec_local)%trm(1)%misfits(1) = rfm%misfits(1) * fpar%acqui%src_weight(this%ievt)
+          recm(irec_local)%trm(1)%residuals(1) = rfm%residuals(1)
+          recm(irec_local)%trm(1)%imeas(1) = rfm%imeas(1)
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + rfm%total_misfit
           if (igaus == 1) then
             recm(irec_local)%sta = trim(this%od%stnm(irec))
             recm(irec_local)%net = trim(this%od%netwk(irec))
             recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
-            recm(irec_local)%tstart(1, igaus) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
-            recm(irec_local)%tend(1, igaus) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
+            recm(irec_local)%trm(1)%tstart(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
+            recm(irec_local)%trm(1)%tend(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
           endif
-        enddo
-      endif
-    enddo
-    call synchronize_all()
-
-    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec, fpar%sim%rf%NGAUSS)
-    call evtm%assemble(recm)
-    do igaus = 1, fpar%sim%rf%NGAUSS
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit(igaus)
+        enddo ! irec_local
+      endif ! this%nrec_loc > 0
+      evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec)
+      evtm%band_name = trim(this%band_name)
+      call evtm%assemble(recm)
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
       call log%write(msg, .true.)
-    enddo
-    call evtm%write()
-
-    ! Clean up local arrays to prevent memory leaks
-    if (allocated(recm)) deallocate(recm)
+      call evtm%write()
+      
+      if (allocated(recm)) deallocate(recm)
+      call synchronize_all()
+    enddo ! igaus
 
     call synchronize_all()
 
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
-    ! if (IS_OUTPUT_ADJ_SRC) then
-    !   call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-    !   if (this%nrec_loc > 0) then
-    !     do irec_local = 1, this%nrec_loc
-    !       irec = select_global_id_for_rec(irec_local)
-    !       header%kstnm = this%od%stnm(irec)
-    !       header%knetwk = this%od%netwk(irec)
-    !       do icomp = 1, 2
-    !         if (icomp == 1) then
-    !           header%kcmpnm = 'Z'
-    !         else
-    !           header%kcmpnm = 'R'
-    !         end if
-    !         call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
-    !                             trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-    !                             '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
-    !                             header, adj_src(:, icomp, irec_local), ier)
-    !       enddo
-    !     enddo
-    !   endif
-    ! endif
+    if (IS_OUTPUT_ADJ_SRC) then
+      block
+      type(sachead) :: header
+      integer :: icomp
+      call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+      if (this%nrec_loc > 0) then
+        do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
+          header%kstnm = trim(this%od%stnm(irec))
+          header%knetwk = trim(this%od%netwk(irec))
+          do icomp = 1, 2
+            if (icomp == 1) then
+              header%kcmpnm = 'Z'
+            else
+              header%kcmpnm = 'R'
+            end if
+            call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
+                                trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                                '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
+                                header, adj_src(:, icomp, irec_local), ier)
+          enddo
+        enddo
+      endif
+      end block
+    endif
     call synchronize_all()
 
     call this%get_comp_name_adj()
