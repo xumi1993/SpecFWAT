@@ -215,6 +215,7 @@ contains
     write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
     call log%write(msg, .true.)
     call evtm%write()
+    this%total_misfit(1) = evtm%total_misfit
     ! Clean up local arrays to prevent memory leaks
     if (allocated(recm)) deallocate(recm)
     call synchronize_all()

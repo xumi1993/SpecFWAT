@@ -10,6 +10,7 @@ module mt_tt_misfit
 
   implicit none
 
+  logical, save :: is_verbose = .false.
   type, extends(CCTTMisfit) :: MTTTMisfit
     real(kind=dp) :: dt, tlen
     integer :: nlen_f, nlen
@@ -39,7 +40,6 @@ contains
     integer :: iwin, nb, ne, nlen_win, nfreq_min, nfreq_max, i
     logical :: is_mtm
     type(fft_cls) :: fftins
-
 
     ! num of measurements
     if (size(windows, 2) /= 2) then
@@ -85,13 +85,13 @@ contains
         ! prepare data for MTM
         is_mtm = this%check_time_series_acceptability(iwin, nlen_win)
         if (.not. is_mtm) then
-          write(*,*) 'Warning: Window ', iwin, ' does not meet time series criteria for MTM.'
+          if (is_verbose) write(*,*) 'Warning: Window ', iwin, ' does not meet time series criteria for MTM.'
           exit
         end if
 
         call this%prepare_data_for_mtm(dat, iwin, windows(iwin,:), d, is_mtm)
         if (.not. is_mtm) then
-          write(*,*) 'Warning: Window ', iwin, ' could not be prepared for MTM.'          
+          if (is_verbose) write(*,*) 'Warning: Window ', iwin, ' could not be prepared for MTM.'
           exit
         end if
 
@@ -102,7 +102,7 @@ contains
         ! calculate frequency limits
         call this%calculate_freq_limits(syn, df, nfreq_min, nfreq_max, is_mtm)
         if (.not. is_mtm) then
-          write(*,*) 'Warning: Window ', iwin, ' does not meet frequency criteria for MTM.'
+          if (is_verbose) write(*,*) 'Warning: Window ', iwin, ' does not meet frequency criteria for MTM.'
           exit
         end if
 
@@ -110,7 +110,7 @@ contains
         call dpss_windows(nlen_win, cfg%mt_nw, cfg%num_taper, tapers, eig)
         do i = 1, cfg%num_taper
           if (eig(i) > HUGEVAL) then
-            write(*,*) 'Warning: DPSS taper ', i, ' has infinite eigenvalue:', eig(i),'. Skipping MTM for window ', iwin
+            if (is_verbose) write(*,*) 'Warning: DPSS taper ', i, ' has infinite eigenvalue:', eig(i),'. Skipping MTM for window ', iwin
             is_mtm = .false.
             exit
           end if
@@ -542,7 +542,7 @@ contains
         ! dt larger than 1/dt_fac of the wave period
         max_dt_allowed = wave_period / cfg%dt_fac
         if (abs(dtau_mtm(j)) > max_dt_allowed) then
-          write(*,*) 'INFO: reject MTM: dt measurement is too large at frequency', j
+          if (is_verbose) write(*,*) 'Warning: reject MTM: dt measurement is too large at frequency', j
           is_mtm = .false.
           exit
         end if
@@ -550,14 +550,15 @@ contains
         ! Error larger than 1/err_fac of wave period
         max_err_allowed = wave_period / cfg%err_fac
         if (err_dtau(j) > max_err_allowed) then
-          write(*,*) 'DEBUG: reject MTM: dt error is too large at frequency', j
+          if (is_verbose) write(*,*) 'Warning: reject MTM: dt error is too large at frequency', j
           is_mtm = .false.
           exit
         end if
         
         ! dt larger than the maximum allowable time shift
         if (abs(dtau_mtm(j)) > cfg%dt_max_scale * abs(cc_tshift)) then
-          write(*,*) 'DEBUG: reject MTM: dt is larger than maximum allowable time shift at frequency', j
+          if (is_verbose) write(*,*) 'Warning: reject MTM: dt is larger than maximum '//&
+                                      'allowable time shift at frequency', j
           is_mtm = .false.
           exit
         end if

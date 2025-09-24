@@ -17,9 +17,6 @@ module misfit_mod
     character(len=MAX_STRING_LEN) :: net, sta
     character(len=MAX_STRING_LEN), dimension(:), allocatable :: chan
     type(TraceMisfit), dimension(:), allocatable :: trm
-    ! real(kind=dp), dimension(:,:), allocatable :: tstart, tend
-    ! real(kind=dp), dimension(:,:,:), allocatable :: misfits, residuals
-    ! integer, dimension(:,:,:), allocatable :: imeas
     real(kind=dp) :: total_misfit
     integer :: ncomp
   end type RECMisfit

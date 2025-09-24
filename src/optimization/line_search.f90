@@ -4,7 +4,7 @@ module line_search
   use input_params, fpar => fwat_par_global
   use opt_io
   use preproc_fwd
-  use window_chi, only : read_model_misfit
+  use misfit_mod, only : read_evt_misfit
   use common_lib, only : get_dat_type
   use logger, only: log
 
@@ -43,7 +43,7 @@ contains
 
       total_misfit = total_misfit + ffwd%obj_func
 
-      call read_model_misfit(model_current, ievt, misfit_loc)
+      misfit_loc = read_evt_misfit(model_current, ievt)
       misfit_prev = misfit_prev + misfit_loc
 
       call synchronize_all()

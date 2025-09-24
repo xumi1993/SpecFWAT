@@ -1,6 +1,7 @@
 module input_params
   use config
   use fwat_mpi
+  use adj_config, cfg => adj_config_global
   use ma_variables
   use utils, only: split_by_spaces
 
@@ -535,15 +536,16 @@ contains
     select case (simu_type)
       case (SIMU_TYPE_TELE)
         this%sim => tele_par
-        is_mtm0 = 0
+        ! is_mtm0 = 0
       case (SIMU_TYPE_NOISE)
         this%sim => noise_par
-        is_mtm0 = 1
+        ! is_mtm0 = 1
     end select
-    imeas0 = this%sim%IMEAS
-    imeas = imeas0
-    itaper = this%sim%ITAPER
-    is_mtm = is_mtm0
+    ! imeas0 = this%sim%IMEAS
+    ! imeas = imeas0
+    ! itaper = this%sim%ITAPER
+    ! is_mtm = is_mtm0
+    cfg%imeasure_type = this%sim%IMEAS
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
     if (is_joint) then

@@ -121,6 +121,7 @@ contains
     this%select_meas = .true.
     this%misfits = 0.0_dp
     this%total_misfit = 0.0_dp
+    this%imeas = 0
 
   end subroutine initialize
 
@@ -136,7 +137,12 @@ contains
       this%select_meas(iwin) = .false.
       this%misfit_p(iwin) = 0.0_dp
       this%misfit_q(iwin) = 0.0_dp
-      this%misfits(iwin) = 0.0_dp
+      if (cfg%imeasure_type == IMEAS_CC_TT .or. cfg%imeasure_type == IMEAS_CC_TT_MT) then
+        this%residuals(iwin) = this%tshift(iwin)
+      else if (cfg%imeasure_type == IMEAS_CC_DLNA .or. cfg%imeasure_type == IMEAS_CC_DLNA_MT) then
+        this%residuals(iwin) = this%dlna(iwin)
+      end if
+      this%imeas(iwin) = 0
     end if
   end subroutine cc_measure_select
 

@@ -9,7 +9,6 @@ module syn_data
   use input_params, fpar => fwat_par_global
   use common_lib, only: rotate_NE_to_RT, rotate_NE_to_RT_dp, dwascii
   use obs_data, only: ObsData
-  use window_chi, only: WindowChi
   use utils, only: zeros_dp
 
   implicit none
@@ -20,7 +19,6 @@ module syn_data
     character(len=MAX_STRING_LEN), dimension(3) :: comp_name
     integer :: ievt, nrec
     type(ObsData) :: od
-    type(WindowChi), dimension(:), allocatable :: wchi
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp(zrt), nsta
     character(len=MAX_STRING_LEN) :: band_name
     real(kind=dp), dimension(:), allocatable :: total_misfit
@@ -42,7 +40,6 @@ contains
     this%nrec = nrec
     this%nrec_loc = get_num_recs_per_proc(nrec, worldrank)
     this%total_misfit = zeros_dp(fpar%sim%NUM_FILTER)
-    allocate(this%wchi(fpar%sim%NUM_FILTER))
 
   end subroutine init
 
@@ -332,12 +329,8 @@ contains
 
   subroutine finalize(this)
     class(SynData), intent(inout) :: this
-    integer :: i
 
     call this%od%finalize()
-    do i = 1, size(this%wchi)
-      call this%wchi(i)%finalize()
-    enddo
     call free_shm_array(this%dat_win)
 
   end subroutine finalize

@@ -169,7 +169,7 @@ module rf_data
       write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
       call log%write(msg, .true.)
       call evtm%write()
-      
+      this%total_misfit(igaus) = evtm%total_misfit
       if (allocated(recm)) deallocate(recm)
       call synchronize_all()
     enddo ! igaus

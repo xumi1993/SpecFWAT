@@ -143,8 +143,6 @@ contains
             ! get synthetic component
             icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
             seismo_syn = this%data(:, icomp_syn, irec)
-            call detrend(seismo_syn)
-            call demean(seismo_syn)
             call bandpass_dp(seismo_syn, fpar%sim%nstep, dble(fpar%sim%dt),&
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
 
@@ -171,14 +169,17 @@ contains
             ! calculate adjoint source
             recm(irec_local)%trm(icomp) = TraceMisfit(1)
             if (.not. is_reject) then
-              call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows, misfit_out)
+              call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows, &
+                                            dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)), misfit_out)
               adj_src(:, icomp, irec_local, iflt) = misfit_out%adj_src(:) * fpar%acqui%src_weight(this%ievt)
-              recm(irec_local)%trm(icomp)%misfits(1) = misfit_out%misfits(1)
+              recm(irec_local)%trm(icomp)%misfits(1) = misfit_out%misfits(1) * fpar%acqui%src_weight(this%ievt)
               recm(irec_local)%trm(icomp)%residuals(1) = misfit_out%residuals(1)
               recm(irec_local)%trm(icomp)%imeas(1) = misfit_out%imeas(1)
               recm(irec_local)%trm(icomp)%tstart(1) = tstart
               recm(irec_local)%trm(icomp)%tend(1) = tend
               recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit
+            else
+              recm(irec_local)%trm(icomp)%imeas(1) = 0
             endif
             recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
 
@@ -211,6 +212,7 @@ contains
       call log%write(msg, .true.)
       call evtm%write()
       if (allocated(recm)) deallocate(recm)
+      this%total_misfit(iflt) = evtm%total_misfit
       call synchronize_all()
     end do ! iflt
     call synchronize_all()

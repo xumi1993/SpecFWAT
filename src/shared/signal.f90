@@ -28,7 +28,7 @@ contains
     ! BU - butterworth
     ! BP - bandpass
     ! LQY: Shouldn't  delta_t_sngl = sngl(delta_t) still be done? same for f1,f2?
-    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),order,'BP',real(f1),real(f2),sngl(delta_t),PASSES)
+    call xapiir(x_sngl,n,'BU',sngl(TRBDNDW),sngl(APARM),order,'BP',f1,f2,sngl(delta_t),PASSES)
 
     x(1:n) = dble(x_sngl(1:n))
 
@@ -380,7 +380,7 @@ contains
 
   end subroutine time_deconv
 
-  subroutine detrend_legacy(x)
+  subroutine detrend(x)
     implicit none
     real(kind=dp), dimension(:) :: x
     real(kind=dp) :: ds1,ds2,dan,davei,davex,dslope,dai
@@ -404,30 +404,13 @@ contains
       x(i) = x(i)- davex - dslope*(dai-davei)
     enddo
 
-  end subroutine detrend_legacy
-
-  subroutine detrend(x)
-    implicit none
-    real(kind=dp), dimension(:), intent(inout) :: x
-    real(kind=dp) :: x1, x2
-    integer :: i, n
-
-    n = size(x)
-
-    x1 = x(1)
-    x2 = x(n)
-
-    do i=1,n
-      x(i) = x(i) - (x1 + (x2 - x1) * real(i-1, kind=dp) / real(n-1, kind=dp))
-    enddo
-
   end subroutine detrend
 
   subroutine demean(x)
     implicit none
     double precision, dimension(:), intent(inout) :: x
     double precision :: sum
-    integer :: i, n
+    integer :: n
 
     n = size(x)
     x = x - sum(x)/n

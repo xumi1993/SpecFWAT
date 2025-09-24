@@ -10,18 +10,21 @@ module adjoint_source
 
 contains
 
-  subroutine calculate_adjoint_source(dat, syn, dt, windows, misfit_out)
+  subroutine calculate_adjoint_source(dat, syn, dt, windows, short_p, long_p, misfit_out)
     real(kind=dp), dimension(:), intent(in) :: dat, syn
-    real(kind=dp), intent(in) :: dt
+    real(kind=dp), intent(in) :: dt, short_p, long_p
     real(kind=dp), dimension(:,:), intent(in) :: windows
     class(AdjointMeasurement), intent(out), allocatable :: misfit_out
     
+    cfg%min_period = short_p
+    cfg%max_period = long_p
     select case (cfg%imeasure_type)
       case (IMEAS_WAVEFORM) ! Waveform difference
         allocate(WaveformMisfit :: misfit_out)
         select type (misfit_out)
         type is (WaveformMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
+          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case (IMEAS_WAVEFORM_CONV) ! Waveform convolution
@@ -42,6 +45,7 @@ contains
         select type (misfit_out)
         type is (ExponentiatedPhaseMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
+          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case (IMEAS_CC_TT, IMEAS_CC_DLNA) ! Cross-correlation traveltime/amplitude
@@ -49,6 +53,7 @@ contains
         select type (misfit_out)
         type is (CCTTMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
+          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case (IMEAS_CC_TT_MT, IMEAS_CC_DLNA_MT) ! Multitaper traveltime/amplitude
@@ -56,6 +61,7 @@ contains
         select type (misfit_out)
         type is (MTTTMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
+          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case default
@@ -73,5 +79,30 @@ contains
     end select
 
   end subroutine calculate_adjoint_source
+
+
+  subroutine filter_adj(adj_src, dt, windows)
+    use signal, only: bandpass_dp
+    real(kind=dp), dimension(:), intent(inout) :: adj_src
+    real(kind=dp), intent(in) :: dt
+    real(kind=dp), dimension(:,:), intent(in) :: windows
+    real(kind=dp), dimension(2) :: window
+    real(kind=dp), dimension(:), allocatable :: adj_tw
+    integer :: nlen_win, nb, ne
+
+    call bandpass_dp(adj_src, size(adj_src), dt, real(1/cfg%max_period), real(1/cfg%min_period), IORD)
+    window(1) = minval(windows)
+    window(2) = maxval(windows)
+
+    call get_window_info(window, dt, nb, ne, nlen_win)
+    allocate(adj_tw(nlen_win))
+    adj_tw(:) = adj_src(nb:ne)
+
+    ! taper the windows
+    adj_src = 0.0_dp
+    call window_taper(adj_tw, cfg%taper_percentage, cfg%itaper_type)
+    adj_src(nb:ne) = adj_tw
+
+  end subroutine filter_adj
 
 end module adjoint_source
