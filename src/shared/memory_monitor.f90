@@ -4,7 +4,7 @@ module memory_monitor
   use config, only: worldrank
   implicit none
 
-  ! C接口声明用于getrusage
+  ! C interface declaration for getrusage
   interface
     function c_getrusage(who, usage) bind(C, name="getrusage")
       import :: c_int, c_ptr
