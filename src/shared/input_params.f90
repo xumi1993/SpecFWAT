@@ -2,7 +2,7 @@ module input_params
   use config
   use fwat_mpi
   use adj_config, cfg => adj_config_global
-  use ma_variables
+  ! use ma_variables
   use utils, only: split_by_spaces
 
   implicit none
@@ -36,7 +36,7 @@ module input_params
 
   type sim_params
     character(len=MAX_STRING_LEN) :: mesh_par_file
-    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, ITAPER, PRECOND_TYPE, TELE_TYPE
+    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
@@ -215,7 +215,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, ma, grid
+    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -233,7 +233,6 @@ contains
         this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
         this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
         this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
-        this%sim%ITAPER = noise%get_integer('ITAPER', error=io_err, default=1)
         list => noise%get_list('RCOMPS', required=.true., error=io_err)
         if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         call read_string_list(list, this%sim%RCOMPS)
@@ -274,8 +273,7 @@ contains
 
         ! read parameters for teleseismic FWI
         this%sim => tele_par
-        this%sim%IMEAS = 2
-        this%sim%ITAPER = 2
+        this%sim%IMEAS = 1
         this%sim%USE_RHO_SCALING = .false.
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
@@ -321,24 +319,56 @@ contains
           this%sim%rf%NGAUSS = size(this%sim%rf%F0)
         endif
 
-        ! measure adjoint source
-        ma => root%get_dictionary('MEASURE_ADJ', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        TSHIFT_MIN = ma%get_real('TSHIFT_MIN', error=io_err, default=4.5)
-        TSHIFT_MAX = ma%get_real('TSHIFT_MAX', error=io_err, default=4.5)
-        DLNA_MIN = ma%get_real('DLNA_MIN', error=io_err)
-        DLNA_MAX = ma%get_real('DLNA_MAX', error=io_err)
-        CC_MIN = ma%get_real('CC_MIN', error=io_err)
-        ERROR_TYPE = ma%get_integer('ERROR_TYPE', error=io_err)
-        DT_SIGMA_MIN = ma%get_real('DT_SIGMA_MIN', error=io_err)
-        DLNA_SIGMA_MIN = ma%get_real('DLNA_SIGMA_MIN', error=io_err)
-        WTR = ma%get_real('WTR', error=io_err)
-        NPI = ma%get_real('NPI', error=io_err)
-        DT_FAC = ma%get_real('DT_FAC', error=io_err)
-        ERR_FAC = ma%get_real('ERR_FAC', error=io_err)
-        DT_MAX_SCALE = ma%get_real('DT_MAX_SCALE', error=io_err)
-        NCYCLE_IN_WINDOW = ma%get_real('NCYCLE_IN_WINDOW', error=io_err)
-        USE_PHYSICAL_DISPERSION = ma%get_logical('USE_PHYSICAL_DISPERSION', error=io_err, default=.false.)
+        block
+          class(type_dictionary), pointer :: ma, macc, mamt, maenv
+          real(kind=cr) :: tshift_lim(2), dlna_lim(2)
+
+          ma => root%get_dictionary('ADJOINT_SOURCE', required=.true., error=io_err)
+          if (.not. associated(io_err)) then
+            cfg%ITAPER_TYPE = ma%get_integer('ITAPER_TYPE', error=io_err)
+            if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+            cfg%TAPER_PERCENTAGE = dble(ma%get_real('TAPER_PERCENTAGE', error=io_err, default=0.3))
+            macc => ma%get_dictionary('CC', required=.true., error=io_err)
+            if (.not. associated(io_err)) then
+              cfg%CC_MIN = dble(macc%get_real('CC_MIN', error=io_err))
+              cfg%DT_SIGMA_MIN = dble(macc%get_real('DT_SIGMA_MIN', error=io_err))
+              cfg%DLNA_SIGMA_MIN = dble(macc%get_real('DLNA_SIGMA_MIN', error=io_err))
+              list => macc%get_list('TSHIFT_LIM', required=.true., error=io_err)
+              if (.not. associated(io_err)) then
+                call read_static_real_list(list, tshift_lim)
+                cfg%TSHIFT_MIN = dble(tshift_lim(1))
+                cfg%TSHIFT_MAX = dble(tshift_lim(2))
+              end if
+              list => macc%get_list('DLNA_LIM', required=.true., error=io_err)
+              if (.not. associated(io_err)) then
+                call read_static_real_list(list, dlna_lim)
+                cfg%DLNA_MIN = dble(dlna_lim(1))
+                cfg%DLNA_MAX = dble(dlna_lim(2))
+              end if
+            endif
+
+            ! multitaper
+            mamt => ma%get_dictionary('MT', required=.true., error=io_err)
+            if (.not. associated(io_err)) then
+              cfg%MT_NW = dble(mamt%get_real('MT_NW', error=io_err, default=4.0))
+              cfg%NUM_TAPER = mamt%get_integer('NUM_TAPER', error=io_err, default=5)
+              cfg%PHASE_STEP = dble(mamt%get_real('PHASE_STEP', error=io_err, default=1.5))
+              cfg%TRANSFUNC_WATERLEVEL = dble(mamt%get_real('TRANSFUNC_WATERLEVEL', error=io_err, default=1e-10))
+              cfg%WATER_THRESHOLD = dble(mamt%get_real('WATER_THRESHOLD', error=io_err, default=0.02))
+              cfg%DT_FAC = dble(mamt%get_real('DT_FAC', error=io_err, default=2.0))
+              cfg%ERR_FAC = dble(mamt%get_real('ERR_FAC', error=io_err, default=2.0))
+              cfg%DT_MAX_SCALE = dble(mamt%get_real('DT_MAX_SCALE', error=io_err, default=3.5))
+              cfg%MIN_CYCLE_IN_WINDOW = mamt%get_integer('MIN_CYCLE_IN_WINDOW', error=io_err, default=3)
+              cfg%USE_MT_ERROR = mamt%get_logical('USE_MT_ERROR', error=io_err, default=.false.)
+            endif
+            
+            !  envelope
+            maenv => ma%get_dictionary('ENV', required=.true., error=io_err)
+            if (.not. associated(io_err)) then
+              cfg%WTR_ENV = dble(maenv%get_real('WTR_ENV', error=io_err, default=0.2))
+            endif
+          endif
+        end block
 
         ! output
         output => root%get_dictionary('OUTPUT', required=.true., error=io_err)
@@ -403,7 +433,6 @@ contains
     call bcast_all_ch_array(noise_par%mesh_par_file, 1, MAX_STRING_LEN)
     call bcast_all_singlei(noise_par%NSTEP)
     call bcast_all_singlei(noise_par%IMEAS)
-    call bcast_all_singlei(noise_par%ITAPER)
     call bcast_all_singlei(noise_par%PRECOND_TYPE)
     call bcast_all_singlei(noise_par%NRCOMP)
     call bcast_all_singlei(noise_par%NSCOMP)
@@ -436,7 +465,6 @@ contains
     call bcast_all_singlel(supp_stf)
     call bcast_all_singlei(tele_par%NSTEP)
     call bcast_all_singlei(tele_par%IMEAS)
-    call bcast_all_singlei(tele_par%ITAPER)
     call bcast_all_singlei(tele_par%PRECOND_TYPE)
     call bcast_all_singlei(tele_par%NRCOMP)
     call bcast_all_singlei(tele_par%NUM_FILTER)
@@ -471,21 +499,41 @@ contains
     endif
 
     ! measure adjoint source
-    call bcast_all_singledp(TSHIFT_MIN)
-    call bcast_all_singledp(TSHIFT_MAX)
-    call bcast_all_singledp(DLNA_MIN)
-    call bcast_all_singledp(DLNA_MAX)
-    call bcast_all_singledp(CC_MIN)
-    call bcast_all_singlei(ERROR_TYPE)
-    call bcast_all_singledp(DT_SIGMA_MIN)
-    call bcast_all_singledp(DLNA_SIGMA_MIN)
-    call bcast_all_singledp(WTR)
-    call bcast_all_singledp(NPI)
-    call bcast_all_singledp(DT_FAC)
-    call bcast_all_singledp(ERR_FAC)
-    call bcast_all_singledp(DT_MAX_SCALE)
-    call bcast_all_singledp(NCYCLE_IN_WINDOW)
-    call bcast_all_singlel(USE_PHYSICAL_DISPERSION)
+    ! call bcast_all_singledp(TSHIFT_MIN)
+    ! call bcast_all_singledp(TSHIFT_MAX)
+    ! call bcast_all_singledp(DLNA_MIN)
+    ! call bcast_all_singledp(DLNA_MAX)
+    ! call bcast_all_singledp(CC_MIN)
+    ! call bcast_all_singlei(ERROR_TYPE)
+    ! call bcast_all_singledp(DT_SIGMA_MIN)
+    ! call bcast_all_singledp(DLNA_SIGMA_MIN)
+    ! call bcast_all_singledp(WTR)
+    ! call bcast_all_singledp(NPI)
+    ! call bcast_all_singledp(DT_FAC)
+    ! call bcast_all_singledp(ERR_FAC)
+    ! call bcast_all_singledp(DT_MAX_SCALE)
+    ! call bcast_all_singledp(NCYCLE_IN_WINDOW)
+    ! call bcast_all_singlel(USE_PHYSICAL_DISPERSION)
+    call bcast_all_singlei(cfg%ITAPER_TYPE)
+    call bcast_all_singledp(cfg%TAPER_PERCENTAGE)
+    call bcast_all_singledp(cfg%CC_MIN)
+    call bcast_all_singledp(cfg%DT_SIGMA_MIN)
+    call bcast_all_singledp(cfg%DLNA_SIGMA_MIN)
+    call bcast_all_singledp(cfg%TSHIFT_MIN)
+    call bcast_all_singledp(cfg%TSHIFT_MAX)
+    call bcast_all_singledp(cfg%DLNA_MIN)
+    call bcast_all_singledp(cfg%DLNA_MAX)
+    call bcast_all_singledp(cfg%MT_NW)
+    call bcast_all_singlei(cfg%NUM_TAPER)
+    call bcast_all_singledp(cfg%PHASE_STEP)
+    call bcast_all_singledp(cfg%TRANSFUNC_WATERLEVEL)
+    call bcast_all_singledp(cfg%WATER_THRESHOLD)
+    call bcast_all_singledp(cfg%DT_FAC)
+    call bcast_all_singledp(cfg%ERR_FAC)
+    call bcast_all_singledp(cfg%DT_MAX_SCALE)
+    call bcast_all_singlei(cfg%MIN_CYCLE_IN_WINDOW)
+    call bcast_all_singlel(cfg%USE_MT_ERROR)
+    call bcast_all_singledp(cfg%WTR_ENV)
 
     ! output
     call bcast_all_singlel(IS_OUTPUT_PREPROC)
@@ -530,7 +578,6 @@ contains
 
   subroutine select_simu_type(this)
     use specfem_par, only: NSTEP, DT, LOCAL_PATH
-    use ma_variables
     class(fwat_params), intent(inout) :: this
 
     select case (simu_type)
@@ -541,10 +588,6 @@ contains
         this%sim => noise_par
         ! is_mtm0 = 1
     end select
-    ! imeas0 = this%sim%IMEAS
-    ! imeas = imeas0
-    ! itaper = this%sim%ITAPER
-    ! is_mtm = is_mtm0
     cfg%imeasure_type = this%sim%IMEAS
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP

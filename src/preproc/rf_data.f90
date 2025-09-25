@@ -1,6 +1,5 @@
 module rf_data
   use config
-  ! use ma_constants
   use rf_misfit
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
@@ -148,8 +147,8 @@ module rf_data
                                        dble(fpar%sim%rf%f0(igaus)), dble(fpar%sim%rf%tshift), &
                                        fpar%sim%rf%maxit, dble(fpar%sim%rf%minderr))
           recm(irec_local)%trm(1) = TraceMisfit(1)
-          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_r 
-          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_z
+          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_z 
+          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_r
           recm(irec_local)%trm(1)%misfits(1) = rfm%misfits(1) * fpar%acqui%src_weight(this%ievt)
           recm(irec_local)%trm(1)%residuals(1) = rfm%residuals(1)
           recm(irec_local)%trm(1)%imeas(1) = rfm%imeas(1)

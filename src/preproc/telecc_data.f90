@@ -1,7 +1,5 @@
 module telecc_data
   use config
-  ! use measure_adj_mod, only: measure_adj_cross_conv
-  ! use ma_constants
   use waveform_conv_misfit
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, &

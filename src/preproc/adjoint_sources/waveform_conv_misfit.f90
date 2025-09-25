@@ -19,7 +19,7 @@ contains
     real(kind=dp), dimension(:), intent(in) :: dat_r, dat_z, syn_r, syn_z
     real(kind=dp), intent(in) :: dt
     real(kind=dp), dimension(2), intent(in) :: window
-    real(kind=dp), dimension(:), allocatable :: sr, sz, dr, dz, c1, c2, &
+    real(kind=dp), dimension(:), allocatable :: c1, c2, &
                                                 adj_tw_r, adj_tw_z, conv_diff
     integer :: nlen_win, nlen, nb, ne
 
@@ -35,29 +35,23 @@ contains
     this%adj_src_z = 0.0_dp
 
     call get_window_info(window, dt, nb, ne, nlen_win)
-    sr = syn_r(nb:ne)
-    dr = dat_r(nb:ne)
-    sz = syn_z(nb:ne)
-    dz = dat_z(nb:ne)
-
-    ! taper the windows
-    call window_taper(sr, cfg%taper_percentage, cfg%itaper_type)
-    call window_taper(dr, cfg%taper_percentage, cfg%itaper_type)
-    call window_taper(sz, cfg%taper_percentage, cfg%itaper_type)
-    call window_taper(dz, cfg%taper_percentage, cfg%itaper_type)
-
+   
     ! calculate adjoint sources
-    call myconvolution_dp(sr, dz, c1, 0)
-    call myconvolution_dp(dr, sz, c2, 0)
+    call myconvolution_dp(syn_r, dat_z, c1, 0)
+    call myconvolution_dp(dat_r, syn_z, c2, 0)
     conv_diff = (c1 - c2) * dt
-    call myconvolution_dp(dz(nlen_win:1:-1), &
+    call myconvolution_dp(dat_z(nlen:1:-1), &
                           conv_diff, adj_tw_r, 0)
     adj_tw_r = adj_tw_r * dt
-    call myconvolution_dp(-sr(nlen_win:1:-1), &
+    adj_tw_r = adj_tw_r(nb:ne)
+    call myconvolution_dp(-dat_r(nlen:1:-1), &
                           conv_diff, adj_tw_z, 0)
     adj_tw_z = adj_tw_z * dt
+    adj_tw_z = adj_tw_z(nb:ne)
 
     ! add window to adjoint source
+    conv_diff = conv_diff(nb:ne)
+    call window_taper(conv_diff, cfg%taper_percentage, cfg%itaper_type)
     call window_taper(adj_tw_r, cfg%taper_percentage, cfg%itaper_type)
     call window_taper(adj_tw_z, cfg%taper_percentage, cfg%itaper_type)
 

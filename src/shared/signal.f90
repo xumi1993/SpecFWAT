@@ -1,6 +1,5 @@
 module signal
   use config
-  use ma_constants
   implicit none
 
 contains
