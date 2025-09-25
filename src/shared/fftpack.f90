@@ -161,7 +161,7 @@ contains
       n = n_input
     end if
     
-    nft = 2**exponent(real(n))
+    nft = 2**ceiling(log(real(n))/log(2.0))
 
     ! Prepare input data with zero padding if necessary
     allocate(x_padded(nft))
