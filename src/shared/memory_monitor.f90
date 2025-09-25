@@ -49,7 +49,7 @@ contains
     integer(c_int) :: ret
     real(kind=dp) :: rss_mb, utime, stime
 
-    ! 只有rank 0输出内存信息
+    ! Only rank 0 outputs memory information
     if (worldrank /= 0) return
 
     ! 设置前缀
