@@ -1,6 +1,7 @@
 module rf_data
   use config
-  use ma_constants
+  use rf_misfit
+  use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv
@@ -49,7 +50,6 @@ module rf_data
 
     call this%calc_times()
 
-    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call mkdir(fpar%acqui%in_dat_path(this%ievt))
     call synchronize_all()
 
@@ -76,8 +76,8 @@ module rf_data
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
-          header%knetwk = this%od%netwk(irec)
-          header%kstnm = this%od%stnm(irec)
+          header%knetwk = trim(this%od%netwk(irec))
+          header%kstnm = trim(this%od%stnm(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
           header%user1 = fpar%sim%rf%f0(igauss)
           header%kuser1 = 'gauss'
@@ -92,7 +92,6 @@ module rf_data
   subroutine preprocess(this, ievt)
     class(RFData), intent(inout) :: this
     integer, intent(in) :: ievt    
-    integer :: irec_local, irec
     real(kind=cr), dimension(:), allocatable :: bazi
     
     fpar%sim%NRCOMP = 1
@@ -118,103 +117,105 @@ module rf_data
   end subroutine preprocess
 
   subroutine measure_adj(this)
-    use measure_adj_mod, only: measure_adj_rf
     class(RFData), intent(inout) :: this
-    type(sachead) :: header
-    character(len=MAX_STRING_LEN) :: chan, msg
-    integer :: irec_local, irec, igaus, icomp
-    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
-    real(kind=dp), dimension(:), allocatable :: tstart, tend, synz, synr, adj_2, adj_3
-    real(kind=dp), dimension(:,:,:), allocatable :: window_chi, adj_src
-    real(kind=dp), dimension(:), allocatable :: adj_r_tw, adj_z_tw
-    character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
-    
+    character(len=MAX_STRING_LEN) :: msg
+    integer :: irec_local, irec, igaus
+    real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3
+    real(kind=dp), dimension(:,:,:), allocatable :: adj_src
+    type(RFMisfit) :: rfm
+    type(RECMisfit), dimension(:), allocatable :: recm
+    type(EVTMisfit) :: evtm
+
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, 2, this%nrec_loc)
-      allocate(sta(this%nrec_loc))
-      allocate(net(this%nrec_loc))
-      tstart = zeros_dp(this%nrec_loc)
-      tend = zeros_dp(this%nrec_loc)
     endif
     do igaus = 1, fpar%sim%rf%NGAUSS
       write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
-      call this%wchi(igaus)%init(this%ievt, this%band_name)
       if (this%nrec_loc > 0) then
-        window_chi = zeros_dp(this%nrec_loc, NCHI, 1)
-        tr_chi = zeros_dp(this%nrec_loc, 1)
-        am_chi = zeros_dp(this%nrec_loc, 1)
-        T_pmax_dat = zeros_dp(this%nrec_loc, 1)
-        T_pmax_syn = zeros_dp(this%nrec_loc, 1)
+        allocate(recm(this%nrec_loc), stat=ier)
         do irec_local = 1, this%nrec_loc
+          recm(irec_local) = RECMisfit(fpar%sim%NRCOMP)
           irec = select_global_id_for_rec(irec_local)
           synz = this%data(:, 1, irec)
           synr = this%data(:, 2, irec)
-          ! adj_z_tw = zeros_dp(NSTEP)
-          ! adj_r_tw = zeros_dp(NSTEP)
           call bandpass_dp(synz, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call bandpass_dp(synr, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-          call measure_adj_rf(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec),&
-                              synr, synz, -dble(fpar%sim%TIME_WIN(1)), dble(fpar%sim%TIME_WIN(2)),&
-                              dble(-t0), dble(this%ttp(irec)), dble(DT), NSTEP, fpar%sim%rf%f0(igaus),&
-                              fpar%sim%rf%tshift, fpar%sim%rf%maxit, fpar%sim%rf%minderr, &
-                              window_chi(irec_local, :, 1), adj_r_tw, adj_z_tw,&
-                              this%od%netwk(irec), this%od%stnm(irec) &
-                              )
-          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + adj_z_tw 
-          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + adj_r_tw
-          tr_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
-          am_chi(irec_local, 1) = fpar%acqui%src_weight(this%ievt)*window_chi(irec_local, 15, 1)
-          T_pmax_dat(irec_local, 1) = 0.0_dp
-          T_pmax_syn(irec_local, 1) = 0.0_dp
+
+          ! Measure adjoint source using RF
+          call rfm%calc_adjoint_source(this%rf_dat(:, igaus, irec), this%rf_syn(:, igaus, irec), synr, synz, DT, &
+                                       dble(this%ttp(irec)+T0), dble([ fpar%sim%TIME_WIN(1), fpar%sim%TIME_WIN(2) ]), &
+                                       dble(fpar%sim%rf%f0(igaus)), dble(fpar%sim%rf%tshift), &
+                                       fpar%sim%rf%maxit, dble(fpar%sim%rf%minderr))
+          recm(irec_local)%trm(1) = TraceMisfit(1)
+          adj_src(:, 1, irec_local) = adj_src(:, 1, irec_local) + rfm%adj_src_z 
+          adj_src(:, 2, irec_local) = adj_src(:, 2, irec_local) + rfm%adj_src_r
+          recm(irec_local)%trm(1)%misfits(1) = rfm%misfits(1) * fpar%acqui%src_weight(this%ievt)
+          recm(irec_local)%trm(1)%residuals(1) = rfm%residuals(1)
+          recm(irec_local)%trm(1)%imeas(1) = rfm%imeas(1)
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + rfm%total_misfit
           if (igaus == 1) then
-            sta(irec_local) = this%od%stnm(irec)
-            net(irec_local) = this%od%netwk(irec)
-            tstart(irec_local) = this%ttp(irec) - dble(fpar%sim%TIME_WIN(1)) 
-            tend(irec_local) =  this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
+            recm(irec_local)%sta = trim(this%od%stnm(irec))
+            recm(irec_local)%net = trim(this%od%netwk(irec))
+            recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
+            recm(irec_local)%trm(1)%tstart(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
+            recm(irec_local)%trm(1)%tend(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
           endif
-        enddo
-      endif
-      call this%wchi(igaus)%assemble_window_chi(window_chi, tr_chi, am_chi,&
-                                               T_pmax_dat, T_pmax_syn, sta, net,&
-                                               tstart, tend)
-      call this%wchi(igaus)%write()
-      this%total_misfit(igaus) = this%wchi(igaus)%sum_chi(29)
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(igaus)
+        enddo ! irec_local
+      endif ! this%nrec_loc > 0
+      evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec)
+      evtm%band_name = trim(this%band_name)
+      call evtm%assemble(recm)
+      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
       call log%write(msg, .true.)
-    enddo
+      call evtm%write()
+      this%total_misfit(igaus) = evtm%total_misfit
+      if (allocated(recm)) deallocate(recm)
+      call synchronize_all()
+    enddo ! igaus
+
     call synchronize_all()
 
     adj_src = adj_src * fpar%acqui%src_weight(this%ievt)
-    ! if (IS_OUTPUT_ADJ_SRC) then
-    !   call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-    !   if (this%nrec_loc > 0) then
-    !     do irec_local = 1, this%nrec_loc
-    !       irec = select_global_id_for_rec(irec_local)
-    !       header%kstnm = this%od%stnm(irec)
-    !       header%knetwk = this%od%netwk(irec)
-    !       do icomp = 1, 2
-    !         if (icomp == 1) then
-    !           header%kcmpnm = 'Z'
-    !         else
-    !           header%kcmpnm = 'R'
-    !         end if
-    !         call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
-    !                             trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-    !                             '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
-    !                             header, adj_src(:, icomp, irec_local), ier)
-    !       enddo
-    !     enddo
-    !   endif
-    ! endif
+    if (IS_OUTPUT_ADJ_SRC) then
+      block
+      type(sachead) :: header
+      integer :: icomp
+      call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+      if (this%nrec_loc > 0) then
+        do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
+          header%kstnm = trim(this%od%stnm(irec))
+          header%knetwk = trim(this%od%netwk(irec))
+          do icomp = 1, 2
+            if (icomp == 1) then
+              header%kcmpnm = 'Z'
+            else
+              header%kcmpnm = 'R'
+            end if
+            call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//'/'//&
+                                trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                                '.'//trim(fpar%sim%CH_CODE)//trim(header%kcmpnm)//'.adj.sac', &
+                                header, adj_src(:, icomp, irec_local), ier)
+          enddo
+        enddo
+      endif
+      end block
+    endif
     call synchronize_all()
 
     call this%get_comp_name_adj()
     if (this%nrec_loc > 0) then
+      ! Allocate temporary arrays outside loop to avoid repeated allocation
+      adj_2 = zeros_dp(NSTEP)
+      adj_3 = zeros_dp(NSTEP)
+      
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         call this%write_adj(adj_src(:, 1, irec_local), this%comp_name(1), irec)
-        adj_2 = zeros_dp(NSTEP)
-        adj_3 = zeros_dp(NSTEP)
+        
+        ! Reuse existing arrays instead of reallocating
+        adj_2 = 0.0_dp
+        adj_3 = 0.0_dp
         call rotate_R_to_NE_dp(adj_src(:, 2, irec_local), adj_3, adj_2, this%baz)
         ! write N component
         call this%write_adj(adj_2, this%comp_name(2), irec)
@@ -268,8 +269,8 @@ module rf_data
           call sacio_newhead(header, real(DT), NSTEP, -real(T0))
           header%az = this%az
           header%baz = this%baz
-          header%kstnm = this%od%stnm(irec)
-          header%knetwk = this%od%netwk(irec)
+          header%kstnm = trim(this%od%stnm(irec))
+          header%knetwk = trim(this%od%netwk(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
           header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
           header%t0 = this%ttp(irec)
@@ -290,8 +291,8 @@ module rf_data
             write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
             header%az = this%az
             header%baz = this%baz
-            header%kstnm = this%od%stnm(irec)
-            header%knetwk = this%od%netwk(irec)
+            header%kstnm = trim(this%od%stnm(irec))
+            header%knetwk = trim(this%od%netwk(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
             header%user1 = fpar%sim%rf%f0(igaus)
             header%kuser1 = 'gauss'
@@ -375,12 +376,8 @@ module rf_data
 
   subroutine finalize(this)
     class(RFData), intent(inout) :: this
-    integer :: igaus
 
     call this%od%finalize()
-    do igaus = 1, fpar%sim%rf%NGAUSS
-      call this%wchi(igaus)%finalize()
-    enddo
     call free_shm_array(this%dat_win)
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%rf_win)

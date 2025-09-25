@@ -150,7 +150,7 @@
 
   use external_model
   use hdf5_interface
-  use shared_input_parameters, only: TOMOGRAPHY_PATH, ANISOTROPY
+  use shared_input_parameters, only: TOMOGRAPHY_PATH
   use utils, only: transpose_3
 
   implicit none
@@ -197,10 +197,10 @@
 
   use external_model
   use utils, only: interp3, interp3_nearest_simple
-  use generate_databases_par, only: nspec => NSPEC_AB,ibool,HUGEVAL,TINYVAL,IDOMAIN_ELASTIC,CUSTOM_REAL, ibool
+  use generate_databases_par, only: HUGEVAL,TINYVAL,IDOMAIN_ELASTIC,CUSTOM_REAL
 
-  use create_regions_mesh_ext_par, only: xstore_unique,ystore_unique,zstore_unique, &
-    num_free_surface_faces,free_surface_ijk,free_surface_ispec,nglob_unique
+  ! use create_regions_mesh_ext_par, only: xstore_unique,ystore_unique,zstore_unique, &
+    ! num_free_surface_faces,free_surface_ijk,free_surface_ispec,nglob_unique
 
   implicit none
 

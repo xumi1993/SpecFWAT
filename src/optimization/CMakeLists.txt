@@ -22,11 +22,11 @@ foreach(execsourcefile ${APP_SOURCES})
   target_link_libraries(${EXEC_NAME} PUBLIC shared_fwat_objs
                         shared_objs specfem3D_objs opt_objs
                         postproc_objs preproc_objs specfem_api_objs 
-                        tele_objs measadj_objs cuda_objs grid_objs
+                        tele_objs adjsrc_objs cuda_objs grid_objs
                         generate_databases_objs meshfem3D_objs
                         external_values_objs config_objs 
                         hdf5_interface_objs utils_objs window_chi_objs
-                        mesh_subs_objs databases_subs_objs
+                        mesh_subs_objs databases_subs_objs fftpack_objs 
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

@@ -30,19 +30,18 @@ module obs_data
 contains
   subroutine read_stations(this, ievt, is_filted)
     class(ObsData), intent(inout) :: this
-    character(len=MAX_STRING_LEN) :: evt_id
     integer, intent(in) :: ievt
     logical, intent(in), optional :: is_filted
     character(len=MAX_STRING_LEN) :: line, fname
-    integer :: idx, ista
+    integer :: ista
 
     this%ievt = ievt
     this%evt_id = fpar%acqui%evtid_names(ievt)
 
     if (present(is_filted)) then
-      fname = fpar%acqui%station_file(ievt)//'_FILTERED'
+      fname = trim(fpar%acqui%station_file(ievt))//'_FILTERED'
     else
-      fname = fpar%acqui%station_file(ievt)
+      fname = trim(fpar%acqui%station_file(ievt))
     endif
 
     if (worldrank == 0) then

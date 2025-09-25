@@ -3,19 +3,20 @@ include_directories(
 )
 
 add_subdirectory(telesubs)
-add_subdirectory(measure_adj)
+# add_subdirectory(measure_adj)
+add_subdirectory(adjoint_sources)
 
 # object libraries of preproc
 file(GLOB SOURCES_Fortran "*.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/fwat.*$")
-list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/window_chi.f90")
-add_library(window_chi_objs OBJECT window_chi.f90)
+list(FILTER SOURCES_Fortran EXCLUDE REGEX "^.*/misfit.f90")
+add_library(window_chi_objs OBJECT misfit.f90)
 target_link_libraries(window_chi_objs PRIVATE shared_objs shared_fwat_objs
                       config_objs)
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
-                      specfem_api_objs cuda_objs tele_objs measadj_objs
-                      window_chi_objs)
+                      specfem_api_objs cuda_objs tele_objs
+                      window_chi_objs adjsrc_objs config_objs)
 
 # executables
 set(APP_SOURCES
@@ -31,8 +32,9 @@ foreach(execsourcefile ${APP_SOURCES})
   set_target_properties(${EXEC_NAME} PROPERTIES PREFIX "x")
   target_link_libraries(${EXEC_NAME} PUBLIC preproc_objs shared_fwat_objs
                         shared_objs cuda_objs specfem3D_objs window_chi_objs
-                        specfem_api_objs tele_objs measadj_objs
-                        config_objs hdf5_interface_objs utils_objs
+                        specfem_api_objs tele_objs adjsrc_objs
+                        config_objs hdf5_interface_objs utils_objs fftpack_objs
+
   )
   if (USE_CUDA)
     target_link_libraries(${EXEC_NAME} PUBLIC cuda_kernels_objs)

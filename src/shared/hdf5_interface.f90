@@ -774,7 +774,6 @@ contains
     real(kind=dp), allocatable, intent(out) :: value(:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%get(dname, value)
@@ -788,7 +787,6 @@ contains
     real(kind=dp), allocatable, intent(out) :: value(:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%get(dname, value)
@@ -802,7 +800,6 @@ contains
     real(kind=dp), allocatable, intent(out) :: value(:,:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%get(dname, value)
@@ -816,7 +813,6 @@ contains
     real, allocatable, intent(out) :: value(:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%get(dname, value)
@@ -830,7 +826,6 @@ contains
     real, allocatable, intent(out) :: value(:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%get(dname, value)
@@ -844,7 +839,6 @@ contains
     real, allocatable, intent(out) :: value(:,:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%get(dname, value)
@@ -858,7 +852,6 @@ contains
     real(kind=dp), intent(in) :: value(:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%add(dname, value)
@@ -872,7 +865,6 @@ contains
     real(kind=dp), intent(in) :: value(:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%add(dname, value)
@@ -886,7 +878,6 @@ contains
     real(kind=dp), intent(in) :: value(:,:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%add(dname, value)
@@ -900,7 +891,6 @@ contains
     real, intent(in) :: value(:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%add(dname, value)
@@ -914,7 +904,6 @@ contains
     real, intent(in) :: value(:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%add(dname, value)
@@ -928,7 +917,6 @@ contains
     real, intent(in) :: value(:,:,:)
 
     type(hdf5_file) :: hdf
-    integer :: ierr
 
     call hdf%open(fname)
     call hdf%add(dname, value)

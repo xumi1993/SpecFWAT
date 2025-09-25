@@ -23,7 +23,7 @@ module yaml_types
    public type_dictionary,type_key_value_pair
    public type_list,type_list_item
 
-   integer,parameter :: string_length = 1024
+   integer,parameter :: string_length = 512
    integer,parameter :: real_kind = 4
 
    type,abstract :: type_node

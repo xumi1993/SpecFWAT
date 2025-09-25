@@ -1,6 +1,8 @@
 module tele_data
   use config
-  use ma_constants
+  ! use ma_constants
+  use waveform_misfit
+  use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, get_gauss_fac, mkdir
   use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
                     myconvolution_dp, time_deconv, mycorrelation_dp, interpolate_func_dp
@@ -18,14 +20,12 @@ module tele_data
   implicit none
 
   integer, private :: ier
+  character(len=MAX_STRING_LEN), private :: msg
 
   type, extends(SynData) :: TeleData
     real(kind=cr), dimension(:), pointer :: ttp ! travel time of P
-    real(kind=dp), dimension(:), allocatable :: tstart, tend
     real(kind=dp), dimension(:,:), allocatable :: stf_array
-    real(kind=dp), dimension(:,:), allocatable :: tr_chi, am_chi, T_pmax_dat, T_pmax_syn
-    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat, seismo_syn, window_chi
-    character(len=MAX_STR_CHI), dimension(:), allocatable :: sta, net
+    real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat, seismo_syn
     real(kind=cr) :: baz, az, avgamp
     integer :: ttp_win
     contains
@@ -123,7 +123,6 @@ contains
     real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat_glob, seismo_syn_glob
     real(kind=dp), dimension(:,:), allocatable :: seismo_stf, seismo_stf_glob
     real(kind=dp), dimension(:), allocatable :: seismo_inp, stf_local
-    character(len=MAX_STRING_LEN) :: msg
 
     call this%init(ievt)
 
@@ -139,7 +138,7 @@ contains
     call get_band_name(fpar%sim%SHORT_P(1), fpar%sim%LONG_P(1), this%band_name)
 
     ! initialize misfits
-    call this%wchi(1)%init(ievt, this%band_name)
+    ! call this%wchi(1)%init(ievt, this%band_name)
 
     call this%get_comp_name_adj()
 
@@ -211,19 +210,111 @@ contains
 
     call this%measure_adj()
 
-    ! print *, shape(this%window_chi), shape(this%tr_chi), shape(this%am_chi)
-    call this%wchi(1)%assemble_window_chi(this%window_chi, this%tr_chi, this%am_chi,&
-                                          this%T_pmax_dat, this%T_pmax_syn, this%sta, this%net,&
-                                          this%tstart, this%tend)
-
-    if (worldrank == 0) then
-      call this%wchi(1)%write()
-      this%total_misfit(1) = this%wchi(1)%sum_chi(29)
-      write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', this%total_misfit(1)
-      call log%write(msg, .true.)
-    endif
-    call synchronize_all()
   end subroutine preprocess
+
+  subroutine measure_adj(this)
+    class(TeleData), intent(inout) :: this
+    type(sachead) :: header
+    real(kind=dp) :: tstart, tend
+    character(len=MAX_STRING_LEN) :: sacfile
+    real(kind=dp), dimension(:), allocatable :: seismo_syn_local, tmpl
+    real(kind=dp), dimension(:, :), allocatable :: adj_src
+    real(kind=dp), dimension(:), allocatable :: adj_syn_local
+    real(kind=dp), dimension(1, 2) :: windows
+    integer :: irec, icomp, irec_local
+    type(WaveformMisfit) :: wm
+    type(RECMisfit), dimension(:), allocatable :: recm
+    type(EVTMisfit) :: evtm
+    
+    allocate(adj_syn_local(fpar%sim%nstep))
+    if (this%nrec_loc > 0) then
+      allocate(recm(this%nrec_loc))
+      do irec_local = 1, this%nrec_loc
+        recm(irec_local) = RECMisfit(fpar%sim%NRCOMP)
+        irec = select_global_id_for_rec(irec_local)
+        do icomp = 1, fpar%sim%NRCOMP
+          ! allocate trace misfit
+          recm(irec_local)%trm(icomp) = TraceMisfit(1)
+          ! convolution with STF
+          call myconvolution_dp(this%seismo_syn(:, icomp, irec_local), this%stf_array(:, icomp), seismo_syn_local, 0)
+          this%seismo_syn(:, icomp, irec_local) = seismo_syn_local * fpar%sim%dt
+          if (IS_OUTPUT_PREPROC) then
+            call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+            header%knetwk = trim(this%od%netwk(irec))
+            header%kstnm = trim(this%od%stnm(irec))
+            header%t0 = this%ttp(irec)
+            sacfile = trim(OUTPUT_FILES)//'/wsyn.'//trim(this%od%netwk(irec))//&
+                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
+            call sacio_writesac(sacfile, header, this%seismo_syn(:, icomp, irec_local), ier)
+            sacfile = trim(OUTPUT_FILES)//'/wdat.'//trim(this%od%netwk(irec))//&
+                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
+                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
+            call sacio_writesac(sacfile, header, this%seismo_dat(:, icomp, irec_local), ier)
+          endif
+
+          ! measure adjoint
+          tstart = this%ttp(irec) + T0
+          tend = this%ttp(irec) + T0
+          windows(1, :) = [tstart, tend] + fpar%sim%time_win
+          call wm%calc_adjoint_source(this%seismo_dat(:, icomp, irec_local), &
+                                      this%seismo_syn(:, icomp, irec_local), &
+                                      dble(fpar%sim%dt), windows)
+          adj_syn_local = 0.0_dp
+          adj_syn_local = wm%adj_src / this%avgamp
+          call mycorrelation_dp(adj_syn_local, this%stf_array(:, icomp), tmpl, 0)
+          adj_syn_local = tmpl * fpar%sim%dt / maxval(abs(this%stf_array(:, icomp)))
+
+          if (IS_OUTPUT_ADJ_SRC) then
+            call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+            header%knetwk = trim(this%od%netwk(irec))
+            header%kstnm = trim(this%od%stnm(irec))
+            header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+            sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+                      '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
+                      '.adj.sac.'//trim(this%band_name)
+            call sacio_writesac(sacfile, header, adj_syn_local(1:NSTEP), ier)
+          endif
+
+          ! write adjoint source
+          select case (icomp)
+          case (1)
+            call this%write_adj(adj_syn_local(1:NSTEP), trim(this%comp_name(1)), irec)
+          case (2)
+            adj_src = zeros_dp(fpar%sim%nstep, 2)
+            call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
+            call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
+            call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
+          end select
+          ! save misfits
+          recm(irec_local)%trm(icomp)%misfits(1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt) / this%avgamp / this%avgamp * dt
+          recm(irec_local)%trm(icomp)%residuals(1) = wm%residuals(1)
+          recm(irec_local)%trm(icomp)%imeas(1) = wm%imeas(1)
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wm%total_misfit
+          recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+          recm(irec_local)%trm(icomp)%tstart(1) = tstart
+          recm(irec_local)%trm(icomp)%tend(1) = tend
+          if (icomp == 1) then
+            recm(irec_local)%sta = trim(this%od%stnm(irec))
+            recm(irec_local)%net = trim(this%od%netwk(irec))
+          endif
+        enddo ! icomp
+      enddo ! irec_local
+    end if ! this%nrec_loc > 0
+    call synchronize_all()
+
+    evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), this%nrec)
+    evtm%band_name = trim(this%band_name)
+    call evtm%assemble(recm)
+    write(msg, '(a,f12.6)') 'Total misfit: of '//trim(this%band_name)//': ', evtm%total_misfit
+    call log%write(msg, .true.)
+    call evtm%write()
+    this%total_misfit(1) = evtm%total_misfit
+    if (allocated(recm)) deallocate(recm)
+    call synchronize_all()
+
+  end subroutine measure_adj
 
   subroutine seis_pca(this, seismo_dat, seismo_syn, seismo_stf_glob)
     use spanlib, only: sl_pca
@@ -363,21 +454,11 @@ contains
     class(TeleData), intent(inout) :: this
 
     call this%od%finalize()
-    call this%wchi(1)%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
     deallocate(this%stf_array, stat=ier)
     deallocate(this%seismo_dat, stat=ier)
     deallocate(this%seismo_syn, stat=ier)
-    deallocate(this%window_chi, stat=ier)
-    deallocate(this%tr_chi, stat=ier)
-    deallocate(this%am_chi, stat=ier)
-    deallocate(this%T_pmax_dat, stat=ier)
-    deallocate(this%T_pmax_syn, stat=ier)
-    deallocate(this%sta, stat=ier)
-    deallocate(this%net, stat=ier)
-    deallocate(this%tstart, stat=ier)
-    deallocate(this%tend, stat=ier)
 
   end subroutine finalize
 
@@ -395,122 +476,4 @@ contains
 
   end subroutine interp_data_to_syn
 
-  subroutine measure_adj(this)
-    use measure_adj_mod, only: measure_adj_fwat
-    use ma_variables, only: OUT_DIR
-    class(TeleData), intent(inout) :: this
-    type(sachead) :: header
-    real(kind=dp) :: tstart, tend
-    character(len=MAX_STRING_LEN) :: sacfile, file_prefix
-    real(kind=dp), dimension(:), allocatable :: seismo_syn_local, tmpl
-    real(kind=dp), dimension(:, :), allocatable :: adj_src
-    real(kind=dp), dimension(NCHI) :: window_chi_local
-    real(kind=dp), dimension(:), allocatable :: adj_syn_local, dat_meas, syn_meas
-    ! real(kind=dp), dimension(:), allocatable :: adj_syn_local
-    real(kind=dp) :: tr_chi_local, am_chi_local, T_pmax_dat_local, T_pmax_syn_local
-    integer :: out_imeas, irec, icomp, irec_local
-    
-    ! allocate chi arrays
-    OUT_DIR = trim(OUTPUT_FILES)
-    allocate(this%window_chi(this%nrec_loc, NCHI, fpar%sim%NRCOMP))
-    allocate(this%tr_chi(this%nrec_loc, fpar%sim%NRCOMP))
-    allocate(this%am_chi(this%nrec_loc, fpar%sim%NRCOMP))
-    allocate(this%T_pmax_dat(this%nrec_loc, fpar%sim%NRCOMP))
-    allocate(this%T_pmax_syn(this%nrec_loc, fpar%sim%NRCOMP))
-    allocate(this%sta(this%nrec_loc))
-    allocate(this%net(this%nrec_loc))
-    allocate(this%tstart(this%nrec_loc))
-    allocate(this%tend(this%nrec_loc))
-    allocate(adj_syn_local(fpar%sim%nstep))
-    allocate(dat_meas(fpar%sim%nstep))
-    allocate(syn_meas(fpar%sim%nstep))
-    if (this%nrec_loc > 0) then
-      do irec_local = 1, this%nrec_loc
-        irec = select_global_id_for_rec(irec_local)
-        do icomp = 1, fpar%sim%NRCOMP
-          ! convolution with STF
-          call myconvolution_dp(this%seismo_syn(:, icomp, irec_local), this%stf_array(:, icomp), seismo_syn_local, 0)
-          this%seismo_syn(:, icomp, irec_local) = seismo_syn_local * fpar%sim%dt
-          if (IS_OUTPUT_PREPROC) then
-            call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-            header%knetwk = trim(this%od%netwk(irec))
-            header%kstnm = trim(this%od%stnm(irec))
-            header%t0 = this%ttp(irec)
-            ! header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
-            sacfile = trim(OUTPUT_FILES)//'/wsyn.'//trim(this%od%netwk(irec))//&
-                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
-            call sacio_writesac(sacfile, header, this%seismo_syn(:, icomp, irec_local), ier)
-            sacfile = trim(OUTPUT_FILES)//'/wdat.'//trim(this%od%netwk(irec))//&
-                      '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-                      trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
-            call sacio_writesac(sacfile, header, this%seismo_dat(:, icomp, irec_local), ier)
-            ! sacfile = trim(OUTPUT_FILES)//'/diff.'//trim(this%od%netwk(irec))//&
-            !           '.'//trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//&
-            !           trim(fpar%sim%RCOMPS(icomp))//'.sac.'//trim(this%band_name)
-            ! call sacio_writesac(sacfile, header, this%seismo_syn(:, icomp, irec_local)- this%seismo_dat(:, icomp, irec_local), ier)
-          endif
-
-          ! measure adjoint
-          tstart = this%ttp(irec) + fpar%sim%time_win(1)
-          tend = this%ttp(irec) + fpar%sim%time_win(2)
-          dat_meas(1:NSTEP) = this%seismo_dat(:, icomp, irec_local)
-          syn_meas(1:NSTEP) = this%seismo_syn(:, icomp, irec_local)
-          call measure_adj_fwat(dat_meas, syn_meas,&
-                                tstart, tend, dble(fpar%sim%SHORT_P(1)), dble(fpar%sim%LONG_P(1)),&
-                                this%od%netwk(irec), this%od%stnm(irec),&
-                                trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp)), &
-                                window_chi_local, tr_chi_local, am_chi_local,&
-                                T_pmax_dat_local, T_pmax_syn_local, adj_syn_local, &
-                                file_prefix, out_imeas)
-          ! call measure_adj_tele(this%seismo_dat(:, icomp, irec_local), this%seismo_syn(:, icomp, irec_local),&
-          !                        tstart, tend, window_chi_local, adj_syn_local)
-
-          if (IS_OUTPUT_ADJ_SRC) then
-            call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-            header%knetwk = trim(this%od%netwk(irec))
-            header%kstnm = trim(this%od%stnm(irec))
-            header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
-            sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
-                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
-                      '.adj.sac.'//trim(this%band_name)
-            call sacio_writesac(sacfile, header, adj_syn_local(1:NSTEP), ier)
-          endif
-          adj_syn_local = adj_syn_local / this%avgamp
-          call mycorrelation_dp(adj_syn_local, this%stf_array(:, icomp), tmpl, 0)
-          adj_syn_local = tmpl * fpar%sim%dt
-          adj_syn_local = adj_syn_local / maxval(abs(this%stf_array(:, icomp)))
-
-          ! write adjoint source
-          select case (icomp)
-          case (1)
-            call this%write_adj(adj_syn_local(1:NSTEP), trim(this%comp_name(1)), irec)
-          case (2)
-            adj_src = zeros_dp(fpar%sim%nstep, 2)
-            call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
-            call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
-            call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
-          end select
-          ! save misfits
-          this%window_chi(irec_local, :, icomp) = window_chi_local
-          tr_chi_local = window_chi_local(15)
-          am_chi_local = window_chi_local(15)
-          this%tr_chi(irec_local, icomp) = fpar%acqui%src_weight(this%ievt)*tr_chi_local/this%avgamp/this%avgamp*dt
-          this%am_chi(irec_local, icomp) = fpar%acqui%src_weight(this%ievt)*am_chi_local/this%avgamp/this%avgamp*dt
-          ! this%T_pmax_dat(irec_local, icomp) = T_pmax_dat_local
-          this%T_pmax_dat(irec_local, icomp) = (dt*NSTEP)/maxloc(abs(this%seismo_dat(:, icomp, irec_local)), dim=1)
-          ! this%T_pmax_syn(irec_local, icomp) = T_pmax_syn_local
-          this%T_pmax_syn(irec_local, icomp) = (dt*NSTEP)/maxloc(abs(this%seismo_syn(:, icomp, irec_local)), dim=1)
-          if (icomp == 1) then
-            this%sta(irec_local) = trim(this%od%stnm(irec))
-            this%net(irec_local) = trim(this%od%netwk(irec))
-            this%tstart(irec_local) = tstart
-            this%tend(irec_local) = tend
-          endif
-        enddo
-      enddo
-    end if
-    call synchronize_all()
-  end subroutine measure_adj
 end module tele_data

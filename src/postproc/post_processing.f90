@@ -509,7 +509,7 @@ contains
   end subroutine calc_kernel0_weight_grid
 
   subroutine calc_misfit0_weight(itype, weight)
-    use window_chi, only: read_model_misfit
+    use misfit_mod, only: read_evt_misfit
     use common_lib, only: get_dat_type
     integer, intent(in) :: itype
     real(kind=cr), intent(out) :: weight
@@ -537,7 +537,7 @@ contains
     ! calculate total misfit
     misfit_all = 0._dp
     do ievt = 1, fpar%acqui%nevents
-      call read_model_misfit(modname, ievt, misfit_loc)
+      misfit_loc = read_evt_misfit(modname, ievt)
       misfit_all = misfit_all + misfit_loc
     enddo
     weight = real(misfit_all)

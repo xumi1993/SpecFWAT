@@ -18,9 +18,9 @@ INCIDENT_WAVE      p
 BACK_AZIMUTH           315
 TAKE_OFF               27.191115158518674
 #----------------------------------------
-FREQUENCY_MAX      0.55
+FREQUENCY_MAX      1.0
 #----------------------------------------
-TIME_WINDOW      200.
+TIME_WINDOW      80
 #----------------------------------------
 # optional 
 # ORIGIN_WAVEFRONT  299673.1 22116.76 -150000.
