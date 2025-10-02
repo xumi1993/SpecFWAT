@@ -153,13 +153,11 @@ module rf_data
           recm(irec_local)%trm(1)%residuals(1) = rfm%residuals(1)
           recm(irec_local)%trm(1)%imeas(1) = rfm%imeas(1)
           recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + rfm%total_misfit
-          if (igaus == 1) then
-            recm(irec_local)%sta = trim(this%od%stnm(irec))
-            recm(irec_local)%net = trim(this%od%netwk(irec))
-            recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
-            recm(irec_local)%trm(1)%tstart(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
-            recm(irec_local)%trm(1)%tend(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
-          endif
+          recm(irec_local)%sta = trim(this%od%stnm(irec))
+          recm(irec_local)%net = trim(this%od%netwk(irec))
+          recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
+          recm(irec_local)%trm(1)%tstart(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(1)) 
+          recm(irec_local)%trm(1)%tend(1) = this%ttp(irec) + dble(fpar%sim%TIME_WIN(2))
         enddo ! irec_local
       endif ! this%nrec_loc > 0
       evtm = EVTMisfit(fpar%acqui%evtid_names(this%ievt), nrec)
