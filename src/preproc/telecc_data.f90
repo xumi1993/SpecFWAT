@@ -193,7 +193,8 @@ contains
         recm(irec_local)%trm(1)%misfits(1) = wcm%misfits(1) * fpar%acqui%src_weight(this%ievt)
         recm(irec_local)%trm(1)%residuals(1) = wcm%residuals(1)
         recm(irec_local)%trm(1)%imeas(1) = wcm%imeas(1)
-        recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wcm%total_misfit
+        recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wcm%total_misfit &
+                                          * fpar%acqui%src_weight(this%ievt)
         recm(irec_local)%sta = trim(this%od%stnm(irec))
         recm(irec_local)%net = trim(this%od%netwk(irec))
         recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))

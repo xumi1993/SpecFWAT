@@ -40,9 +40,9 @@ contains
 
       ! run forward simulation
       call ffwd%simulation()
-
+      
+      ! take sum of misfit
       total_misfit = total_misfit + ffwd%obj_func
-
       misfit_loc = read_evt_misfit(model_current, ievt)
       misfit_prev = misfit_prev + misfit_loc
 

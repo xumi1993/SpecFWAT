@@ -177,7 +177,8 @@ contains
               recm(irec_local)%trm(icomp)%imeas(1) = misfit_out%imeas(1)
               recm(irec_local)%trm(icomp)%tstart(1) = tstart
               recm(irec_local)%trm(icomp)%tend(1) = tend
-              recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit
+              recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit &
+                                                  * fpar%acqui%src_weight(this%ievt)
             else
               recm(irec_local)%trm(icomp)%imeas(1) = 0
             endif

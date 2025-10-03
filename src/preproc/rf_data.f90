@@ -152,7 +152,7 @@ module rf_data
           recm(irec_local)%trm(1)%misfits(1) = rfm%misfits(1) * fpar%acqui%src_weight(this%ievt)
           recm(irec_local)%trm(1)%residuals(1) = rfm%residuals(1)
           recm(irec_local)%trm(1)%imeas(1) = rfm%imeas(1)
-          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + rfm%total_misfit
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + rfm%total_misfit * fpar%acqui%src_weight(this%ievt)
           recm(irec_local)%sta = trim(this%od%stnm(irec))
           recm(irec_local)%net = trim(this%od%netwk(irec))
           recm(irec_local)%chan(1) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(1))
