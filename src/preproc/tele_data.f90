@@ -29,8 +29,8 @@ module tele_data
     real(kind=cr) :: baz, az, avgamp
     integer :: ttp_win
     contains
-    procedure :: preprocess, calc_fktimes, semd2sac, interp_data_to_syn
-    procedure, private :: deconv_for_stf, seis_pca, measure_adj
+    procedure :: preprocess, calc_fktimes, semd2sac
+    procedure, private :: seis_pca, measure_adj
     procedure :: finalize
   end type TeleData
 
@@ -154,7 +154,7 @@ contains
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
-          call this%interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
+          call interp_data_to_syn(this%od%data(:, icomp, irec), dble(this%od%tbeg(irec)),&
                                   dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
           call detrend(seismo_inp)
           call demean(seismo_inp)
@@ -168,8 +168,8 @@ contains
           call bandpass_dp(this%seismo_syn(:, icomp, irec_local), fpar%sim%nstep, dble(fpar%sim%dt),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           if (icomp == 1) then
-            call this%deconv_for_stf(this%seismo_dat(:, 1, irec_local), this%seismo_syn(:, 1, irec_local),&
-                                     this%ttp(irec), stf_local)
+            call deconv_for_stf(this%seismo_dat(:, 1, irec_local), this%seismo_syn(:, 1, irec_local),&
+                                this%ttp(irec), stf_local)
             seismo_stf(:, irec_local) = stf_local
           endif
         enddo
@@ -288,10 +288,11 @@ contains
             call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
           end select
           ! save misfits
-          recm(irec_local)%trm(icomp)%misfits(1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt) / this%avgamp / this%avgamp * dt
+          recm(irec_local)%trm(icomp)%misfits(1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt) &
+                                                   / this%avgamp / this%avgamp * dt
           recm(irec_local)%trm(icomp)%residuals(1) = wm%residuals(1)
           recm(irec_local)%trm(icomp)%imeas(1) = wm%imeas(1)
-          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wm%total_misfit
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wm%total_misfit * fpar%acqui%src_weight(this%ievt)
           recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
           recm(irec_local)%trm(icomp)%tstart(1) = tstart
           recm(irec_local)%trm(icomp)%tend(1) = tend
@@ -383,8 +384,7 @@ contains
 
   end subroutine seis_pca
 
-  subroutine deconv_for_stf(this, data_num, data_den, tref, stf)
-    class(TeleData), intent(inout) :: this
+  subroutine deconv_for_stf(data_num, data_den, tref, stf)
     real(kind=dp), dimension(:), intent(in) :: data_num, data_den
     real(kind=dp), dimension(:), allocatable, intent(out) :: stf
     real(kind=cr), dimension(:), allocatable :: stf_dp
@@ -462,8 +462,7 @@ contains
 
   end subroutine finalize
 
-  subroutine interp_data_to_syn(this, dat_in, tb, tarr, ttp, deltat, dat_out)
-    class(TeleData), intent(inout) :: this
+  subroutine interp_data_to_syn(dat_in, tb, tarr, ttp, deltat, dat_out)
     real(kind=dp), dimension(:), intent(in) :: dat_in
     real(kind=dp), intent(in) :: tarr, deltat, tb, ttp
     real(kind=dp), dimension(:), allocatable, intent(out) :: dat_out
