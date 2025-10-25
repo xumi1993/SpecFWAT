@@ -53,9 +53,10 @@ module fwat_constants
 
 
   ! math
+  real(kind=cr), parameter :: EARTH_RADIUS = 6371.0d0
   real(kind=cr), parameter :: deg2rad = PI / 180.0d0
   real(kind=cr), parameter :: rad2deg = 180.0d0 / PI
-  real(kind=cr), parameter :: km2deg = 1.0d0 /(6371.0d0*pi/180.0d0)
+  real(kind=cr), parameter :: km2deg = 1.0d0 /(EARTH_RADIUS*pi/180.0d0)
 
   ! meas_adj
   integer, parameter :: NITER = 200
@@ -85,7 +86,7 @@ module config
   integer, dimension(:,:), allocatable :: rank_map
 
   logical :: single_run = .false.
-  integer :: event_index = 0, run_mode, compress_level
+  integer :: event_index = 0, run_mode = 0, compress_level
   
   character(len=MAX_STRING_LEN) :: mesh_par_file
   character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup, local_path_fwat, output_files_backup

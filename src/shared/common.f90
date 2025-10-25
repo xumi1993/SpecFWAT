@@ -23,7 +23,9 @@ contains
   subroutine get_dat_type()
     use input_params, fpar => fwat_par_global
     if (simu_type == SIMU_TYPE_NOISE) then
-      dat_type = 'noise'
+      dat_type = SIMU_TYPE_NOISE
+    else if (simu_type == SIMU_TYPE_LEQ) then
+      dat_type = SIMU_TYPE_LEQ
     else if (simu_type == SIMU_TYPE_TELE) then
       call get_tele_type(fpar%sim%TELE_TYPE)
     else

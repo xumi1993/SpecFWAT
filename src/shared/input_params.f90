@@ -77,7 +77,7 @@ module input_params
     procedure :: select_simu_type
   end type fwat_params
 
-  type(sim_params), target :: tele_par, noise_par
+  type(sim_params), target :: tele_par, noise_par, leq_par
   type(fwat_params) :: fwat_par_global
 
 contains
@@ -90,6 +90,7 @@ contains
     real(kind=cr) :: junk_cr
     integer, parameter :: FID = 878
     integer :: ievt
+    logical :: file_exists
 
     this%evtset_file = trim(SRC_REC_DIR)//'/'//trim(SRC_PREFIX)//'_'//trim(dat_type)//'.dat'
     if (worldrank == 0) then
@@ -141,10 +142,17 @@ contains
         this%station_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(STATIONS_PREFIX)//'_'//trim(evtnm)
         if (simu_type == SIMU_TYPE_NOISE) then
           this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FORCESOLUTION_PREFIX)//'_'//trim(evtnm)
+        else if (simu_type == SIMU_TYPE_LEQ) then
+          this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
         else if (simu_type == SIMU_TYPE_TELE) then
           ! this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
           this%fkmodel_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FKMODEL_PREFIX)//'_'//trim(evtnm)
           this%src_solution_file(ievt) = 'DATA/'//trim(CMTSOLUTION_PREFIX)
+          inquire(file=trim(this%src_solution_file(ievt)), exist=file_exists)
+          if (.not. file_exists) then
+            write(msg, '(a,a,a)') 'ERROR: CMT solution file ', trim(this%src_solution_file(ievt)), ' does not exist.'
+            call exit_mpi(worldrank, trim(msg))
+          endif
         endif
         this%evtid_names(ievt) = evtnm
         this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(dat_type)//'/'//trim(evtnm)
@@ -215,7 +223,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid
+    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid, leq
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -226,99 +234,140 @@ contains
       select type (root)
       class is (type_dictionary)
         ! read parameters for noise FWI
-        this%sim => noise_par
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
-        this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
-        this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
-        this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
-        list => noise%get_list('RCOMPS', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_string_list(list, this%sim%RCOMPS)
-        this%sim%NRCOMP = size(this%sim%RCOMPS)
-        list => noise%get_list('SCOMPS', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_string_list(list, this%sim%SCOMPS)
-        this%sim%NSCOMP = size(this%sim%SCOMPS)
-        this%sim%CH_CODE = noise%get_string('CH_CODE', error=io_err)
-        this%sim%DT = noise%get_real('DT', error=io_err)
-        list => noise%get_list('SHORT_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%SHORT_P)
-        list => noise%get_list('LONG_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%LONG_P)
-        list => noise%get_list('GROUPVEL_MIN', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%GROUPVEL_MIN)
-        list => noise%get_list('GROUPVEL_MAX', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%GROUPVEL_MAX)
-        if (size(this%sim%SHORT_P)      == size(this%sim%LONG_P) .and. &
-            size(this%sim%LONG_P)       == size(this%sim%GROUPVEL_MIN) .and. &
-            size(this%sim%GROUPVEL_MIN) == size(this%sim%GROUPVEL_MAX)) then
-          this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+        if (.not. associated(io_err)) then
+          this%sim => noise_par
+          this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
+          this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
+          this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
+          this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
+          list => noise%get_list('RCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%RCOMPS)
+          this%sim%NRCOMP = size(this%sim%RCOMPS)
+          list => noise%get_list('SCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%SCOMPS)
+          this%sim%NSCOMP = size(this%sim%SCOMPS)
+          this%sim%CH_CODE = noise%get_string('CH_CODE', error=io_err)
+          this%sim%DT = noise%get_real('DT', error=io_err)
+          list => noise%get_list('SHORT_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%SHORT_P)
+          list => noise%get_list('LONG_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%LONG_P)
+          list => noise%get_list('GROUPVEL_MIN', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%GROUPVEL_MIN)
+          list => noise%get_list('GROUPVEL_MAX', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%GROUPVEL_MAX)
+          if (size(this%sim%SHORT_P)      == size(this%sim%LONG_P) .and. &
+              size(this%sim%LONG_P)       == size(this%sim%GROUPVEL_MIN) .and. &
+              size(this%sim%GROUPVEL_MIN) == size(this%sim%GROUPVEL_MAX)) then
+            this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+          else
+            call exit_mpi(worldrank, 'ERROR: the number of filters for noise FWI is not consistent')
+          endif
+          this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
+          this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
+          this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+          this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
         else
-          call exit_mpi(worldrank, 'ERROR: the number of filters for noise FWI is not consistent')
-        endif
-        this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
-        this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
-        this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
-        this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
+          if (simu_type == SIMU_TYPE_NOISE) then
+            call exit_mpi(worldrank, 'ERROR: NOISE section is not found in parameter file')
+          endif
+        end if
 
         ! read parameters for teleseismic FWI
-        this%sim => tele_par
-        this%sim%IMEAS = 1
-        this%sim%USE_RHO_SCALING = .false.
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
-        supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
-        list => tele%get_list('RCOMPS', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_string_list(list, this%sim%RCOMPS)
-        this%sim%NRCOMP = size(this%sim%RCOMPS)
-        this%sim%NSTEP = tele%get_integer('NSTEP', error=io_err)
-        this%sim%PRECOND_TYPE = tele%get_integer('PRECOND_TYPE', error=io_err)
-        this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err)
-        this%sim%DT = tele%get_real('DT', error=io_err)
-        list => tele%get_list('TIME_WIN', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%TIME_WIN)
-        list => tele%get_list('SHORT_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%SHORT_P)
-        list => tele%get_list('LONG_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%LONG_P)
-        this%sim%NUM_FILTER = 1
-        this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
-        this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
-        this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
-        compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
-        this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        ! read parameters for RF proc
-        rf => tele%get_dictionary('RF', required=.true., error=io_err)
-        this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
-        this%sim%rf%TSHIFT = rf%get_real('TSHIFT', error=io_err)
-        this%sim%rf%MAXIT = rf%get_integer('MAXIT', error=io_err)
-        list => rf%get_list('F0', required=.true., error=io_err)
-        if (associated(io_err)) then
-          this%sim%rf%NGAUSS = 0
-        else
-          call read_real_list(list, this%sim%rf%F0)
-          this%sim%rf%NGAUSS = size(this%sim%rf%F0)
-        endif
+        if (.not. associated(io_err)) then
+          this%sim => tele_par
+          this%sim%IMEAS = 1
+          this%sim%USE_RHO_SCALING = .false.
+          this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
+          supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
+          list => tele%get_list('RCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%RCOMPS)
+          this%sim%NRCOMP = size(this%sim%RCOMPS)
+          this%sim%NSTEP = tele%get_integer('NSTEP', error=io_err)
+          this%sim%PRECOND_TYPE = tele%get_integer('PRECOND_TYPE', error=io_err)
+          this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err)
+          this%sim%DT = tele%get_real('DT', error=io_err)
+          list => tele%get_list('TIME_WIN', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%TIME_WIN)
+          list => tele%get_list('SHORT_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%SHORT_P)
+          list => tele%get_list('LONG_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%LONG_P)
+          this%sim%NUM_FILTER = 1
+          this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
+          this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
+          this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
+          compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
+          this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          ! read parameters for RF proc
+          rf => tele%get_dictionary('RF', required=.true., error=io_err)
+          this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
+          this%sim%rf%TSHIFT = rf%get_real('TSHIFT', error=io_err)
+          this%sim%rf%MAXIT = rf%get_integer('MAXIT', error=io_err)
+          list => rf%get_list('F0', required=.true., error=io_err)
+          if (associated(io_err)) then
+            this%sim%rf%NGAUSS = 0
+          else
+            call read_real_list(list, this%sim%rf%F0)
+            this%sim%rf%NGAUSS = size(this%sim%rf%F0)
+          endif
+        else ! if (.not. associated(io_err))
+          if (simu_type == SIMU_TYPE_TELE) then
+            call exit_mpi(worldrank, 'ERROR: TELE section is not found in parameter file')
+          endif
+        end if
 
+        ! read leq parameters
+        leq => root%get_dictionary('LEQ', required=.true., error=io_err)
+        if (.not. associated(io_err)) then
+          this%sim => leq_par
+          this%sim%mesh_par_file = leq%get_string('MESH_PAR_FILE', error=io_err)
+          this%sim%NSTEP = leq%get_integer('NSTEP', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%DT = tele%get_real('DT', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%PRECOND_TYPE = leq%get_integer('PRECOND_TYPE', error=io_err)
+          this%sim%IMEAS = leq%get_integer('IMEAS', error=io_err, default=IMEAS_CC_TT_MT)
+          list => leq%get_list('RCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%RCOMPS)
+          this%sim%NRCOMP = size(this%sim%RCOMPS)
+          this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err, default='BX')
+          list => tele%get_list('SHORT_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%SHORT_P)
+          list => tele%get_list('LONG_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%LONG_P)
+          this%sim%NUM_FILTER = 1
+          this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
+          this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+        else ! if (.not. associated(io_err))
+          if (simu_type == SIMU_TYPE_LEQ) then
+            call exit_mpi(worldrank, 'ERROR: LEQ section is not found in parameter file')
+          endif
+        end if
+        
         block
           class(type_dictionary), pointer :: ma, macc, mamt, maenv
           real(kind=cr) :: tshift_lim(2), dlna_lim(2)
