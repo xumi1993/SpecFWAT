@@ -16,6 +16,7 @@ module preproc_fwd
   use rf_data, only: RFData
   use telecc_data, only: TeleCCData
   use noise_data, only: NoiseData
+  use leq_data, only: LEQData
   use common_lib, only: get_dat_type, mkdir
 
   implicit none
@@ -220,6 +221,7 @@ contains
     type(TeleData) :: td
     type(RFData) :: rd
     type(NoiseData) :: nd
+    type(LEQData) :: ld
 
     select case (dat_type)
       case ('tele') 
@@ -230,6 +232,8 @@ contains
         call rd%semd2sac(this%ievt)
       case ('noise')
         call nd%semd2sac(this%ievt)
+      case ('leq')
+        call ld%semd2sac(this%ievt)
     end select
 
   end subroutine semd2sac
