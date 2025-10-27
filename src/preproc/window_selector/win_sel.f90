@@ -4,17 +4,10 @@ module win_sel
   use cross_correlate
   use sta_lta_mod
   use fftpack
+  use adj_config, only: win_config_global
   implicit none
 
   integer, private, parameter :: max_good_win = 1000
-
-  type :: win_config
-    real(kind=dp) :: jump_fac = 0.1, min_velocity = 2.4, sliding_win_len_fac = 3.0, &
-                     threshold_shift_fac = 0.3, threshold_corr = 0.7, min_win_len_fac = 1.5, &
-                     max_noise_window = 5.0, max_energy_ratio = 5.0
-    integer :: min_peaks_troughs = 3
-    logical :: is_split_phases = .true.
-  end type win_config
 
   type :: win_sel_type
     integer :: n_win = 0
@@ -32,8 +25,6 @@ module win_sel
     procedure :: init => initialize, gen_good_windows
     procedure, private :: sliding_cc, split_window_by_phases
   end type win_sel_type
-
-  type(win_config) :: win_config_global
 
 contains
   subroutine initialize(this, dat, syn, dt, t0, tp, dis, min_period)
@@ -220,13 +211,13 @@ contains
 
         ! Check 3: signal to noise ratio too low
         max_amp = maxval(abs(this%dat(ib:ie)))
-        if (max_amp / this%noise_level < win_config_global%max_noise_window) cycle
+        if (max_amp / this%noise_level < win_config_global%min_snr_window) cycle
 
         ! Check 4: Energy ratio check
         eng_dat = sum(this%dat(ib:ie)**2)
         eng_syn = sum(this%syn(ib:ie)**2)
-        if (eng_dat / eng_syn > win_config_global%max_energy_ratio .or. &
-            eng_dat / eng_syn < 1/win_config_global%max_energy_ratio) cycle
+        if (eng_dat / eng_syn > win_config_global%min_energy_ratio .or. &
+            eng_dat / eng_syn < 1/win_config_global%min_energy_ratio) cycle
 
         ! All checks passed - add to final windows
         final_count = final_count + 1

@@ -1,8 +1,7 @@
 module input_params
   use config
   use fwat_mpi
-  use adj_config, cfg => adj_config_global
-  ! use ma_variables
+  use adj_config, adj_cfg => adj_config_global, win_cfg => win_config_global
   use utils, only: split_by_spaces
 
   implicit none
@@ -223,7 +222,7 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid, leq
+    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid, leq, win
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -271,9 +270,10 @@ contains
           else
             call exit_mpi(worldrank, 'ERROR: the number of filters for noise FWI is not consistent')
           endif
-          this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
-          this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
+          this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err, default=.false.)
+          this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err, default=.false.)
           this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
           ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
@@ -363,8 +363,22 @@ contains
           if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           call read_real_list(list, this%sim%LONG_P)
           this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+          this%sim%ADJ_SRC_NORM = leq%get_logical('ADJ_SRC_NORM', error=io_err, default=.false.)
           this%sim%SIGMA_H = leq%get_real('SIGMA_H', error=io_err)
           this%sim%SIGMA_V = leq%get_real('SIGMA_V', error=io_err)
+          win => leq%get_dictionary('WINDOW', required=.true., error=io_err)
+          if (.not. associated(io_err)) then
+            win_cfg%sliding_win_len_fac = dble(win%get_real('SLIDING_WIN_LEN_FAC', error=io_err, default=2.0))
+            win_cfg%min_velocity = dble(win%get_real('MIN_VELOCITY', error=io_err, default=2.4))
+            win_cfg%threshold_corr = dble(win%get_real('THRESHOLD_CORR', error=io_err, default=0.8))
+            win_cfg%threshold_shift_fac = dble(win%get_real('THRESHOLD_SHIFT_FAC', error=io_err, default=0.3))
+            win_cfg%jump_fac = dble(win%get_real('JUMP_FAC', error=io_err, default=0.1))
+            win_cfg%min_win_len_fac = dble(win%get_real('MIN_WIN_LEN_FAC', error=io_err, default=1.5))
+            win_cfg%min_snr_window = dble(win%get_real('MIN_SNR_WINDOW', error=io_err, default=5.0))
+            win_cfg%min_energy_ratio = dble(win%get_real('MIN_ENERGY_RATIO', error=io_err, default=5.0))
+            win_cfg%min_peaks_troughs = win%get_integer('MIN_PEAKS_TROUGHS', error=io_err, default=3)
+            win_cfg%is_split_phases = win%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
+          end if
         else ! if (.not. associated(io_err))
           if (simu_type == SIMU_TYPE_LEQ) then
             call exit_mpi(worldrank, 'ERROR: LEQ section is not found in parameter file')
@@ -378,47 +392,47 @@ contains
 
           ma => root%get_dictionary('ADJOINT_SOURCE', required=.true., error=io_err)
           if (.not. associated(io_err)) then
-            cfg%ITAPER_TYPE = ma%get_integer('ITAPER_TYPE', error=io_err)
+            adj_cfg%ITAPER_TYPE = ma%get_integer('ITAPER_TYPE', error=io_err)
             if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-            cfg%TAPER_PERCENTAGE = dble(ma%get_real('TAPER_PERCENTAGE', error=io_err, default=0.3))
+            adj_cfg%TAPER_PERCENTAGE = dble(ma%get_real('TAPER_PERCENTAGE', error=io_err, default=0.3))
             macc => ma%get_dictionary('CC', required=.true., error=io_err)
             if (.not. associated(io_err)) then
-              cfg%CC_MIN = dble(macc%get_real('CC_MIN', error=io_err))
-              cfg%DT_SIGMA_MIN = dble(macc%get_real('DT_SIGMA_MIN', error=io_err))
-              cfg%DLNA_SIGMA_MIN = dble(macc%get_real('DLNA_SIGMA_MIN', error=io_err))
+              adj_cfg%CC_MIN = dble(macc%get_real('CC_MIN', error=io_err))
+              adj_cfg%DT_SIGMA_MIN = dble(macc%get_real('DT_SIGMA_MIN', error=io_err))
+              adj_cfg%DLNA_SIGMA_MIN = dble(macc%get_real('DLNA_SIGMA_MIN', error=io_err))
               list => macc%get_list('TSHIFT_LIM', required=.true., error=io_err)
               if (.not. associated(io_err)) then
                 call read_static_real_list(list, tshift_lim)
-                cfg%TSHIFT_MIN = dble(tshift_lim(1))
-                cfg%TSHIFT_MAX = dble(tshift_lim(2))
+                adj_cfg%TSHIFT_MIN = dble(tshift_lim(1))
+                adj_cfg%TSHIFT_MAX = dble(tshift_lim(2))
               end if
               list => macc%get_list('DLNA_LIM', required=.true., error=io_err)
               if (.not. associated(io_err)) then
                 call read_static_real_list(list, dlna_lim)
-                cfg%DLNA_MIN = dble(dlna_lim(1))
-                cfg%DLNA_MAX = dble(dlna_lim(2))
+                adj_cfg%DLNA_MIN = dble(dlna_lim(1))
+                adj_cfg%DLNA_MAX = dble(dlna_lim(2))
               end if
             endif
 
             ! multitaper
             mamt => ma%get_dictionary('MT', required=.true., error=io_err)
             if (.not. associated(io_err)) then
-              cfg%MT_NW = dble(mamt%get_real('MT_NW', error=io_err, default=4.0))
-              cfg%NUM_TAPER = mamt%get_integer('NUM_TAPER', error=io_err, default=5)
-              cfg%PHASE_STEP = dble(mamt%get_real('PHASE_STEP', error=io_err, default=1.5))
-              cfg%TRANSFUNC_WATERLEVEL = dble(mamt%get_real('TRANSFUNC_WATERLEVEL', error=io_err, default=1e-10))
-              cfg%WATER_THRESHOLD = dble(mamt%get_real('WATER_THRESHOLD', error=io_err, default=0.02))
-              cfg%DT_FAC = dble(mamt%get_real('DT_FAC', error=io_err, default=2.0))
-              cfg%ERR_FAC = dble(mamt%get_real('ERR_FAC', error=io_err, default=2.0))
-              cfg%DT_MAX_SCALE = dble(mamt%get_real('DT_MAX_SCALE', error=io_err, default=3.5))
-              cfg%MIN_CYCLE_IN_WINDOW = mamt%get_integer('MIN_CYCLE_IN_WINDOW', error=io_err, default=3)
-              cfg%USE_MT_ERROR = mamt%get_logical('USE_MT_ERROR', error=io_err, default=.false.)
+              adj_cfg%MT_NW = dble(mamt%get_real('MT_NW', error=io_err, default=4.0))
+              adj_cfg%NUM_TAPER = mamt%get_integer('NUM_TAPER', error=io_err, default=5)
+              adj_cfg%PHASE_STEP = dble(mamt%get_real('PHASE_STEP', error=io_err, default=1.5))
+              adj_cfg%TRANSFUNC_WATERLEVEL = dble(mamt%get_real('TRANSFUNC_WATERLEVEL', error=io_err, default=1e-10))
+              adj_cfg%WATER_THRESHOLD = dble(mamt%get_real('WATER_THRESHOLD', error=io_err, default=0.02))
+              adj_cfg%DT_FAC = dble(mamt%get_real('DT_FAC', error=io_err, default=2.0))
+              adj_cfg%ERR_FAC = dble(mamt%get_real('ERR_FAC', error=io_err, default=2.0))
+              adj_cfg%DT_MAX_SCALE = dble(mamt%get_real('DT_MAX_SCALE', error=io_err, default=3.5))
+              adj_cfg%MIN_CYCLE_IN_WINDOW = mamt%get_integer('MIN_CYCLE_IN_WINDOW', error=io_err, default=3)
+              adj_cfg%USE_MT_ERROR = mamt%get_logical('USE_MT_ERROR', error=io_err, default=.false.)
             endif
             
             !  envelope
             maenv => ma%get_dictionary('ENV', required=.true., error=io_err)
             if (.not. associated(io_err)) then
-              cfg%WTR_ENV = dble(maenv%get_real('WTR_ENV', error=io_err, default=0.2))
+              adj_cfg%WTR_ENV = dble(maenv%get_real('WTR_ENV', error=io_err, default=0.2))
             endif
           endif
         end block
@@ -566,6 +580,7 @@ contains
       call bcast_all_singlei(leq_par%PRECOND_TYPE)
       call bcast_all_singlei(leq_par%NRCOMP)
       call bcast_all_singlei(leq_par%NUM_FILTER)
+      call bcast_all_singlel(leq_par%ADJ_SRC_NORM)
       if (worldrank > 0) then
         allocate(leq_par%RCOMPS(leq_par%NRCOMP))
         allocate(leq_par%SHORT_P(leq_par%NUM_FILTER))
@@ -578,29 +593,40 @@ contains
       call bcast_all_r(leq_par%LONG_P, leq_par%NUM_FILTER)
       call bcast_all_singlecr(leq_par%SIGMA_H)
       call bcast_all_singlecr(leq_par%SIGMA_V)
+      ! broadcast window parameters
+      call bcast_all_singledp(win_cfg%sliding_win_len_fac)
+      call bcast_all_singledp(win_cfg%min_velocity)
+      call bcast_all_singledp(win_cfg%threshold_corr)
+      call bcast_all_singledp(win_cfg%threshold_shift_fac)
+      call bcast_all_singledp(win_cfg%jump_fac)
+      call bcast_all_singledp(win_cfg%min_win_len_fac)
+      call bcast_all_singledp(win_cfg%min_snr_window)
+      call bcast_all_singledp(win_cfg%min_energy_ratio)
+      call bcast_all_singlei(win_cfg%min_peaks_troughs)
+      call bcast_all_singlel(win_cfg%is_split_phases)
     endif
 
     ! measure adjoint source
-    call bcast_all_singlei(cfg%ITAPER_TYPE)
-    call bcast_all_singledp(cfg%TAPER_PERCENTAGE)
-    call bcast_all_singledp(cfg%CC_MIN)
-    call bcast_all_singledp(cfg%DT_SIGMA_MIN)
-    call bcast_all_singledp(cfg%DLNA_SIGMA_MIN)
-    call bcast_all_singledp(cfg%TSHIFT_MIN)
-    call bcast_all_singledp(cfg%TSHIFT_MAX)
-    call bcast_all_singledp(cfg%DLNA_MIN)
-    call bcast_all_singledp(cfg%DLNA_MAX)
-    call bcast_all_singledp(cfg%MT_NW)
-    call bcast_all_singlei(cfg%NUM_TAPER)
-    call bcast_all_singledp(cfg%PHASE_STEP)
-    call bcast_all_singledp(cfg%TRANSFUNC_WATERLEVEL)
-    call bcast_all_singledp(cfg%WATER_THRESHOLD)
-    call bcast_all_singledp(cfg%DT_FAC)
-    call bcast_all_singledp(cfg%ERR_FAC)
-    call bcast_all_singledp(cfg%DT_MAX_SCALE)
-    call bcast_all_singlei(cfg%MIN_CYCLE_IN_WINDOW)
-    call bcast_all_singlel(cfg%USE_MT_ERROR)
-    call bcast_all_singledp(cfg%WTR_ENV)
+    call bcast_all_singlei(adj_cfg%ITAPER_TYPE)
+    call bcast_all_singledp(adj_cfg%TAPER_PERCENTAGE)
+    call bcast_all_singledp(adj_cfg%CC_MIN)
+    call bcast_all_singledp(adj_cfg%DT_SIGMA_MIN)
+    call bcast_all_singledp(adj_cfg%DLNA_SIGMA_MIN)
+    call bcast_all_singledp(adj_cfg%TSHIFT_MIN)
+    call bcast_all_singledp(adj_cfg%TSHIFT_MAX)
+    call bcast_all_singledp(adj_cfg%DLNA_MIN)
+    call bcast_all_singledp(adj_cfg%DLNA_MAX)
+    call bcast_all_singledp(adj_cfg%MT_NW)
+    call bcast_all_singlei(adj_cfg%NUM_TAPER)
+    call bcast_all_singledp(adj_cfg%PHASE_STEP)
+    call bcast_all_singledp(adj_cfg%TRANSFUNC_WATERLEVEL)
+    call bcast_all_singledp(adj_cfg%WATER_THRESHOLD)
+    call bcast_all_singledp(adj_cfg%DT_FAC)
+    call bcast_all_singledp(adj_cfg%ERR_FAC)
+    call bcast_all_singledp(adj_cfg%DT_MAX_SCALE)
+    call bcast_all_singlei(adj_cfg%MIN_CYCLE_IN_WINDOW)
+    call bcast_all_singlel(adj_cfg%USE_MT_ERROR)
+    call bcast_all_singledp(adj_cfg%WTR_ENV)
 
     ! output
     call bcast_all_singlel(IS_OUTPUT_PREPROC)
@@ -656,7 +682,7 @@ contains
         this%sim => leq_par
         T0 = MAX_TIME_SHIFT
     end select
-    cfg%imeasure_type = this%sim%IMEAS
+    adj_cfg%imeasure_type = this%sim%IMEAS
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
     if (is_joint) then

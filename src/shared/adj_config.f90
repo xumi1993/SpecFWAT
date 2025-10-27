@@ -36,5 +36,15 @@ module adj_config
     ! use_mt_error: use multitaper error estimates for weighting
   end type ADJConfig
 
+  
+  type :: WINConfig
+    real(kind=dp) :: jump_fac = 0.1, min_velocity = 2.4, sliding_win_len_fac = 3.0, &
+                     threshold_shift_fac = 0.3, threshold_corr = 0.7, min_win_len_fac = 1.5, &
+                     min_snr_window = 5.0, min_energy_ratio = 5.0
+    integer :: min_peaks_troughs = 3
+    logical :: is_split_phases = .true.
+  end type WINConfig
+
   type(ADJConfig), save :: adj_config_global
+  type(WINConfig), save :: win_config_global
 end module adj_config

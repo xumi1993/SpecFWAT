@@ -10,6 +10,21 @@ LEQ:
   PRECOND_TYPE: 1 # 1: inner product of acceleration
   SIGMA_H: 8000 # Horizontal smoothing radius
   SIGMA_V: 4000 # Vertical smoothing radius
+  WINDOW:
+    # This section is for window selection parameters with basic
+    # algorithms from Krischer et al., 2015, SRL.
+    # The STA/LTA is used to separate phases with algorithm from
+    # Maggi et al., 2009, GJI.
+    SLIDING_WIN_LEN_FAC: 2.0 # Sliding window length = fac * minimum period, Default: 2.0
+    MIN_VELOCITY: 2.4 # Minimum velocity to calculate the end of window, Default: 2.4 km/s
+    THRESHOLD_CORR: 0.8 # Minimum cross-correlation to select a window, Default: 0.8
+    THRESHOLD_SHIFT_FAC: 0.3 # Maximum time shift to select a window = fac * minimum period, Default: 0.3
+    MIN_WIN_LEN_FAC: 1.5 # Minimum window length = fac * minimum period, Default: 1.5
+    JUMP_FAC: 0.1 # Jump factor to avoid abrupt change in time shift series, Default: 0.1
+    MIN_SNR_WINDOW: 5.0 # Minimum signal to noise ratio in a window, Default: 5.0
+    MIN_ENERGY_RATIO: 5.0 # Minimum energy ratio between signal and noise windows, Default: 5.0
+    MIN_PEAKS_TROUGHS: 3 # Minimum number of peaks and troughs in a window, Default: 3
+    IS_SPLIT_PHASES: True # Whether to split phases into different windows. It is necessary for CC based adjoint source.
 
 ADJOINT_SOURCE:
   ITAPER_TYPE: 1 # 1: Hanning, 2: Hamming, 3: Cosine, 4: Cosine P10:
