@@ -184,23 +184,26 @@ contains
     call create_name_database(prname,worldrank,LOCAL_PATH)
 
     ! change simulation parameters for simu_type
-    if (simu_type == SIMU_TYPE_TELE) then
-      USE_FORCE_POINT_SOURCE = .false.
-      COUPLE_WITH_INJECTION_TECHNIQUE=.true.
-      INJECTION_TECHNIQUE_TYPE=3
-      FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
-      if (dat_type == 'rf') then
-        fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
-      endif
-    else if (simu_type == SIMU_TYPE_NOISE) then
-      USE_FORCE_POINT_SOURCE = .true.
-      COUPLE_WITH_INJECTION_TECHNIQUE=.false.
-    else if (simu_type == SIMU_TYPE_LEQ) then
-      USE_FORCE_POINT_SOURCE = .false.
-      COUPLE_WITH_INJECTION_TECHNIQUE=.false.
-    endif
-    source_fname = fpar%acqui%src_solution_file(this%ievt)
-    station_fname = fpar%acqui%station_file(this%ievt)
+    select case (simu_type)
+      case (SIMU_TYPE_TELE)
+        USE_FORCE_POINT_SOURCE = .false.
+        COUPLE_WITH_INJECTION_TECHNIQUE=.true.
+        INJECTION_TECHNIQUE_TYPE=3
+        FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
+        if (dat_type == 'rf') then
+          fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
+        endif
+      case (SIMU_TYPE_NOISE)
+        USE_FORCE_POINT_SOURCE = .true.
+        COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+      case (SIMU_TYPE_LEQ)
+        USE_FORCE_POINT_SOURCE = .false.
+        COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+    end select
+
+    ! set source and station file names
+    source_fname = trim(fpar%acqui%src_solution_file(this%ievt))
+    station_fname = trim(fpar%acqui%station_file(this%ievt))
 
     ! print info
     block 

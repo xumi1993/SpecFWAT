@@ -45,6 +45,7 @@ constants.h
 precision.h
 config.fh
 version.fh
+fwat_config.h
 fort.*
 
 OUTPUT_FILES/

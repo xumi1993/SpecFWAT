@@ -81,6 +81,8 @@ end module fwat_constants
 
 module config
   use fwat_constants
+  implicit none
+  include "fwat_config.h"
 
   integer :: worldrank, worldsize
   integer :: noderank, nodesize
