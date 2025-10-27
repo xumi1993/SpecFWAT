@@ -5,13 +5,20 @@ module common_lib
 
 contains
   subroutine get_simu_type()
-    if (dat_type == 'noise') then
-      simu_type = SIMU_TYPE_NOISE
-    else if (index(dat_type, 'tele') /= 0 .or. dat_type == 'rf') then
-      simu_type = SIMU_TYPE_TELE
-    else
-      if (worldrank == 0) call exit_MPI(0, 'Unknown data type')
-    endif
+    select case (dat_type)
+      case (SIMU_TYPE_NOISE)
+        simu_type = SIMU_TYPE_NOISE
+      case (SIMU_TYPE_LEQ)
+        simu_type = SIMU_TYPE_LEQ
+      case (SIMU_TYPE_TELE)
+        simu_type = SIMU_TYPE_TELE
+      case ('rf')
+        simu_type = SIMU_TYPE_TELE
+      case ('telecc')
+        simu_type = SIMU_TYPE_TELE
+      case default
+        if (worldrank == 0) call exit_MPI(0, 'Unknown data type')
+    end select
   end subroutine get_simu_type
 
   function read_iter_num()
@@ -22,15 +29,16 @@ contains
 
   subroutine get_dat_type()
     use input_params, fpar => fwat_par_global
-    if (simu_type == SIMU_TYPE_NOISE) then
+    select case (simu_type)
+    case (SIMU_TYPE_NOISE)
       dat_type = SIMU_TYPE_NOISE
-    else if (simu_type == SIMU_TYPE_LEQ) then
+    case (SIMU_TYPE_LEQ)
       dat_type = SIMU_TYPE_LEQ
-    else if (simu_type == SIMU_TYPE_TELE) then
+    case (SIMU_TYPE_TELE)
       call get_tele_type(fpar%sim%TELE_TYPE)
-    else
+    case default
       if (worldrank == 0) call exit_MPI(0, 'Unknown simulation type')
-    endif
+    end select
   end subroutine get_dat_type
 
   subroutine get_tele_type(tele_type)
@@ -46,7 +54,6 @@ contains
       case default
         if (worldrank == 0) call exit_MPI(0, 'Unknown teleseismic type')
     end select
-
   end subroutine get_tele_type
 
   subroutine get_kernel_names()

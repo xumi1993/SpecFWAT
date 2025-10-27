@@ -1,6 +1,7 @@
 module fwat_constants
-  ! include "constants.h"
   use constants
+  implicit none
+  include "fwat_config.h"
 
   integer, parameter :: cr = SIZE_REAL
   integer, parameter :: dp = SIZE_DOUBLE
@@ -81,8 +82,6 @@ end module fwat_constants
 
 module config
   use fwat_constants
-  implicit none
-  include "fwat_config.h"
 
   integer :: worldrank, worldsize
   integer :: noderank, nodesize

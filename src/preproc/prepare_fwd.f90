@@ -22,6 +22,7 @@ module preproc_fwd
   implicit none
 
   integer, private :: ier
+  character(len=MAX_STRING_LEN), private :: msg
 
   type :: PrepareFWD
     integer :: ievt=0, run_mode
@@ -56,6 +57,8 @@ contains
       else
         call log%init('output_fwd_measure_adj_'//trim(dat_type)//'_'//trim(model_name)//'.log')
       endif
+      call log%write('Forward/Adjoint simulation started ...', .false.)
+      write(msg, '(A,I0,A)') 'run mode: ', run_mode, ', simu type: '//trim(simu_type)//', data type: '//trim(dat_type)
     endif
     call log%write('*******************************************', .false.)
 
@@ -193,29 +196,28 @@ contains
         if (dat_type == 'rf') then
           fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
         endif
+        source_fname = trim(FKMODEL_FILE)
       case (SIMU_TYPE_NOISE)
         USE_FORCE_POINT_SOURCE = .true.
         COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+        source_fname = trim(fpar%acqui%src_solution_file(this%ievt))
       case (SIMU_TYPE_LEQ)
         USE_FORCE_POINT_SOURCE = .false.
         COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+        source_fname = trim(fpar%acqui%src_solution_file(this%ievt))
     end select
 
-    ! set source and station file names
-    source_fname = trim(fpar%acqui%src_solution_file(this%ievt))
+    ! set station file names
     station_fname = trim(fpar%acqui%station_file(this%ievt))
 
     ! print info
-    block 
-      character(len=MAX_STRING_LEN) :: msg
-      write(msg, '(a,I4,a)') 'Index:',this%ievt,', Event ID: '//trim(evtid)
-      call log%write(msg)
-      msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
-      call log%write(msg)
-      write(msg, '(A, f6.4)') 'Weight: ', fpar%acqui%src_weight(this%ievt)
-      call log%write(msg)
-      call log%write('out_fwd_path = '//trim(path))
-    end block
+    write(msg, '(a,I4,a)') 'Index:',this%ievt,', Event ID: '//trim(evtid)
+    call log%write(msg)
+    msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
+    call log%write(msg)
+    write(msg, '(A, f6.4)') 'Weight: ', fpar%acqui%src_weight(this%ievt)
+    call log%write(msg)
+    call log%write('Output path: '//trim(path))
 
     call synchronize_all()
 
