@@ -146,7 +146,7 @@ contains
   subroutine prepare_shm_array_dp_1d(buffer, n_elem, win)
     USE, INTRINSIC :: ISO_C_BINDING
     real(kind=dp), dimension(:), pointer :: buffer
-    integer :: ierr, istat,n_elem,n
+    integer :: ierr,n_elem,n
     integer(kind=MPI_ADDRESS_KIND) :: size
     integer :: win, real_size
     type(C_PTR) :: c_window_ptr

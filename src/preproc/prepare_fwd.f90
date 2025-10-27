@@ -195,6 +195,9 @@ contains
     else if (simu_type == SIMU_TYPE_NOISE) then
       USE_FORCE_POINT_SOURCE = .true.
       COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+    else if (simu_type == SIMU_TYPE_LEQ) then
+      USE_FORCE_POINT_SOURCE = .false.
+      COUPLE_WITH_INJECTION_TECHNIQUE=.false.
     endif
     source_fname = fpar%acqui%src_solution_file(this%ievt)
     station_fname = fpar%acqui%station_file(this%ievt)

@@ -227,6 +227,7 @@ contains
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
+    logical :: is_noise=.true., is_tele=.true., is_leq=.true.
 
     if (worldrank == 0) then
       root => parse(fname, error = error)
@@ -282,6 +283,7 @@ contains
           if (simu_type == SIMU_TYPE_NOISE) then
             call exit_mpi(worldrank, 'ERROR: NOISE section is not found in parameter file')
           endif
+          is_noise = .false.
         end if
 
         ! read parameters for teleseismic FWI
@@ -335,6 +337,7 @@ contains
           if (simu_type == SIMU_TYPE_TELE) then
             call exit_mpi(worldrank, 'ERROR: TELE section is not found in parameter file')
           endif
+          is_tele = .false.
         end if
 
         ! read leq parameters
@@ -344,7 +347,7 @@ contains
           this%sim%mesh_par_file = leq%get_string('MESH_PAR_FILE', error=io_err)
           this%sim%NSTEP = leq%get_integer('NSTEP', error=io_err)
           if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-          this%sim%DT = tele%get_real('DT', error=io_err)
+          this%sim%DT = leq%get_real('DT', error=io_err)
           if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           this%sim%PRECOND_TYPE = leq%get_integer('PRECOND_TYPE', error=io_err)
           this%sim%IMEAS = leq%get_integer('IMEAS', error=io_err, default=IMEAS_CC_TT_MT)
@@ -352,22 +355,23 @@ contains
           if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           call read_string_list(list, this%sim%RCOMPS)
           this%sim%NRCOMP = size(this%sim%RCOMPS)
-          this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err, default='BX')
-          list => tele%get_list('SHORT_P', required=.true., error=io_err)
+          this%sim%CH_CODE = leq%get_string('CH_CODE', error=io_err, default='BX')
+          list => leq%get_list('SHORT_P', required=.true., error=io_err)
           if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           call read_real_list(list, this%sim%SHORT_P)
-          list => tele%get_list('LONG_P', required=.true., error=io_err)
+          list => leq%get_list('LONG_P', required=.true., error=io_err)
           if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           call read_real_list(list, this%sim%LONG_P)
-          this%sim%NUM_FILTER = 1
-          this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
-          this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+          this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+          this%sim%SIGMA_H = leq%get_real('SIGMA_H', error=io_err)
+          this%sim%SIGMA_V = leq%get_real('SIGMA_V', error=io_err)
         else ! if (.not. associated(io_err))
           if (simu_type == SIMU_TYPE_LEQ) then
             call exit_mpi(worldrank, 'ERROR: LEQ section is not found in parameter file')
           endif
+          is_leq = .false.
         end if
-        
+
         block
           class(type_dictionary), pointer :: ma, macc, mamt, maenv
           real(kind=cr) :: tshift_lim(2), dlna_lim(2)
@@ -477,92 +481,106 @@ contains
       deallocate(root)
     endif
     call synchronize_all()
+    call bcast_all_singlel(is_noise)
+    call bcast_all_singlel(is_tele)
+    call bcast_all_singlel(is_leq)
 
     ! broadcast noise parameters
-    call bcast_all_ch_array(noise_par%mesh_par_file, 1, MAX_STRING_LEN)
-    call bcast_all_singlei(noise_par%NSTEP)
-    call bcast_all_singlei(noise_par%IMEAS)
-    call bcast_all_singlei(noise_par%PRECOND_TYPE)
-    call bcast_all_singlei(noise_par%NRCOMP)
-    call bcast_all_singlei(noise_par%NSCOMP)
-    call bcast_all_singlei(noise_par%NUM_FILTER)
-    call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
-    call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
-    call bcast_all_singlel(noise_par%SUPPRESS_EGF)
-    call bcast_all_singlel(noise_par%USE_RHO_SCALING)
-    if (worldrank > 0) then
-      allocate(noise_par%RCOMPS(noise_par%NRCOMP))
-      allocate(noise_par%SCOMPS(noise_par%NSCOMP))
-      allocate(noise_par%SHORT_P(noise_par%NUM_FILTER))
-      allocate(noise_par%LONG_P(noise_par%NUM_FILTER))
-      allocate(noise_par%GROUPVEL_MIN(noise_par%NUM_FILTER))
-      allocate(noise_par%GROUPVEL_MAX(noise_par%NUM_FILTER))
+    if (is_noise) then
+      call bcast_all_ch_array(noise_par%mesh_par_file, 1, MAX_STRING_LEN)
+      call bcast_all_singlei(noise_par%NSTEP)
+      call bcast_all_singlei(noise_par%IMEAS)
+      call bcast_all_singlei(noise_par%PRECOND_TYPE)
+      call bcast_all_singlei(noise_par%NRCOMP)
+      call bcast_all_singlei(noise_par%NSCOMP)
+      call bcast_all_singlei(noise_par%NUM_FILTER)
+      call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
+      call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
+      call bcast_all_singlel(noise_par%SUPPRESS_EGF)
+      call bcast_all_singlel(noise_par%USE_RHO_SCALING)
+      if (worldrank > 0) then
+        allocate(noise_par%RCOMPS(noise_par%NRCOMP))
+        allocate(noise_par%SCOMPS(noise_par%NSCOMP))
+        allocate(noise_par%SHORT_P(noise_par%NUM_FILTER))
+        allocate(noise_par%LONG_P(noise_par%NUM_FILTER))
+        allocate(noise_par%GROUPVEL_MIN(noise_par%NUM_FILTER))
+        allocate(noise_par%GROUPVEL_MAX(noise_par%NUM_FILTER))
+      endif
+      call bcast_all_ch_array(noise_par%RCOMPS, noise_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(noise_par%SCOMPS, noise_par%NSCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(noise_par%CH_CODE, 1, MAX_STRING_LEN)
+      call bcast_all_singlecr(noise_par%DT)
+      call bcast_all_r(noise_par%SHORT_P, noise_par%NUM_FILTER)
+      call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
+      call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
+      call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
+      call bcast_all_singlecr(noise_par%SIGMA_H)
+      call bcast_all_singlecr(noise_par%SIGMA_V)
     endif
-    call bcast_all_ch_array(noise_par%RCOMPS, noise_par%NRCOMP, MAX_STRING_LEN)
-    call bcast_all_ch_array(noise_par%SCOMPS, noise_par%NSCOMP, MAX_STRING_LEN)
-    call bcast_all_ch_array(noise_par%CH_CODE, 1, MAX_STRING_LEN)
-    call bcast_all_singlecr(noise_par%DT)
-    call bcast_all_r(noise_par%SHORT_P, noise_par%NUM_FILTER)
-    call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
-    call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
-    call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
-    call bcast_all_singlecr(noise_par%SIGMA_H)
-    call bcast_all_singlecr(noise_par%SIGMA_V)
 
     ! broadcast tele parameters
-    call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
-    call bcast_all_singlel(supp_stf)
-    call bcast_all_singlei(tele_par%NSTEP)
-    call bcast_all_singlei(tele_par%IMEAS)
-    call bcast_all_singlei(tele_par%PRECOND_TYPE)
-    call bcast_all_singlei(tele_par%NRCOMP)
-    call bcast_all_singlei(tele_par%NUM_FILTER)
-    call bcast_all_singlel(tele_par%USE_LOCAL_STF)
-    call bcast_all_singlei(tele_par%rf%MAXIT)
-    call bcast_all_singlecr(tele_par%rf%MINDERR)
-    call bcast_all_singlecr(tele_par%rf%TSHIFT)
-    call bcast_all_singlei(tele_par%rf%NGAUSS)
-    call bcast_all_singlel(tele_par%USE_RHO_SCALING)
-    call bcast_all_singlel(tele_par%SAVE_FK)
-    call bcast_all_singlei(compress_level)
-    if (worldrank > 0) then
-      allocate(tele_par%RCOMPS(tele_par%NRCOMP))
-      allocate(tele_par%TIME_WIN(2))
-      allocate(tele_par%SHORT_P(1))
-      allocate(tele_par%LONG_P(1))
+    if (is_tele) then
+      call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
+      call bcast_all_singlel(supp_stf)
+      call bcast_all_singlei(tele_par%NSTEP)
+      call bcast_all_singlei(tele_par%IMEAS)
+      call bcast_all_singlei(tele_par%PRECOND_TYPE)
+      call bcast_all_singlei(tele_par%NRCOMP)
+      call bcast_all_singlei(tele_par%NUM_FILTER)
+      call bcast_all_singlel(tele_par%USE_LOCAL_STF)
+      call bcast_all_singlei(tele_par%rf%MAXIT)
+      call bcast_all_singlecr(tele_par%rf%MINDERR)
+      call bcast_all_singlecr(tele_par%rf%TSHIFT)
+      call bcast_all_singlei(tele_par%rf%NGAUSS)
+      call bcast_all_singlel(tele_par%USE_RHO_SCALING)
+      call bcast_all_singlel(tele_par%SAVE_FK)
+      call bcast_all_singlei(compress_level)
+      if (worldrank > 0) then
+        allocate(tele_par%RCOMPS(tele_par%NRCOMP))
+        allocate(tele_par%TIME_WIN(2))
+        allocate(tele_par%SHORT_P(1))
+        allocate(tele_par%LONG_P(1))
+        if (tele_par%rf%NGAUSS > 0) then
+          allocate(tele_par%rf%F0(tele_par%rf%NGAUSS))
+        endif
+      endif
+      call bcast_all_ch_array(tele_par%RCOMPS, tele_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(tele_par%CH_CODE, 1, MAX_STRING_LEN)
+      call bcast_all_singlecr(tele_par%DT)
+      call bcast_all_r(tele_par%TIME_WIN, 2)
+      call bcast_all_r(tele_par%SHORT_P, 1)
+      call bcast_all_r(tele_par%LONG_P, 1)
+      call bcast_all_singlecr(tele_par%SIGMA_H)
+      call bcast_all_singlecr(tele_par%SIGMA_V)
+      call bcast_all_singlei(tele_par%TELE_TYPE)
       if (tele_par%rf%NGAUSS > 0) then
-        allocate(tele_par%rf%F0(tele_par%rf%NGAUSS))
+        call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
       endif
     endif
-    call bcast_all_ch_array(tele_par%RCOMPS, tele_par%NRCOMP, MAX_STRING_LEN)
-    call bcast_all_ch_array(tele_par%CH_CODE, 1, MAX_STRING_LEN)
-    call bcast_all_singlecr(tele_par%DT)
-    call bcast_all_r(tele_par%TIME_WIN, 2)
-    call bcast_all_r(tele_par%SHORT_P, 1)
-    call bcast_all_r(tele_par%LONG_P, 1)
-    call bcast_all_singlecr(tele_par%SIGMA_H)
-    call bcast_all_singlecr(tele_par%SIGMA_V)
-    call bcast_all_singlei(tele_par%TELE_TYPE)
-    if (tele_par%rf%NGAUSS > 0) then
-      call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
+
+    ! broadcast leq parameters
+    if (is_leq) then
+      call bcast_all_ch_array(leq_par%mesh_par_file, 1, MAX_STRING_LEN)
+      call bcast_all_singlei(leq_par%NSTEP)
+      call bcast_all_singlei(leq_par%IMEAS)
+      call bcast_all_singlei(leq_par%PRECOND_TYPE)
+      call bcast_all_singlei(leq_par%NRCOMP)
+      call bcast_all_singlei(leq_par%NUM_FILTER)
+      if (worldrank > 0) then
+        allocate(leq_par%RCOMPS(leq_par%NRCOMP))
+        allocate(leq_par%SHORT_P(leq_par%NUM_FILTER))
+        allocate(leq_par%LONG_P(leq_par%NUM_FILTER))
+      endif
+      call bcast_all_ch_array(leq_par%RCOMPS, leq_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(leq_par%CH_CODE, 1, MAX_STRING_LEN)
+      call bcast_all_singlecr(leq_par%DT)
+      call bcast_all_r(leq_par%SHORT_P, leq_par%NUM_FILTER)
+      call bcast_all_r(leq_par%LONG_P, leq_par%NUM_FILTER)
+      call bcast_all_singlecr(leq_par%SIGMA_H)
+      call bcast_all_singlecr(leq_par%SIGMA_V)
     endif
 
     ! measure adjoint source
-    ! call bcast_all_singledp(TSHIFT_MIN)
-    ! call bcast_all_singledp(TSHIFT_MAX)
-    ! call bcast_all_singledp(DLNA_MIN)
-    ! call bcast_all_singledp(DLNA_MAX)
-    ! call bcast_all_singledp(CC_MIN)
-    ! call bcast_all_singlei(ERROR_TYPE)
-    ! call bcast_all_singledp(DT_SIGMA_MIN)
-    ! call bcast_all_singledp(DLNA_SIGMA_MIN)
-    ! call bcast_all_singledp(WTR)
-    ! call bcast_all_singledp(NPI)
-    ! call bcast_all_singledp(DT_FAC)
-    ! call bcast_all_singledp(ERR_FAC)
-    ! call bcast_all_singledp(DT_MAX_SCALE)
-    ! call bcast_all_singledp(NCYCLE_IN_WINDOW)
-    ! call bcast_all_singlel(USE_PHYSICAL_DISPERSION)
     call bcast_all_singlei(cfg%ITAPER_TYPE)
     call bcast_all_singledp(cfg%TAPER_PERCENTAGE)
     call bcast_all_singledp(cfg%CC_MIN)
@@ -626,16 +644,17 @@ contains
   end subroutine read_fwat_parameter_file
 
   subroutine select_simu_type(this)
-    use specfem_par, only: NSTEP, DT, LOCAL_PATH
+    use specfem_par, only: NSTEP, DT, T0, LOCAL_PATH
     class(fwat_params), intent(inout) :: this
 
     select case (simu_type)
       case (SIMU_TYPE_TELE)
         this%sim => tele_par
-        ! is_mtm0 = 0
       case (SIMU_TYPE_NOISE)
         this%sim => noise_par
-        ! is_mtm0 = 1
+      case (SIMU_TYPE_LEQ)
+        this%sim => leq_par
+        T0 = MAX_TIME_SHIFT
     end select
     cfg%imeasure_type = this%sim%IMEAS
     DT = this%sim%DT

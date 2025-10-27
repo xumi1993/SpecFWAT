@@ -389,7 +389,7 @@ contains
 
         ! generate mesh and database for this simu_type
         call meshfem3D_fwat(fpar%sim%Mesh_Par_file)
-        call generate_databases_fwat(.true.)
+        call generate_databases_fwat()
         
         ! Forward simulation and measure misfits
         call forward_for_simu_type(total_misfit(itype), misfit_prev(itype))

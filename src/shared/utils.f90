@@ -805,8 +805,8 @@ end function
     ! quicksort
     !-------------------------------------------------------------------
     recursive subroutine quicksort(x, n, order)
-      real(kind = DPRE), dimension(n), intent(inout) :: x
       integer(kind = IPRE), intent(in) :: n, order
+      real(kind = DPRE), dimension(n), intent(inout) :: x
       integer(kind = IPRE) :: left, right, marker
       real(kind = DPRE) :: pivot, tmp
 
@@ -890,7 +890,7 @@ end function
     real(kind = DPRE) :: vq
     real(kind = DPRE), intent(in) :: xq
     real(kind = DPRE), dimension(:), intent(in) :: x, v
-    integer(kind = IPRE) :: i, x1, x2, ix(2)
+    integer(kind = IPRE) :: x1, x2
     real(kind = DPRE) :: vn, xr(2), vr(2)
 
     x1 = minloc(xq - x, 1, mask = xq .ge. x)
@@ -941,7 +941,6 @@ end function
   pure function transpose_3_s(x) result(y)
     real(kind = RPRE), dimension(:,:,:), intent(in) :: x
     real(kind = RPRE), dimension(size(x,3), size(x,2), size(x,1)) :: y
-    integer(kind = IPRE) :: i, j, k
 
     y = reshape(x, shape=[size(x,3), size(x,2), size(x,1)], order=[3,2,1])
     return
@@ -950,7 +949,6 @@ end function
   pure function transpose_3_f(x) result(y)
     real(kind = DPRE), dimension(:,:,:), intent(in) :: x
     real(kind = DPRE), dimension(size(x,3), size(x,2), size(x,1)) :: y
-    integer(kind = IPRE) :: i, j, k
 
     y = reshape(x, shape=[size(x,3), size(x,2), size(x,1)], order=[3,2,1])
     return
@@ -1250,7 +1248,7 @@ end function
   function get_nearest_bound_idx(x, x_sem) result(indx)
     real(kind=RPRE), dimension(:), intent(in) :: x
     real(kind=RPRE), intent(in) :: x_sem
-    integer(kind=IPRE) :: indx, i, n
+    integer(kind=IPRE) :: indx, n
 
     n = size(x)
     if (x_sem < x(1)) then
