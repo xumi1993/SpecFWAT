@@ -21,8 +21,8 @@ module noise_data
   integer, private :: ier
   type, extends(SynData) :: NoiseData
   contains
-    procedure :: semd2sac, preprocess, finalize
-    procedure, private :: calc_distaz, measure_adj, write_in_preocess
+    procedure :: semd2sac, preprocess, finalize, write_in_preocess, write_adj_src_sac
+    procedure, private :: calc_distaz, measure_adj
   end type NoiseData
 
 contains
@@ -35,7 +35,6 @@ contains
 
     call this%init(ievt)
 
-    ! if (worldrank == 0) call system('mkdir -p '//trim(fpar%acqui%in_dat_path(this%ievt)))
     call mkdir(fpar%acqui%in_dat_path(this%ievt))
 
     call this%od%read_stations(ievt, .true.)
@@ -184,22 +183,7 @@ contains
             endif
             recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
 
-            if (IS_OUTPUT_ADJ_SRC) then
-              block
-                type(sachead) :: header
-                character(len=MAX_STRING_LEN) :: sacfile
-                
-                call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-                header%knetwk = trim(this%od%netwk(irec))
-                header%kstnm = trim(this%od%stnm(irec))
-                header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
-                sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
-                      '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                      '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
-                      '.adj.sac.'//trim(this%band_name)
-                call sacio_writesac(sacfile, header, adj_src(:, icomp, irec_local, iflt), ier)
-              end block
-            end if
+            if (IS_OUTPUT_ADJ_SRC) call this%write_adj_src_sac(adj_src(:, icomp, irec_local, iflt), irec, icomp)
           end do ! icomp
         end do ! irec_local
       end if ! this%nrec_loc > 0
@@ -225,7 +209,6 @@ contains
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         do icomp = 1, fpar%sim%NRCOMP
-          icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
           adj_loc = zeros_dp(NSTEP, 3)
           if (fpar%sim%ADJ_SRC_NORM) then
             max_amp = maxval(abs(adj_src(:, icomp, irec_local, :)))
@@ -318,5 +301,23 @@ contains
     call sync_from_main_rank_cr_1d(this%od%dist, this%od%nsta)
 
   end subroutine calc_distaz
+
+  subroutine write_adj_src_sac(this, adj_src, irec, icomp)
+    class(NoiseData), intent(inout) :: this
+    real(kind=dp), dimension(:), intent(in) :: adj_src ! nstep, ncomp, nrec_loc
+    integer, intent(in) :: irec, icomp
+    type(sachead) :: header
+    character(len=MAX_STRING_LEN) :: sacfile
+
+    call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+    header%knetwk = trim(this%od%netwk(irec))
+    header%kstnm = trim(this%od%stnm(irec))
+    header%kcmpnm = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+    sacfile = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
+          '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
+          '.'//trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))//&
+          '.adj.sac.'//trim(this%band_name)
+    call sacio_writesac(sacfile, header, adj_src, ier)
+  end subroutine write_adj_src_sac
 
 end module noise_data

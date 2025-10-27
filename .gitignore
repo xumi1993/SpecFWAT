@@ -58,6 +58,12 @@ model_initial/
 fwat_data/
 figures/
 
+# libtau
+*.hed
+*.tbl
+*.lis
+
+# src_rec for examples
 *_ADJOINT
 *_ADJOINT_FILTERED
 *_FILTERED

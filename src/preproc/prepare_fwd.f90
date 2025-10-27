@@ -252,6 +252,7 @@ contains
     type(RFData) :: rd
     type(TeleCCData) :: tc
     type(NoiseData) :: nd
+    type(LEQData) :: ld
     
     select case(dat_type)
     case ('tele')
@@ -274,6 +275,11 @@ contains
       call nd%od%copy_adjoint_stations()
       this%obj_func = sum(nd%total_misfit)
       call nd%finalize()
+    case ('leq')
+      call ld%preprocess(this%ievt)
+      call ld%od%copy_adjoint_stations()
+      this%obj_func = sum(ld%total_misfit)
+      call ld%finalize()
     end select
     call bcast_all_singledp(this%obj_func)
     call synchronize_all()
