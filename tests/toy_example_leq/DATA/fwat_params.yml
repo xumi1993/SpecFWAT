@@ -62,8 +62,8 @@ MODEL_GRID:
   REGULAR_GRID_SIZE: [113, 113, 65]
 
 POSTPROC:
-  INV_TYPE: [True, False] # Inversion type of noise and teleseismic data
-  JOINT_WEIGHT: [1.0, 0.5]
+  INV_TYPE: [True, False, False] # Inversion type of noise and teleseismic data
+  JOINT_WEIGHT: [1.0, 0.5, 0.5]
   TAPER_H_SUPPRESS: 0
   TAPER_H_BUFFER: 0
   TAPER_V_SUPPRESS: 0

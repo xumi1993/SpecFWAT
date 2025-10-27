@@ -50,8 +50,8 @@ module input_params
   end type model_grid
 
   type postproc_params
-    logical, dimension(2) :: INV_TYPE
-    real(kind=cr), dimension(2) :: JOINT_WEIGHT
+    logical, dimension(NUM_INV_TYPE) :: INV_TYPE = .false.
+    real(kind=cr), dimension(NUM_INV_TYPE) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
     integer :: NORM_TYPE
     logical :: IS_PRECOND
