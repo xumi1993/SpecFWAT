@@ -1,13 +1,14 @@
 module travel_times_mod
   use config
   implicit none
-  integer, parameter :: MAX_PHASES=60, phase_name_len=8
+  integer, parameter :: MAX_PHASES=60
   
 contains
-  subroutine ttimes(dist_deg,evdp,nphases,names,times)
+  subroutine ttimes(dist_deg,evdp,in_phase,nphases,names,times)
 
   real(kind=dp), intent(in) :: dist_deg, evdp
-  integer, intent(out) :: nphases 
+  character(len=*), intent(in) :: in_phase
+  integer, intent(out) :: nphases
   character(len=phase_name_len), dimension(:), allocatable, intent(out) :: names
   real(kind=dp), dimension(:), allocatable, intent(out) :: times
 
@@ -21,7 +22,7 @@ contains
   character(len=MAX_STRING_LEN) :: modnam
 
   ! ask for all phases
-  phlst(1)="P"
+  phlst(1)=trim(in_phase)
   prnt(1)=.false.
   prnt(2)=.false.
   prnt(3)=.false.

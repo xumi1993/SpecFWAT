@@ -74,14 +74,16 @@ contains
           recm(irec_local)%sta = trim(this%od%stnm(irec))
           recm(irec_local)%net = trim(this%od%netwk(irec))
           ! calculate theoretical P arrival time for LEQ
-          block
-            integer :: nphases
-            character(len=8), dimension(:), allocatable :: names
-            real(kind=dp), dimension(:), allocatable :: times
-            call ttimes(dble(this%od%gcarc(irec)),dble(fpar%acqui%evdp(irec)),nphases,names,times)
-            tp = times(1)
-            deallocate(names, times)
-          end block
+          if (fpar%sim%WIN_TYPE /= WIN_GROUPVEL_TYPE) then
+            block
+              integer :: nphases
+              character(len=8), dimension(:), allocatable :: names
+              real(kind=dp), dimension(:), allocatable :: times
+              call ttimes(dble(this%od%gcarc(irec)),dble(fpar%acqui%evdp(irec)),fpar%sim%PHASE,nphases,names,times)
+              tp = times(1)
+              deallocate(names, times)
+            end block
+          endif
           do icomp = 1, fpar%sim%NRCOMP
             seismo_dat = 0.0_dp
             seismo_syn = 0.0_dp
@@ -111,7 +113,7 @@ contains
                 windows(1,2) = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
                 windows(1,1) = max(windows(1,1), -t0)
                 windows(1,2) = min(windows(1,2), (NSTEP-2)*dble(DT)-t0)
-              case (WIN_PARRIVAL_TYPE)
+              case (WIN_ARRIVAL_TYPE)
                 allocate(windows(1,2))
                 windows(1,1) = tp + fpar%sim%TIME_WIN(1)
                 windows(1,2) = tp + fpar%sim%TIME_WIN(2)
@@ -120,18 +122,20 @@ contains
             end select
             nwin = size(windows, 1)
 
-            if (is_output_preproc) then
-              call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'syn', seismo_syn)
-              call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'obs', seismo_dat)
-            end if
-
             ! calculate adjoint source for this component
             ! Initialize TraceMisfit for each component with n windows
             recm(irec_local)%trm(icomp) = TraceMisfit(nwin)
             if (nwin > 0) then
+              if (IS_OUTPUT_PREPROC) then
+                ! Write preprocessed data
+                call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'syn', seismo_syn)
+                call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'obs', seismo_dat)
+              end if
+              ! calculate adjoint source
               call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows+T0, &
                                             dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)), misfit_out)
               adj_src(:, icomp, irec_local, iflt) = misfit_out%adj_src(:) * fpar%acqui%src_weight(this%ievt)
+              ! store misfit results
               do iwin = 1, nwin
                 recm(irec_local)%trm(icomp)%misfits(iwin) = misfit_out%misfits(iwin) * fpar%acqui%src_weight(this%ievt)
                 recm(irec_local)%trm(icomp)%residuals(iwin) = misfit_out%residuals(iwin)
@@ -144,6 +148,7 @@ contains
             end if ! if (nwin > 0)
             recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
             if (IS_OUTPUT_ADJ_SRC) call this%write_adj_src_sac(adj_src(:, icomp, irec_local, iflt), irec, icomp)
+            deallocate(windows)
           enddo ! icomp
         enddo ! irec_local
       end if ! if (this%nrec_loc > 0)
