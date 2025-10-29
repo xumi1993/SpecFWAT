@@ -15,21 +15,15 @@ contains
     real(kind=dp), intent(in) :: dt, short_p, long_p
     real(kind=dp), dimension(:,:), intent(in) :: windows
     class(AdjointMeasurement), intent(out), allocatable :: misfit_out
-    real(kind=dp), dimension(:), allocatable :: dat_inp, syn_inp
-    integer :: npt2
     
     cfg%min_period = short_p
     cfg%max_period = long_p
-    npt2 = int((size(dat)-1)*dt/cfg%target_dt) + 1
-    dat_inp = interpolate_func_dp(dat, 0.0_dp, dt, size(dat), 0.0_dp, cfg%target_dt, npt2)
-    syn_inp = interpolate_func_dp(syn, 0.0_dp, dt, size(syn), 0.0_dp, cfg%target_dt, npt2)
     select case (cfg%imeasure_type)
       case (IMEAS_WAVEFORM) ! Waveform difference
         allocate(WaveformMisfit :: misfit_out)
         select type (misfit_out)
         type is (WaveformMisfit)
-          call misfit_out%calc_adjoint_source(dat_inp, syn_inp, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
+          call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
         end select
         
       case (IMEAS_WAVEFORM_CONV) ! Waveform convolution
@@ -49,24 +43,21 @@ contains
         allocate(ExponentiatedPhaseMisfit :: misfit_out)
         select type (misfit_out)
         type is (ExponentiatedPhaseMisfit)
-          call misfit_out%calc_adjoint_source(dat_inp, syn_inp, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
+          call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
         end select
         
       case (IMEAS_CC_TT, IMEAS_CC_DLNA) ! Cross-correlation traveltime/amplitude
         allocate(CCTTMisfit :: misfit_out)
         select type (misfit_out)
         type is (CCTTMisfit)
-          call misfit_out%calc_adjoint_source(dat_inp, syn_inp, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
+          call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
         end select
         
       case (IMEAS_CC_TT_MT, IMEAS_CC_DLNA_MT) ! Multitaper traveltime/amplitude
         allocate(MTTTMisfit :: misfit_out)
         select type (misfit_out)
         type is (MTTTMisfit)
-          call misfit_out%calc_adjoint_source(dat_inp, syn_inp, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
+          call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
         end select
         
       case default
@@ -82,6 +73,9 @@ contains
         write(*,*) ' 14 (IMEAS_CC_DLNA_MT): Multitaper amplitude'
         error stop
     end select
+
+    call filter_adj(misfit_out%adj_src, dt, windows)
+
 
   end subroutine calculate_adjoint_source
 

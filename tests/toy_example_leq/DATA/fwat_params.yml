@@ -5,8 +5,10 @@ LEQ:
   IMEAS: 4
   NSTEP: 3200 # Number of time steps
   DT: 0.045 # Time step for the LEQ data
-  SHORT_P: [3, 7, 12] # Short period of filters
-  LONG_P: [10, 12, 20] # Long period of filters
+  # SHORT_P: [3, 7, 12] # Short period of filters
+  # LONG_P: [10, 12, 20] # Long period of filters
+  SHORT_P: [6] # Short period of filters
+  LONG_P: [30] # Long period of filters
   PRECOND_TYPE: 1 # 1: inner product of acceleration
   SIGMA_H: 8000 # Horizontal smoothing radius
   SIGMA_V: 4000 # Vertical smoothing radius
@@ -19,7 +21,7 @@ LEQ:
     # 2: surface wave window selection by Group velocity.
     # 3: window selection relative to phase arrival time.
     # WIN_TYPE_X corresponds to different parameter sections below.
-    WIN_TYPE: 2
+    WIN_TYPE: 1
     WIN_TYPE_1:
       # This section is for window selection parameters with basic
       # algorithms from Krischer et al., 2015, SRL.
@@ -34,10 +36,12 @@ LEQ:
       MIN_SNR_WINDOW: 5.0 # Minimum signal to noise ratio in a window, Default: 5.0
       MIN_ENERGY_RATIO: 5.0 # Minimum energy ratio between signal and noise windows, Default: 5.0
       MIN_PEAKS_TROUGHS: 3 # Minimum number of peaks and troughs in a window, Default: 3
-      IS_SPLIT_PHASES: False # Whether to split phases into different windows. It is useful for CC based adjoint source.
+      IS_SPLIT_PHASES: True # Whether to split phases into different windows. It is useful for CC based adjoint source.
     WIN_TYPE_2:
-      GROUPVEL_MIN: [2.3, 2.3, 2.3] # Approximate minimum group velocity
-      GROUPVEL_MAX: [3.2, 3.5, 4.0] # Approximate maximum group velocity
+      # GROUPVEL_MIN: [2.3, 2.3, 2.3] # Approximate minimum group velocity
+      # GROUPVEL_MAX: [3.2, 3.5, 4.0] # Approximate maximum group velocity
+      GROUPVEL_MIN: [2.3] # Approximate minimum group velocity
+      GROUPVEL_MAX: [4.0] # Approximate maximum group velocity
     WIN_TYPE_3:
       PHASE: 'P' # Phase name for window selection
       TIME_WIN: [-5, 10] # Time window relative to the phase arrival (IASP91)

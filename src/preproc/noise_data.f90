@@ -133,12 +133,14 @@ contains
             if (.not. fpar%sim%SUPPRESS_EGF) call dif1(seismo_dat, dble(DT))
             call detrend(seismo_dat)
             call demean(seismo_dat)
+            call window_taper(seismo_dat, 0.3_dp, 1)
             call bandpass_dp(seismo_dat, fpar%sim%nstep, dble(fpar%sim%dt),&
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
             
             ! get synthetic component
             icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
             seismo_syn = this%data(:, icomp_syn, irec)
+            call window_taper(seismo_syn, 0.3_dp, 1)
             call bandpass_dp(seismo_syn, fpar%sim%nstep, dble(fpar%sim%dt),&
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
 

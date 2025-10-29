@@ -92,11 +92,13 @@ contains
                                              dble(this%od%dt), this%od%npts, -dble(t0), dble(DT), NSTEP)
             call detrend(seismo_dat)
             call demean(seismo_dat)
+            call window_taper(seismo_dat, 0.3_dp, 1)
             call bandpass_dp(seismo_dat, fpar%sim%nstep, dble(fpar%sim%dt),&
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
             ! read synthetic data
             icomp_syn = get_icomp_syn(fpar%sim%RCOMPS(icomp))
             seismo_syn = this%data(:, icomp_syn, irec)
+            call window_taper(seismo_syn, 0.3_dp, 1)
             call bandpass_dp(seismo_syn, fpar%sim%nstep, dble(fpar%sim%dt),&
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
 
@@ -106,21 +108,23 @@ contains
                 call win%init(seismo_dat, seismo_syn, dble(fpar%sim%dt), dble(T0), &
                               tp, dble(this%od%dist(irec)), dble(fpar%sim%SHORT_P(iflt)))
                 call win%gen_good_windows()
-                windows = win%twin(:, :)
+                nwin = win%n_win
+                if (nwin > 0) windows = win%twin(:, :)
               case (WIN_GROUPVEL_TYPE)
                 allocate(windows(1,2))
                 windows(1,1) = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
                 windows(1,2) = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
                 windows(1,1) = max(windows(1,1), -t0)
                 windows(1,2) = min(windows(1,2), (NSTEP-2)*dble(DT)-t0)
+                nwin = 1
               case (WIN_ARRIVAL_TYPE)
                 allocate(windows(1,2))
                 windows(1,1) = tp + fpar%sim%TIME_WIN(1)
                 windows(1,2) = tp + fpar%sim%TIME_WIN(2)
                 windows(1,1) = max(windows(1,1), -t0)
                 windows(1,2) = min(windows(1,2), (NSTEP-2)*dble(DT)-t0)
+                nwin = 1
             end select
-            nwin = size(windows, 1)
 
             ! calculate adjoint source for this component
             ! Initialize TraceMisfit for each component with n windows
@@ -148,7 +152,6 @@ contains
             end if ! if (nwin > 0)
             recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
             if (IS_OUTPUT_ADJ_SRC) call this%write_adj_src_sac(adj_src(:, icomp, irec_local, iflt), irec, icomp)
-            deallocate(windows)
           enddo ! icomp
         enddo ! irec_local
       end if ! if (this%nrec_loc > 0)
