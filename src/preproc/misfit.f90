@@ -45,17 +45,19 @@ contains
     type(TraceMisfit) :: trm
 
     trm%nwin = nwin
-    allocate(trm%misfits(nwin))
-    allocate(trm%residuals(nwin))
-    allocate(trm%tstart(nwin))
-    allocate(trm%tend(nwin))
-    allocate(trm%imeas(nwin))
+    if (trm%nwin > 0) then
+      allocate(trm%misfits(nwin))
+      allocate(trm%residuals(nwin))
+      allocate(trm%tstart(nwin))
+      allocate(trm%tend(nwin))
+      allocate(trm%imeas(nwin))
 
-    trm%misfits = 0.0_dp
-    trm%residuals = 0.0_dp
-    trm%tstart = 0.0_dp
-    trm%tend = 0.0_dp
-    trm%imeas = 0
+      trm%misfits = 0.0_dp
+      trm%residuals = 0.0_dp
+      trm%tstart = 0.0_dp
+      trm%tend = 0.0_dp
+      trm%imeas = 0
+    end if
 
   end function initialize_trm
 
@@ -137,11 +139,13 @@ contains
           do icomp = 1, misfit_loc(irec_loc)%ncomp
             nwin = misfit_loc(irec_loc)%trm(icomp)%nwin
             this%rec_misfits(irec_glob)%trm(icomp) = TraceMisfit(nwin)
-            this%rec_misfits(irec_glob)%trm(icomp)%misfits = misfit_loc(irec_loc)%trm(icomp)%misfits
-            this%rec_misfits(irec_glob)%trm(icomp)%residuals = misfit_loc(irec_loc)%trm(icomp)%residuals
-            this%rec_misfits(irec_glob)%trm(icomp)%tstart = misfit_loc(irec_loc)%trm(icomp)%tstart
-            this%rec_misfits(irec_glob)%trm(icomp)%tend = misfit_loc(irec_loc)%trm(icomp)%tend
-            this%rec_misfits(irec_glob)%trm(icomp)%imeas = misfit_loc(irec_loc)%trm(icomp)%imeas
+            if (nwin > 0) then
+              this%rec_misfits(irec_glob)%trm(icomp)%misfits = misfit_loc(irec_loc)%trm(icomp)%misfits
+              this%rec_misfits(irec_glob)%trm(icomp)%residuals = misfit_loc(irec_loc)%trm(icomp)%residuals
+              this%rec_misfits(irec_glob)%trm(icomp)%tstart = misfit_loc(irec_loc)%trm(icomp)%tstart
+              this%rec_misfits(irec_glob)%trm(icomp)%tend = misfit_loc(irec_loc)%trm(icomp)%tend
+              this%rec_misfits(irec_glob)%trm(icomp)%imeas = misfit_loc(irec_loc)%trm(icomp)%imeas
+            endif
           enddo
         enddo
       endif
@@ -190,27 +194,29 @@ contains
               nwin = recv_nwin_arr(icomp)
               this%rec_misfits(irec_glob)%trm(icomp) = TraceMisfit(nwin)
               
-              ! Receive arrays for this component
-              allocate(temp_misfits(nwin))
-              allocate(temp_residuals(nwin))
-              allocate(temp_tstart(nwin))
-              allocate(temp_tend(nwin))
-              allocate(temp_imeas(nwin))
+              if (nwin > 0) then
+                ! Receive arrays for this component
+                allocate(temp_misfits(nwin))
+                allocate(temp_residuals(nwin))
+                allocate(temp_tstart(nwin))
+                allocate(temp_tend(nwin))
+                allocate(temp_imeas(nwin))
+                
+                call recv_dp(temp_misfits, nwin, iproc, targ)
+                call recv_dp(temp_residuals, nwin, iproc, targ)
+                call recv_dp(temp_tstart, nwin, iproc, targ)
+                call recv_dp(temp_tend, nwin, iproc, targ)
+                call recv_i(temp_imeas, nwin, iproc, targ)
+                
+                ! Copy to the TraceMisfit object
+                this%rec_misfits(irec_glob)%trm(icomp)%misfits = temp_misfits
+                this%rec_misfits(irec_glob)%trm(icomp)%residuals = temp_residuals
+                this%rec_misfits(irec_glob)%trm(icomp)%tstart = temp_tstart
+                this%rec_misfits(irec_glob)%trm(icomp)%tend = temp_tend
+                this%rec_misfits(irec_glob)%trm(icomp)%imeas = temp_imeas
               
-              call recv_dp(temp_misfits, nwin, iproc, targ)
-              call recv_dp(temp_residuals, nwin, iproc, targ)
-              call recv_dp(temp_tstart, nwin, iproc, targ)
-              call recv_dp(temp_tend, nwin, iproc, targ)
-              call recv_i(temp_imeas, nwin, iproc, targ)
-              
-              ! Copy to the TraceMisfit object
-              this%rec_misfits(irec_glob)%trm(icomp)%misfits = temp_misfits
-              this%rec_misfits(irec_glob)%trm(icomp)%residuals = temp_residuals
-              this%rec_misfits(irec_glob)%trm(icomp)%tstart = temp_tstart
-              this%rec_misfits(irec_glob)%trm(icomp)%tend = temp_tend
-              this%rec_misfits(irec_glob)%trm(icomp)%imeas = temp_imeas
-              
-              deallocate(temp_misfits, temp_residuals, temp_tstart, temp_tend, temp_imeas)
+                deallocate(temp_misfits, temp_residuals, temp_tstart, temp_tend, temp_imeas)
+              endif
             enddo
             deallocate(recv_nwin_arr)
           enddo
@@ -263,11 +269,13 @@ contains
           ! Send TraceMisfit data for each component
           do icomp = 1, ncomp
             nwin = recv_nwin_arr(icomp)
-            call send_dp(misfit_loc(irec_loc)%trm(icomp)%misfits, nwin, 0, targ)
-            call send_dp(misfit_loc(irec_loc)%trm(icomp)%residuals, nwin, 0, targ)
-            call send_dp(misfit_loc(irec_loc)%trm(icomp)%tstart, nwin, 0, targ)
-            call send_dp(misfit_loc(irec_loc)%trm(icomp)%tend, nwin, 0, targ)
-            call send_i(misfit_loc(irec_loc)%trm(icomp)%imeas, nwin, 0, targ)
+            if (nwin > 0) then
+              call send_dp(misfit_loc(irec_loc)%trm(icomp)%misfits, nwin, 0, targ)
+              call send_dp(misfit_loc(irec_loc)%trm(icomp)%residuals, nwin, 0, targ)
+              call send_dp(misfit_loc(irec_loc)%trm(icomp)%tstart, nwin, 0, targ)
+              call send_dp(misfit_loc(irec_loc)%trm(icomp)%tend, nwin, 0, targ)
+              call send_i(misfit_loc(irec_loc)%trm(icomp)%imeas, nwin, 0, targ)
+            end if
           enddo
           deallocate(recv_nwin_arr)
         enddo

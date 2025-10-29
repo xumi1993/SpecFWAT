@@ -21,7 +21,7 @@ module noise_data
   integer, private :: ier
   type, extends(SynData) :: NoiseData
   contains
-    procedure :: semd2sac, preprocess, finalize, write_in_preocess, write_adj_src_sac
+    procedure :: semd2sac, preprocess, finalize, write_in_preocess, write_adj_src_sac, rotate_adj_src
     procedure, private :: calc_distaz, measure_adj
   end type NoiseData
 
@@ -91,12 +91,10 @@ contains
   subroutine measure_adj(this)
     class(NoiseData), intent(inout) :: this
     integer :: irec_local, irec, iflt, icomp, icomp_syn, nb, ne
-    real(kind=dp), dimension(:,:), allocatable :: adj_loc
     real(kind=dp), dimension(:,:,:,:), allocatable :: adj_src
     real(kind=dp), dimension(:), allocatable :: seismo_dat,seismo_syn
-    real(kind=dp), dimension(:), allocatable :: adj_2, adj_3, adj_1
     real(kind=dp), dimension(1, 2) :: windows 
-    real(kind=dp) :: dist_min, max_amp, tstart, tend
+    real(kind=dp) :: dist_min, tstart, tend
     logical :: is_reject
     type(RECMisfit), dimension(:), allocatable :: recm
     type(EVTMisfit) :: evtm
@@ -115,18 +113,17 @@ contains
         ! allocate receiver misfit
         allocate(recm(this%nrec_loc))
         do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
           ! initialize recm
           recm(irec_local) = RECMisfit(fpar%sim%NRCOMP)
-          ! Initialize TraceMisfit for each component with 1 window
-          irec = select_global_id_for_rec(irec_local)
+          recm(irec_local)%sta = trim(this%od%stnm(irec))
+          recm(irec_local)%net = trim(this%od%netwk(irec))
           ! time window
           tstart = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
           tend = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
           tstart = max(tstart, -t0)
           tend = min(tend, (NSTEP-2)*dble(DT)-t0)
           windows(1, :) = [tstart, tend] + t0
-          recm(irec_local)%sta = trim(this%od%stnm(irec))
-          recm(irec_local)%net = trim(this%od%netwk(irec))
           do icomp = 1, fpar%sim%NRCOMP
             ! get data component
             seismo_dat = 0.0_dp
@@ -166,6 +163,7 @@ contains
             end if
 
             ! calculate adjoint source
+            ! Initialize TraceMisfit for each component with 1 window
             recm(irec_local)%trm(icomp) = TraceMisfit(1)
             if (.not. is_reject) then
               call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows, &
@@ -204,7 +202,22 @@ contains
     if (allocated(seismo_dat)) deallocate(seismo_dat)
     if (allocated(seismo_syn)) deallocate(seismo_syn)
 
+    call this%rotate_adj_src(adj_src)
+    if(allocated(adj_src)) deallocate(adj_src)
+
+    call synchronize_all()
+  end subroutine measure_adj
+
+  subroutine rotate_adj_src(this, adj_src)
+    class(NoiseData), intent(inout) :: this
+    real(kind=dp), dimension(:,:,:,:), intent(in) :: adj_src ! nstep, ncomp, nrec_loc, nfilter
+    integer :: irec_local, irec, iflt, icomp
+    real(kind=dp), dimension(:,:), allocatable :: adj_loc
+    real(kind=dp), dimension(:), allocatable :: adj_1, adj_2, adj_3
+    real(kind=dp) :: max_amp
+
     call this%get_comp_name_adj()
+
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
@@ -232,10 +245,9 @@ contains
       end do
     end if
     if(allocated(adj_loc)) deallocate(adj_loc)
-    if(allocated(adj_src)) deallocate(adj_src)
 
     call synchronize_all()
-  end subroutine measure_adj
+  end subroutine rotate_adj_src
 
   subroutine finalize(this)
     class(NoiseData), intent(inout) :: this
@@ -260,6 +272,7 @@ contains
     call sacio_newhead(header, real(DT), NSTEP, -real(T0))
     header%baz = this%od%baz(irec)
     header%dist = this%od%dist(irec)
+    header%gcarc = this%od%gcarc(irec)
     header%evla = fpar%acqui%evla(this%ievt)
     header%evlo = fpar%acqui%evlo(this%ievt)
     header%evdp = fpar%acqui%evdp(this%ievt)

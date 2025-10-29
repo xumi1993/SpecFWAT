@@ -364,6 +364,7 @@ contains
           call read_real_list(list, this%sim%LONG_P)
           this%sim%NUM_FILTER = size(this%sim%SHORT_P)
           this%sim%ADJ_SRC_NORM = leq%get_logical('ADJ_SRC_NORM', error=io_err, default=.false.)
+          this%sim%USE_RHO_SCALING = leq%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
           this%sim%SIGMA_H = leq%get_real('SIGMA_H', error=io_err)
           this%sim%SIGMA_V = leq%get_real('SIGMA_V', error=io_err)
           win => leq%get_dictionary('WINDOW', required=.true., error=io_err)
@@ -581,6 +582,7 @@ contains
       call bcast_all_singlei(leq_par%NRCOMP)
       call bcast_all_singlei(leq_par%NUM_FILTER)
       call bcast_all_singlel(leq_par%ADJ_SRC_NORM)
+      call bcast_all_singlel(leq_par%USE_RHO_SCALING)
       if (worldrank > 0) then
         allocate(leq_par%RCOMPS(leq_par%NRCOMP))
         allocate(leq_par%SHORT_P(leq_par%NUM_FILTER))
@@ -647,8 +649,8 @@ contains
     call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
     call bcast_all_singlecr(this%postproc%TAPER_V_BUFFER)
     call bcast_all_singlel(this%postproc%IS_PRECOND)
-    call bcast_all_l_array(this%postproc%INV_TYPE, 2)
-    call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
+    call bcast_all_l_array(this%postproc%INV_TYPE, NUM_INV_TYPE)
+    call bcast_all_r(this%postproc%JOINT_WEIGHT, NUM_INV_TYPE)
     call bcast_all_singlel(is_joint)
     call bcast_all_singlei(this%postproc%NORM_TYPE)
 

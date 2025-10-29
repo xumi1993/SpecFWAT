@@ -32,6 +32,14 @@ contains
     real(kind=dp), dimension(:), intent(in) :: dat, syn
     real(kind=dp), intent(in) :: dt, t0, tp, dis, min_period
 
+    if (allocated(this%dat)) deallocate(this%dat)
+    if (allocated(this%syn)) deallocate(this%syn)
+    if (allocated(this%time_shift)) deallocate(this%time_shift)
+    if (allocated(this%cc_coe)) deallocate(this%cc_coe)
+    if (allocated(this%times_cc)) deallocate(this%times_cc)
+    if (allocated(this%twin)) deallocate(this%twin)
+    if (allocated(this%wt)) deallocate(this%wt)
+    if (allocated(this%win_samp)) deallocate(this%win_samp)
     this%dat = dat / maxval(abs(syn))
     this%syn = syn / maxval(abs(syn))
     this%dt = dt

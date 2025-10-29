@@ -149,7 +149,7 @@ execute_process(
     OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 # setup taup data directory
-set(TAUP_DATA_DIR "${PROJECT_SOURCE_DIR}/src/preproc/window_selector/ttime_mod")
+set(TAUP_DATA_DIR "${PROJECT_SOURCE_DIR}/src/preproc/window_selector/ttimes_mod")
 configure_file(
   ${PROJECT_SOURCE_DIR}/include/fwat_config.h.in
   ${PROJECT_SOURCE_DIR}/include/fwat_config.h

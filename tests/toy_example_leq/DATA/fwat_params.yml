@@ -1,22 +1,24 @@
 LEQ:
   MESH_PAR_FILE: DATA/meshfem3D_files/Mesh_Par_file # Mesh file
-  RCOMPS: ['Z', 'R', 'T'] # Components of the receiver, order by Z, R, T
+  RCOMPS: ['Z', 'R'] # Components of the receiver, order by Z, R, T
   CH_CODE: BX # Channel code
-  IMEAS: 13
+  IMEAS: 4
   NSTEP: 3200 # Number of time steps
   DT: 0.045 # Time step for the LEQ data
-  SHORT_P: [3, 7, 12] # Short period of filters
-  LONG_P: [10, 12, 20] # Long period of filters
+  SHORT_P: [12] # Short period of filters
+  LONG_P: [20] # Long period of filters
   PRECOND_TYPE: 1 # 1: inner product of acceleration
   SIGMA_H: 8000 # Horizontal smoothing radius
   SIGMA_V: 4000 # Vertical smoothing radius
+  USE_RHO_SCALING: True # Whether to use density scaling in adjoint source normalization
+  ADJ_SRC_NORM: False # Whether to normalize adjoint source
   WINDOW:
     # This section is for window selection parameters with basic
     # algorithms from Krischer et al., 2015, SRL.
     # The STA/LTA is used to separate phases with algorithm from
     # Maggi et al., 2009, GJI.
     SLIDING_WIN_LEN_FAC: 2.0 # Sliding window length = fac * minimum period, Default: 2.0
-    MIN_VELOCITY: 2.4 # Minimum velocity to calculate the end of window, Default: 2.4 km/s
+    MIN_VELOCITY: 2.3 # Minimum velocity to calculate the end of window, Default: 2.4 km/s
     THRESHOLD_CORR: 0.8 # Minimum cross-correlation to select a window, Default: 0.8
     THRESHOLD_SHIFT_FAC: 0.3 # Maximum time shift to select a window = fac * minimum period, Default: 0.3
     MIN_WIN_LEN_FAC: 1.5 # Minimum window length = fac * minimum period, Default: 1.5
@@ -24,7 +26,7 @@ LEQ:
     MIN_SNR_WINDOW: 5.0 # Minimum signal to noise ratio in a window, Default: 5.0
     MIN_ENERGY_RATIO: 5.0 # Minimum energy ratio between signal and noise windows, Default: 5.0
     MIN_PEAKS_TROUGHS: 3 # Minimum number of peaks and troughs in a window, Default: 3
-    IS_SPLIT_PHASES: True # Whether to split phases into different windows. It is necessary for CC based adjoint source.
+    IS_SPLIT_PHASES: False # Whether to split phases into different windows. It is necessary for CC based adjoint source.
 
 ADJOINT_SOURCE:
   ITAPER_TYPE: 1 # 1: Hanning, 2: Hamming, 3: Cosine, 4: Cosine P10:
@@ -62,8 +64,8 @@ MODEL_GRID:
   REGULAR_GRID_SIZE: [113, 113, 65]
 
 POSTPROC:
-  INV_TYPE: [True, False, False] # Inversion type of noise and teleseismic data
-  JOINT_WEIGHT: [1.0, 0.5, 0.5]
+  INV_TYPE: [False, False, True] # Inversion type of noise and teleseismic data
+  JOINT_WEIGHT: [0.0, 0.5, 1.0]
   TAPER_H_SUPPRESS: 0
   TAPER_H_BUFFER: 0
   TAPER_V_SUPPRESS: 0
