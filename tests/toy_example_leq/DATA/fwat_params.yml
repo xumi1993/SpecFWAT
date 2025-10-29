@@ -5,7 +5,7 @@ LEQ:
   IMEAS: 4
   NSTEP: 3200 # Number of time steps
   DT: 0.045 # Time step for the LEQ data
-  SHORT_P: [12] # Short period of filters
+  SHORT_P: [8] # Short period of filters
   LONG_P: [20] # Long period of filters
   PRECOND_TYPE: 1 # 1: inner product of acceleration
   SIGMA_H: 8000 # Horizontal smoothing radius
@@ -75,8 +75,8 @@ POSTPROC:
 MODEL_UPDATE:
   INIT_MODEL_PATH: initial_model.h5
   MODEL_TYPE: 1 # 1: vp,vs,rho; 2: L,N,Gc,Gs
-  OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS 
-  ITER_START: 0
+  OPT_METHOD: 2 # Optimization method, 1: SD; 2: LBFGS; 3: CG
+  ITER_START: 10
   LBFGS_M_STORE: 5
   MAX_SLEN: 0.02 # Maximum step length
   MAX_SHRINK: 0.618 # Maximum shrink factor

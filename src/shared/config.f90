@@ -51,7 +51,9 @@ module fwat_constants
   integer, parameter :: FORWARD_SAVE = 4
   integer, parameter :: ADJOINT_ONLY = 5
   character(len=MAX_STRING_LEN), dimension(3), parameter :: INV_TYPE_NAMES = [SIMU_TYPE_NOISE, SIMU_TYPE_TELE, SIMU_TYPE_LEQ]
-
+  integer, parameter :: WIN_SELECTOR_TYPE = 1
+  integer, parameter :: WIN_GROUPVEL_TYPE = 2
+  integer, parameter :: WIN_PARRIVAL_TYPE = 3
 
   ! math
   real(kind=cr), parameter :: EARTH_RADIUS = 6371.0d0

@@ -46,9 +46,10 @@ contains
 
   subroutine measure_adj(this)
     class(LEQData), intent(inout) :: this
-    integer :: irec_local, irec, iflt, icomp, icomp_syn, iwin
+    integer :: irec_local, irec, iflt, icomp, icomp_syn, iwin, nwin
     real(kind=dp), dimension(:,:,:,:), allocatable :: adj_src
     real(kind=dp), dimension(:), allocatable :: seismo_dat,seismo_syn
+    real(kind=dp), dimension(:,:), allocatable :: windows
     real(kind=dp) :: tp
     type(RECMisfit), dimension(:), allocatable :: recm
     type(EVTMisfit) :: evtm
@@ -98,32 +99,49 @@ contains
                              1/fpar%sim%LONG_P(iflt), 1/fpar%sim%SHORT_P(iflt), IORD)
 
             ! Select windows
-            call win%init(seismo_dat, seismo_syn, dble(fpar%sim%dt), dble(T0), &
-                          tp, dble(this%od%dist(irec)), dble(fpar%sim%SHORT_P(iflt)))
-            call win%gen_good_windows()
+            select case (fpar%sim%WIN_TYPE)
+              case (WIN_SELECTOR_TYPE)
+                call win%init(seismo_dat, seismo_syn, dble(fpar%sim%dt), dble(T0), &
+                              tp, dble(this%od%dist(irec)), dble(fpar%sim%SHORT_P(iflt)))
+                call win%gen_good_windows()
+                windows = win%twin(:, :)
+              case (WIN_GROUPVEL_TYPE)
+                allocate(windows(1,2))
+                windows(1,1) = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.
+                windows(1,2) = this%od%dist(irec)/fpar%sim%GROUPVEL_MIN(iflt)+fpar%sim%LONG_P(iflt)/2.
+                windows(1,1) = max(windows(1,1), -t0)
+                windows(1,2) = min(windows(1,2), (NSTEP-2)*dble(DT)-t0)
+              case (WIN_PARRIVAL_TYPE)
+                allocate(windows(1,2))
+                windows(1,1) = tp + fpar%sim%TIME_WIN(1)
+                windows(1,2) = tp + fpar%sim%TIME_WIN(2)
+                windows(1,1) = max(windows(1,1), -t0)
+                windows(1,2) = min(windows(1,2), (NSTEP-2)*dble(DT)-t0)
+            end select
+            nwin = size(windows, 1)
 
             if (is_output_preproc) then
-              call this%write_in_preocess(irec, icomp, tp, win%tend, 'syn', seismo_syn)
-              call this%write_in_preocess(irec, icomp, tp, win%tend, 'obs', seismo_dat)
+              call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'syn', seismo_syn)
+              call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'obs', seismo_dat)
             end if
 
             ! calculate adjoint source for this component
             ! Initialize TraceMisfit for each component with n windows
-            recm(irec_local)%trm(icomp) = TraceMisfit(win%n_win)
-            if (win%n_win > 0) then
-              call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), win%twin+T0, &
+            recm(irec_local)%trm(icomp) = TraceMisfit(nwin)
+            if (nwin > 0) then
+              call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows+T0, &
                                             dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)), misfit_out)
               adj_src(:, icomp, irec_local, iflt) = misfit_out%adj_src(:) * fpar%acqui%src_weight(this%ievt)
-              do iwin = 1, win%n_win
+              do iwin = 1, nwin
                 recm(irec_local)%trm(icomp)%misfits(iwin) = misfit_out%misfits(iwin) * fpar%acqui%src_weight(this%ievt)
                 recm(irec_local)%trm(icomp)%residuals(iwin) = misfit_out%residuals(iwin)
                 recm(irec_local)%trm(icomp)%imeas(iwin) = misfit_out%imeas(iwin)
-                recm(irec_local)%trm(icomp)%tstart(iwin) = win%twin(iwin, 1)
-                recm(irec_local)%trm(icomp)%tend(iwin) = win%twin(iwin, 2)
+                recm(irec_local)%trm(icomp)%tstart(iwin) = windows(iwin, 1)
+                recm(irec_local)%trm(icomp)%tend(iwin) = windows(iwin, 2)
                 recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit &
                                                 * fpar%acqui%src_weight(this%ievt)
               end do
-            end if ! if (win%n_win > 0)
+            end if ! if (nwin > 0)
             recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
             if (IS_OUTPUT_ADJ_SRC) call this%write_adj_src_sac(adj_src(:, icomp, irec_local, iflt), irec, icomp)
           enddo ! icomp

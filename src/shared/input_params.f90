@@ -35,7 +35,7 @@ module input_params
 
   type sim_params
     character(len=MAX_STRING_LEN) :: mesh_par_file
-    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE
+    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE, WIN_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
@@ -236,6 +236,7 @@ contains
         ! read parameters for noise FWI
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
         if (.not. associated(io_err)) then
+          this%sim%WIN_TYPE = WIN_GROUPVEL_TYPE
           this%sim => noise_par
           this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
           this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
@@ -292,6 +293,7 @@ contains
           this%sim => tele_par
           this%sim%IMEAS = 1
           this%sim%USE_RHO_SCALING = .false.
+          this%sim%WIN_TYPE = WIN_PARRIVAL_TYPE
           this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
           if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
           supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
@@ -369,16 +371,36 @@ contains
           this%sim%SIGMA_V = leq%get_real('SIGMA_V', error=io_err)
           win => leq%get_dictionary('WINDOW', required=.true., error=io_err)
           if (.not. associated(io_err)) then
-            win_cfg%sliding_win_len_fac = dble(win%get_real('SLIDING_WIN_LEN_FAC', error=io_err, default=2.0))
-            win_cfg%min_velocity = dble(win%get_real('MIN_VELOCITY', error=io_err, default=2.4))
-            win_cfg%threshold_corr = dble(win%get_real('THRESHOLD_CORR', error=io_err, default=0.8))
-            win_cfg%threshold_shift_fac = dble(win%get_real('THRESHOLD_SHIFT_FAC', error=io_err, default=0.3))
-            win_cfg%jump_fac = dble(win%get_real('JUMP_FAC', error=io_err, default=0.1))
-            win_cfg%min_win_len_fac = dble(win%get_real('MIN_WIN_LEN_FAC', error=io_err, default=1.5))
-            win_cfg%min_snr_window = dble(win%get_real('MIN_SNR_WINDOW', error=io_err, default=5.0))
-            win_cfg%min_energy_ratio = dble(win%get_real('MIN_ENERGY_RATIO', error=io_err, default=5.0))
-            win_cfg%min_peaks_troughs = win%get_integer('MIN_PEAKS_TROUGHS', error=io_err, default=3)
-            win_cfg%is_split_phases = win%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
+            this%sim%WIN_TYPE = win%get_integer('WIN_TYPE', error=io_err, default=1)
+            if (this%sim%WIN_TYPE == WIN_SELECTOR_TYPE) then
+              win_cfg%sliding_win_len_fac = dble(win%get_real('SLIDING_WIN_LEN_FAC', error=io_err, default=2.0))
+              win_cfg%min_velocity = dble(win%get_real('MIN_VELOCITY', error=io_err, default=2.4))
+              win_cfg%threshold_corr = dble(win%get_real('THRESHOLD_CORR', error=io_err, default=0.8))
+              win_cfg%threshold_shift_fac = dble(win%get_real('THRESHOLD_SHIFT_FAC', error=io_err, default=0.3))
+              win_cfg%jump_fac = dble(win%get_real('JUMP_FAC', error=io_err, default=0.1))
+              win_cfg%min_win_len_fac = dble(win%get_real('MIN_WIN_LEN_FAC', error=io_err, default=1.5))
+              win_cfg%min_snr_window = dble(win%get_real('MIN_SNR_WINDOW', error=io_err, default=5.0))
+              win_cfg%min_energy_ratio = dble(win%get_real('MIN_ENERGY_RATIO', error=io_err, default=5.0))
+              win_cfg%min_peaks_troughs = win%get_integer('MIN_PEAKS_TROUGHS', error=io_err, default=3)
+              win_cfg%is_split_phases = win%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
+            else if (this%sim%WIN_TYPE == WIN_GROUPVEL_TYPE) then
+              list => noise%get_list('GROUPVEL_MIN', required=.true., error=io_err)
+              if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              call read_real_list(list, this%sim%GROUPVEL_MIN)
+              list => noise%get_list('GROUPVEL_MAX', required=.true., error=io_err)
+              if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              call read_real_list(list, this%sim%GROUPVEL_MAX)
+              if (size(this%sim%GROUPVEL_MIN) /= this%sim%NUM_FILTER .or. &
+                  size(this%sim%GROUPVEL_MAX) /= this%sim%NUM_FILTER) then
+                call exit_mpi(worldrank, 'ERROR: the number of GROUPVEL for leq FWI is not consistent')
+              endif
+            else if (this%sim%WIN_TYPE == WIN_PARRIVAL_TYPE) then
+              list => tele%get_list('TIME_WIN', required=.true., error=io_err)
+              if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              call read_real_list(list, this%sim%TIME_WIN)
+            else
+              call exit_mpi(worldrank, 'ERROR: unknown WIN_TYPE ')
+            end if
           end if
         else ! if (.not. associated(io_err))
           if (simu_type == SIMU_TYPE_LEQ) then
@@ -513,6 +535,7 @@ contains
       call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
       call bcast_all_singlel(noise_par%SUPPRESS_EGF)
       call bcast_all_singlel(noise_par%USE_RHO_SCALING)
+      call bcast_all_singlei(noise_par%WIN_TYPE)
       if (worldrank > 0) then
         allocate(noise_par%RCOMPS(noise_par%NRCOMP))
         allocate(noise_par%SCOMPS(noise_par%NSCOMP))
@@ -550,6 +573,7 @@ contains
       call bcast_all_singlel(tele_par%USE_RHO_SCALING)
       call bcast_all_singlel(tele_par%SAVE_FK)
       call bcast_all_singlei(compress_level)
+      call bcast_all_singlei(tele_par%WIN_TYPE)
       if (worldrank > 0) then
         allocate(tele_par%RCOMPS(tele_par%NRCOMP))
         allocate(tele_par%TIME_WIN(2))
@@ -595,17 +619,30 @@ contains
       call bcast_all_r(leq_par%LONG_P, leq_par%NUM_FILTER)
       call bcast_all_singlecr(leq_par%SIGMA_H)
       call bcast_all_singlecr(leq_par%SIGMA_V)
+      call bcast_all_singlei(leq_par%WIN_TYPE)
       ! broadcast window parameters
-      call bcast_all_singledp(win_cfg%sliding_win_len_fac)
-      call bcast_all_singledp(win_cfg%min_velocity)
-      call bcast_all_singledp(win_cfg%threshold_corr)
-      call bcast_all_singledp(win_cfg%threshold_shift_fac)
-      call bcast_all_singledp(win_cfg%jump_fac)
-      call bcast_all_singledp(win_cfg%min_win_len_fac)
-      call bcast_all_singledp(win_cfg%min_snr_window)
-      call bcast_all_singledp(win_cfg%min_energy_ratio)
-      call bcast_all_singlei(win_cfg%min_peaks_troughs)
-      call bcast_all_singlel(win_cfg%is_split_phases)
+      if (leq_par%WIN_TYPE == WIN_SELECTOR_TYPE) then
+        call bcast_all_singledp(win_cfg%sliding_win_len_fac)
+        call bcast_all_singledp(win_cfg%min_velocity)
+        call bcast_all_singledp(win_cfg%threshold_corr)
+        call bcast_all_singledp(win_cfg%threshold_shift_fac)
+        call bcast_all_singledp(win_cfg%jump_fac)
+        call bcast_all_singledp(win_cfg%min_win_len_fac)
+        call bcast_all_singledp(win_cfg%min_snr_window)
+        call bcast_all_singledp(win_cfg%min_energy_ratio)
+        call bcast_all_singlei(win_cfg%min_peaks_troughs)
+        call bcast_all_singlel(win_cfg%is_split_phases)
+      else if (leq_par%WIN_TYPE == WIN_GROUPVEL_TYPE) then
+        if (worldrank > 0) then
+          allocate(leq_par%GROUPVEL_MIN(leq_par%NUM_FILTER))
+          allocate(leq_par%GROUPVEL_MAX(leq_par%NUM_FILTER))
+        endif
+        call bcast_all_r(leq_par%GROUPVEL_MIN, leq_par%NUM_FILTER)
+        call bcast_all_r(leq_par%GROUPVEL_MAX, leq_par%NUM_FILTER)
+      else if (leq_par%WIN_TYPE == WIN_PARRIVAL_TYPE) then
+        if (worldrank > 0) allocate(leq_par%TIME_WIN(2))
+        call bcast_all_r(leq_par%TIME_WIN, 2)
+      endif
     endif
 
     ! measure adjoint source
