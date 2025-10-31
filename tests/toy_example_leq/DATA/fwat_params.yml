@@ -36,7 +36,7 @@ LEQ:
       MIN_SNR_WINDOW: 5.0 # Minimum signal to noise ratio in a window, Default: 5.0
       MIN_ENERGY_RATIO: 5.0 # Minimum energy ratio between signal and noise windows, Default: 5.0
       MIN_PEAKS_TROUGHS: 3 # Minimum number of peaks and troughs in a window, Default: 3
-      IS_SPLIT_PHASES: True # Whether to split phases into different windows. It is useful for CC based adjoint source.
+      IS_SPLIT_PHASES: False # Whether to split phases into different windows. It is useful for CC based adjoint source.
     WIN_TYPE_2:
       # GROUPVEL_MIN: [2.3, 2.3, 2.3] # Approximate minimum group velocity
       # GROUPVEL_MAX: [3.2, 3.5, 4.0] # Approximate maximum group velocity

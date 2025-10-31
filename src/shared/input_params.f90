@@ -237,8 +237,8 @@ contains
         ! read parameters for noise FWI
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
         if (.not. associated(io_err)) then
-          this%sim%WIN_TYPE = WIN_GROUPVEL_TYPE
           this%sim => noise_par
+          this%sim%WIN_TYPE = WIN_GROUPVEL_TYPE
           this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
           this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
           this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
