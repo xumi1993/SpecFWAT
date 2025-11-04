@@ -102,6 +102,7 @@ module rf_data
     call this%od%read_stations(ievt)
 
     call this%od%read_obs_data()
+    print *, worldrank, maxval(this%od%data(:, 1, 44)), minval(this%od%data(:, 1, 44))  ! DEBUG
     call this%interp_data()
 
     call this%get_baz()
@@ -232,14 +233,14 @@ module rf_data
     if (noderank == 0) then
       do igaus = 1, fpar%sim%rf%NGAUSS
         do irec = 1, this%nrec
-          call interpolate_syn_dp(this%od%data(:, igaus, irec), dble(this%od%tbeg(irec)),&
-                                  dble(this%od%dt), this%od%npts, &
-                                  -dble(fpar%sim%rf%tshift), dble(fpar%sim%dt),NSTEP)
-          this%rf_dat(:, igaus, irec) = this%od%data(:, igaus, irec)
+          this%rf_dat(:, igaus, irec) = interpolate_func_dp(this%od%data(:, igaus, irec), dble(this%od%tbeg(irec)),&
+                                                            dble(this%od%dt), this%od%npts, &
+                                                            -dble(fpar%sim%rf%tshift), dble(DT), NSTEP)
         enddo
       enddo
     endif
     call synchronize_all()
+    call sync_from_main_rank_dp_3d(this%rf_dat, NSTEP, fpar%sim%rf%NGAUSS, this%nrec)
 
   end subroutine interp_data
 
