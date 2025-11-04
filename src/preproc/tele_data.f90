@@ -4,8 +4,8 @@ module tele_data
   use waveform_misfit
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, get_gauss_fac, mkdir
-  use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
-                    myconvolution_dp, time_deconv, mycorrelation_dp, interpolate_func_dp
+  use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp, &
+                    myconvolution_dp, time_deconv, mycorrelation_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global

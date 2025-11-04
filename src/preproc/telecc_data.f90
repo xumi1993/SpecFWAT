@@ -4,7 +4,7 @@ module telecc_data
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, &
                         get_gauss_fac
-  use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
+  use signal, only: bandpass_dp, detrend, demean, &
                     myconvolution_dp, interpolate_func_dp, mycorrelation_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
@@ -101,8 +101,6 @@ contains
           call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-          ! call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
-          !                         tstart, dble(dt), NSTEP)
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:NSTEP)
 
           seismo_inp = this%data(:, icomp, irec)
@@ -110,8 +108,6 @@ contains
           ! call demean(seismo_inp)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
-          ! call interpolate_syn_dp(seismo_inp, -dble(T0), dble(DT), NSTEP, &
-          !                         tstart, dble(dt), NSTEP)
           this%seismo_syn(:, icomp, irec_local) = seismo_inp(1:NSTEP)
         enddo
       enddo      

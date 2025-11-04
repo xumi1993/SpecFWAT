@@ -3,7 +3,7 @@ module rf_data
   use rf_misfit
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
-  use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
+  use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp, &
                     myconvolution_dp, time_deconv
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
