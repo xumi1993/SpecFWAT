@@ -32,8 +32,8 @@ module fwat_constants
   character(len=MAX_STRING_LEN), dimension(5), parameter :: KERNEL_AZI_ANI = ['alpha', 'beta ', 'rhop ', 'gcp  ', 'gsp  ']
 
   ! model types
-  character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_ISO = ['vp ', 'vs ', 'rho']
-  character(len=MAX_STRING_LEN), dimension(5), parameter :: MODEL_AZI_ANI = ['vp ', 'vs ', 'rho', 'gcp', 'gsp']
+  character(len=MAX_STRING_LEN), dimension(3), parameter :: MODEL_NAME_ISO = ['vp ', 'vs ', 'rho']
+  character(len=MAX_STRING_LEN), dimension(5), parameter :: MODEL_NAME_AZI_ANI = ['vp ', 'vs ', 'rho', 'gcp', 'gsp']
 
   real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3, RHO_SCALING_FAC = 0.33
   integer, parameter :: NUM_INV_TYPE = 3

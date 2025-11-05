@@ -61,11 +61,11 @@ contains
       if (fpar%update%model_type == 1) then
       nkernel = size(KERNEL_ISO)
       kernel_names = KERNEL_ISO
-      parameter_names = MODEL_ISO
+      parameter_names = MODEL_NAME_ISO
     elseif (fpar%update%model_type == 2) then
       nkernel = size(KERNEL_AZI_ANI)
       kernel_names = KERNEL_AZI_ANI
-      parameter_names = MODEL_AZI_ANI
+      parameter_names = MODEL_NAME_AZI_ANI
     else
       call exit_MPI(0, 'Unknown model type')
     endif

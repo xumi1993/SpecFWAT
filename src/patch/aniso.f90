@@ -45,8 +45,9 @@ module aniso
     real(kind=CUSTOM_REAL) :: c34, c35, c36, c44, c45, c46
     real(kind=CUSTOM_REAL) :: c55, c56, c66
     contains
-    procedure :: hti2aniso, glob2cart, to_cijkl, init_iso => initialize_iso, output => output_cijkl
-    ! procedure, private :: to_cijkl
+    procedure :: hti2aniso, glob2cart, to_cijkl
+    procedure :: init_iso => initialize_iso
+    procedure :: output => output_cijkl
   end type
 
 contains

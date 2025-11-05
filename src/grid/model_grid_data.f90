@@ -105,22 +105,6 @@ contains
 
   end subroutine write_grid_model
 
-  subroutine write_grid_model_iso(filename, grid_model_iso)
-    real(kind=cr), dimension(:,:,:,:), intent(in) :: grid_model_iso
-    character(len=*), intent(in) :: filename
-    integer :: iker
-    type(hdf5_file) :: h5file
-    
-    if (worldrank == 0) then
-      call h5file%open(filename, status='old', action='rw')
-      do iker = 1, 3
-        call h5file%add('/'//trim(MODEL_ISO(iker)), transpose_3(grid_model_iso(:,:,:,iker)))
-      end do
-      call h5file%close(finalize=.true.)
-    endif
-
-  end subroutine write_grid_model_iso
-
   subroutine write_grid_kernel_smooth(grid_kernel, filename)
     real(kind=cr), dimension(:,:,:,:), intent(in) :: grid_kernel
     character(len=*), intent(in) :: filename

@@ -16,7 +16,7 @@ module optimize_grid
   integer, private :: ier
 
   type :: OptGridFlow
-    real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_iso, model_tmp, gradient, direction, hess
+    real(kind=cr), dimension(:,:,:,:), allocatable :: model, model_tmp, gradient, direction, hess
     integer :: iter_current, iter_prev, iter_next
     real(kind=cr) :: angle
     character(len=MAX_STRING_LEN) :: output_model_path, model_fname
@@ -60,8 +60,9 @@ contains
       call this%interp_initial_model()
       call write_grid_model(trim(OPT_DIR)//'/model_M00.h5', this%model)
     else
-      call read_model_grid(this%iter_current, this%model)
+      call read_model_grid(this%iter_current, this%model, .false.)
     endif
+    call synchronize_all()
     if (this%iter_current < fpar%update%ITER_START) then
       call log%write('ERROR: Iteration '//trim(model_current)//&
                      ' is less than ITER_START', .true.)
