@@ -81,7 +81,8 @@ contains
     integer :: ipar
 
     if(worldrank == 0) then
-      this%model = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)      
+      this%model = zeros(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
+      
       call h5file%open(fpar%update%INIT_MODEL_PATH, status='old', action='read')
 
       call h5file%get('/x', x)
@@ -89,10 +90,27 @@ contains
       call h5file%get('/z', z)
 
       do ipar = 1, nkernel
-        call h5file%get('/'//trim(parameter_names(ipar)), gm)
+        ! read parameter grid
+        if (parameter_type <= 2 .and. ipar <= 3) then
+          call h5file%get('/'//trim(parameter_names(ipar)), gm)
+        endif
+
+        ! read anisotropic paramters
+        if (parameter_type == 2 .and. ipar > 3) then
+          gm = zeros(ext_grid%nz, ext_grid%ny, ext_grid%nx)
+          if (ipar == 4 .and. h5file%exist('/gcp')) then
+            call h5file%get('/gcp', gm)
+          endif
+          if (ipar == 5 .and. h5file%exist('/gsp')) then
+            call h5file%get('/gsp', gm)
+          endif
+        endif
+
+        ! transpose and interpolate model
         gm = transpose_3(gm)
         call model_interpolation(x, y, z, gm, rm)
         this%model(:,:,:,ipar) = rm
+        deallocate(rm, gm)
       enddo
       call h5file%close(finalize=.true.)
     endif
