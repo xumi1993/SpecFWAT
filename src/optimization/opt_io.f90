@@ -109,6 +109,8 @@ contains
   end subroutine read_gradient
 
   subroutine read_gradient_grid(iter, gradient_data)
+    use input_params, fpar => fwat_par_global
+
     integer, intent(in) :: iter
     character(len=MAX_STRING_LEN) :: this_model, fprname
     integer :: imod
@@ -126,6 +128,9 @@ contains
         gradient_data(:,:,:,imod) = transpose_3(gm)
       end do
       call h5file%close(finalize=.true.)
+
+      ! zero out the non-updated parameters for alternating inversion
+      call mask_model_param(gradient_data)
     endif
   end subroutine read_gradient_grid
 
@@ -150,6 +155,18 @@ contains
     end do
   end subroutine write_model
 
+  subroutine mask_model_param(model_vector)
+    use input_params, fpar => fwat_par_global
+    real(kind=cr), dimension(:,:,:,:), intent(inout) :: model_vector
+
+    if (fpar%update%MODEL_TYPE == 2 .and. fpar%update%ALT_INV) then
+      if (fpar%update%CURRENT_INV_TYPE == 1) then
+        model_vector(:,:,:,4:5) = 0.0_cr
+      elseif (fpar%update%CURRENT_INV_TYPE == 2) then
+        model_vector(:,:,:,1:3) = 0.0_cr
+      endif
+    endif
+  end subroutine mask_model_param
 
   subroutine Parallel_ComputeInnerProduct(vect1, vect2, qp)
 

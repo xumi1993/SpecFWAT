@@ -43,6 +43,7 @@ contains
 
     call log%init('output_optimize_'//trim(model_name)//'.log')
 
+    ! Initialize optimization parameters
     call get_kernel_names()
     step_len = fpar%update%MAX_SLEN
 
@@ -71,6 +72,21 @@ contains
     endif
     call read_gradient_grid(this%iter_current, this%gradient)
     call synchronize_all()
+
+    ! Print summary
+    if (worldrank == 0) then
+      call log%write('Current model: '//trim(model_current), .false.)
+      write(msg , '(A,I1)') ' Model parameter type: ', fpar%update%MODEL_TYPE
+      call log%write(msg, .false.)
+      if (fpar%update%MODEL_TYPE == 2) then
+        write (msg , '(A,L2)') ' Use alternating inversion: ', fpar%update%ALT_INV
+        call log%write(msg, .false.)
+        if (fpar%update%ALT_INV) then
+          write (msg , '(A,I1)') ' Current inversion type: ', fpar%update%CURRENT_INV_TYPE
+          call log%write(msg, .false.)
+        endif
+      endif
+    endif
   end subroutine init_optimize
 
   subroutine interp_initial_model(this)
@@ -166,14 +182,19 @@ contains
       endif
       write(msg, '(a,F10.8)') 'Update model parameter with step length: ', step_len
       call log%write(msg, .true.)
-      if (fpar%update%model_type == 1) then
+
       ! update model
+      if (fpar%update%model_type == 1) then
         this%model = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model)
       elseif (fpar%update%model_type == 2) then
-        this%model(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
-        call alpha_scaling(this%model)
-        this%model(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction(:,:,:,4:5)
+        if (.not. fpar%update%ALT_INV .or. (fpar%update%ALT_INV .and. fpar%update%CURRENT_INV_TYPE == 1)) then
+          this%model(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
+          call alpha_scaling(this%model)
+        endif
+        if (.not. fpar%update%ALT_INV .or. (fpar%update%ALT_INV .and. fpar%update%CURRENT_INV_TYPE == 2)) then
+          this%model(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction(:,:,:,4:5)
+        endif
       else
         call exit_MPI(0, 'Unknown model type')
       endif
@@ -190,9 +211,13 @@ contains
         this%model_tmp = this%model * exp(step_len*this%direction)
         call alpha_scaling(this%model_tmp)
       elseif (fpar%update%model_type == 2) then
-        this%model_tmp(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
-        call alpha_scaling(this%model_tmp)
-        this%model_tmp(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction(:,:,:,4:5)
+        if (.not. fpar%update%ALT_INV .or. (fpar%update%ALT_INV .and. fpar%update%CURRENT_INV_TYPE == 1)) then
+          this%model_tmp(:,:,:,1:3) = this%model(:,:,:,1:3) * exp(step_len*this%direction(:,:,:,1:3))
+          call alpha_scaling(this%model_tmp)
+        endif
+        if (.not. fpar%update%ALT_INV .or. (fpar%update%ALT_INV .and. fpar%update%CURRENT_INV_TYPE == 2)) then
+          this%model_tmp(:,:,:,4:5) = this%model(:,:,:,4:5) + step_len*this%direction(:,:,:,4:5)
+        endif
       else
         call exit_MPI(0, 'Unknown model type')
       endif

@@ -59,9 +59,9 @@ module input_params
   end type postproc_params
 
   type update_params
-    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER
+    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER, CURRENT_INV_TYPE
     real(kind=cr) :: MAX_SLEN, MAX_SHRINK, C1
-    logical :: DO_LS
+    logical :: DO_LS, ALT_INV
     real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
     character(len=MAX_STRING_LEN) :: INIT_MODEL_PATH
   end type update_params
@@ -223,7 +223,8 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid, leq, win, win_type
+    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid, leq, win, win_type, &
+                                       model_type_2          
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
@@ -513,6 +514,15 @@ contains
         this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: INIT_MODEL_PATH is not set')
         this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err, default=1)
+        if (this%update%MODEL_TYPE == 2) then
+          model_type_2 => update%get_dictionary('MODEL_TYPE_2', required=.true., error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%update%ALT_INV = model_type_2%get_logical('ALT_INV', error=io_err, default=.false.)
+          this%update%CURRENT_INV_TYPE = model_type_2%get_integer('CURRENT_INV_TYPE', error=io_err, default=1)
+          if (this%update%CURRENT_INV_TYPE > 2) then
+            call exit_mpi(worldrank, 'ERROR: unsupported CURRENT_INV_TYPE for MODEL_TYPE_2')
+          endif
+        endif
         this%update%ITER_START = update%get_integer('ITER_START', error=io_err)
         this%update%LBFGS_M_STORE = update%get_integer('LBFGS_M_STORE', error=io_err)
         this%update%OPT_METHOD = update%get_integer('OPT_METHOD', error=io_err)
@@ -717,6 +727,10 @@ contains
     call bcast_all_singlel(this%update%DO_LS)
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)
     parameter_type = this%update%MODEL_TYPE
+    if (parameter_type == 2) then
+      call bcast_all_singlel(this%update%ALT_INV)
+      call bcast_all_singlei(this%update%CURRENT_INV_TYPE)
+    endif
     call synchronize_all()
 
   end subroutine read_fwat_parameter_file
