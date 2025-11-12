@@ -63,7 +63,7 @@ contains
       end if
 
       ! calculate cross-correlation adjoint source
-      adj_tw = (d - (p/s_eng) * s) / sqrt(d_eng * s_eng)
+      adj_tw = -(d - (p/s_eng) * s) / sqrt(d_eng * s_eng)
       call window_taper(adj_tw, cfg%taper_percentage, cfg%itaper_type)
 
       ! calculate cross-correlation coefficient misfit
