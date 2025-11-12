@@ -57,7 +57,7 @@ contains
       if (coef < cfg%CC_MIN) then
         this%select_meas(iwin) = .false.
         this%misfits(iwin) = 0.0_dp
-        this%residuals(iwin) = 0.0_dp
+        this%residuals(iwin) = coef
         this%imeas(iwin) = 0
         cycle
       end if

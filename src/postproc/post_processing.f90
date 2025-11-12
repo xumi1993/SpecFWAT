@@ -27,7 +27,7 @@ module post_processing
     contains
     procedure :: init=>init_post_flow
     procedure :: sum_kernel, sum_precond, init_for_type,apply_precond, &
-                 write_gradient_grid, remove_ekernel, pde_smooth, taper_kernel_grid, finalize, &
+                 write_gradient_grid, pde_smooth, taper_kernel_grid, finalize, &
                  read_sum_kernel
   end type PostFlow
 contains
@@ -376,8 +376,7 @@ contains
 
   end subroutine invert_hess
 
-  subroutine remove_ekernel(this)
-    class(PostFlow), intent(inout) :: this
+  subroutine remove_ekernel()
     integer :: ievt
 
     if (is_output_event_kernel) return
