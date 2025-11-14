@@ -2,7 +2,8 @@
 
  An easy, fast, and powerful full-waveform adjoint tomography (FWAT) tool for multiple seismic data.
 
-<img width="800" height="800" alt="fwat" src="https://github.com/user-attachments/assets/7e899d48-db6a-4d6a-bf5e-7c219f916943" />
+<img width="3302" height="2968" alt="fwat" src="https://github.com/user-attachments/assets/493f3737-0d4c-4ca8-b153-8f0e96a2fcad" />
+
 
 ## Installation
 
