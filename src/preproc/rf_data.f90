@@ -8,7 +8,7 @@ module rf_data
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
-  use decon_mod, only: deconit
+  use decon_mod, only: deconvolve
   use fk_coupling
   use fwat_mpi
   use utils, only: zeros_dp, zeros
@@ -68,8 +68,10 @@ module rf_data
           datafile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%od%netwk(irec))//'.'&
                      //trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//'R.'&
                      //trim(bandname)//'.rf.sac'
-          call deconit(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
-                       fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi)
+          ! call deconit(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
+                      !  fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi)
+          call deconvolve(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
+                           fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi, GPU_MODE)
           call sacio_newhead(header, real(fpar%sim%dt), fpar%sim%nstep, -fpar%sim%rf%tshift)
           header%az = this%az
           header%baz = this%baz
@@ -282,8 +284,8 @@ module rf_data
                               '.'//trim(fpar%sim%CH_CODE)//'R.sac', header, uin, ier)
         endif
         do igaus = 1, fpar%sim%rf%NGAUSS
-          call deconit(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igaus),&
-                       fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi)
+          call deconvolve(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igaus),&
+                         fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi, use_gpu=GPU_MODE)
           rf_data_local(:, igaus, irec_local) = rfi
           if (IS_OUTPUT_PREPROC) then
             call sacio_newhead(header, real(DT), NSTEP, -real(fpar%sim%rf%tshift))

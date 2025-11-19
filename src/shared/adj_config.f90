@@ -23,7 +23,7 @@ module adj_config
                       target_dt=0.01_dp
     integer :: itaper_type=1, imeasure_type=1, min_cycle_in_window=3, &
                 num_taper=5
-    logical :: use_cc_error=.true., use_mt_error=.false.
+    logical :: use_cc_error=.true., use_mt_error=.false., use_gpu=.false.
     ! itaper_type: 1=Hanning, 2=Hamming, 3=cos, 4=cos^10
     ! imeasure_type:
     !   1: waveform difference

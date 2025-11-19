@@ -1,4 +1,12 @@
 file(GLOB SOURCES_TELE "*.f90")
+if (USE_CUDA)
+  file (GLOB SOURCES_CUDA "*.cu")
+else()
+  file (GLOB SOURCES_CUDA "*_stubs.cpp")
+endif()
 
-add_library(tele_objs OBJECT ${SOURCES_TELE})
+add_library(tele_objs OBJECT ${SOURCES_TELE} ${SOURCES_CUDA})
 target_link_libraries(tele_objs PRIVATE fftpack_objs LAPACK::LAPACK BLAS::BLAS)
+if (USE_CUDA)
+  target_link_libraries(tele_objs PRIVATE CUDA::cufft)
+endif()

@@ -736,7 +736,7 @@ contains
   end subroutine read_fwat_parameter_file
 
   subroutine select_simu_type(this)
-    use specfem_par, only: NSTEP, DT, T0, LOCAL_PATH
+    use specfem_par, only: NSTEP, DT, T0, LOCAL_PATH, GPU_MODE
     class(fwat_params), intent(inout) :: this
 
     select case (simu_type)
@@ -749,6 +749,7 @@ contains
         T0 = MAX_TIME_SHIFT
     end select
     adj_cfg%imeasure_type = this%sim%IMEAS
+    adj_cfg%use_gpu = GPU_MODE
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
     if (is_joint) then

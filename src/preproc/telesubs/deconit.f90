@@ -1,7 +1,66 @@
 module decon_mod
   use fftpack, only: fft_cls
     
-contains 
+contains
+  subroutine deconvolve(utr, wtr, dt, tshift, f0, &
+                       maxit, minderr, ipart, rfi, use_gpu)
+    ! -----------------------------------------
+    ! Time iterative deconvolution for receiver 
+    ! function calculation. Code refer to that in
+    ! CPS330.
+    ! 
+    ! Nov 19, 2025 Mijian Xu @ University of Toronto
+    ! ------------------------------------------- 
+
+    implicit none
+    double precision, dimension(:), intent(in)                  :: utr, wtr
+    real, intent(in)                                            :: dt,tshift,f0,minderr
+    integer, intent(in)                                         :: ipart,maxit
+    double precision, dimension(:), allocatable, intent(out)    :: rfi
+    logical, intent(in)                                         :: use_gpu
+
+    if (use_gpu) then
+      call deconit_gpu(utr, wtr, dt, tshift, f0, maxit, minderr, ipart, rfi)
+    else 
+      call deconit(utr, wtr, dt, tshift, f0, maxit, minderr, ipart, rfi)
+    endif
+
+  end subroutine deconvolve
+
+  subroutine deconit_gpu(utr, wtr, dt, tshift, f0, &
+                     maxit, minderr, ipart, rfi)
+    implicit none
+    real, intent(in)                                            :: dt,tshift,f0,minderr
+    integer, intent(in)                                         :: ipart,maxit
+    double precision, dimension(:), intent(in)                  :: utr, wtr
+    double precision, dimension(:), allocatable, intent(out)    :: rfi
+    integer                                                     :: nft, nt
+
+    interface
+      subroutine deconit_cuda(utr, wtr, nt, nft, dt, tshift, f0, &
+                              maxit, minderr, ipart, rfi) bind(C, name="deconit_cuda")
+        use iso_c_binding
+        real(c_double), dimension(*), intent(in) :: utr, wtr
+        integer(c_int), value :: nt, nft
+        real(c_float), value :: dt, tshift, f0
+        integer(c_int), value :: maxit
+        real(c_float), value :: minderr
+        integer(c_int), value :: ipart
+        real(c_double), dimension(*), intent(out) :: rfi
+      end subroutine deconit_cuda
+    end interface
+
+    nt = size(utr)
+    nft=nt
+    call npow2(nft)
+    
+    if (allocated(rfi)) deallocate(rfi)
+    allocate(rfi(nt))
+    
+    call deconit_cuda(utr, wtr, nt, nft, dt, tshift, f0, maxit, minderr, ipart, rfi)
+
+  end subroutine deconit_gpu
+
   subroutine deconit(utr, wtr, dt, tshift, f0, &
                      maxit, minderr, ipart, rfi)
     ! -----------------------------------------

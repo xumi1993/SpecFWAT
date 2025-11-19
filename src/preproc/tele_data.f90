@@ -16,7 +16,7 @@ module tele_data
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
   use specfem_par, only: T0,OUTPUT_FILES
-  use decon_mod, only: deconit
+  use decon_mod, only: deconvolve
   implicit none
 
   integer, private :: ier
@@ -410,7 +410,8 @@ contains
     ! call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
                     !  fpar%sim%nstep,NITER,stf_dp)
     f0 = get_gauss_fac(1/fpar%sim%SHORT_P(1))
-    call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf_dp)
+    call deconvolve(data_num_win, data_den_win, fpar%sim%dt, &
+                    time_shift, f0, NITER, 0.001, 1, stf_dp, use_gpu=GPU_MODE)
     stf = real(stf_dp)
     ! call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
                     !  1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
