@@ -61,6 +61,7 @@ module fwat_constants
   real(kind=cr), parameter :: deg2rad = PI / 180.0d0
   real(kind=cr), parameter :: rad2deg = 180.0d0 / PI
   real(kind=cr), parameter :: km2deg = 1.0d0 /(EARTH_RADIUS*pi/180.0d0)
+  real(kind=dp), parameter :: taper_per = 0.1_dp
 
   ! meas_adj
   integer, parameter :: NITER = 200

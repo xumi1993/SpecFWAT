@@ -99,6 +99,7 @@ contains
                                            -dble(T0), dble(DT), NSTEP)/max_amp
           call detrend(seismo_inp)
           call demean(seismo_inp)
+          call window_taper(seismo_inp, taper_per, 1)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:NSTEP)
@@ -106,6 +107,7 @@ contains
           seismo_inp = this%data(:, icomp, irec)
           ! call detrend(seismo_inp)
           ! call demean(seismo_inp)
+          call window_taper(seismo_inp, taper_per, 1)
           call bandpass_dp(seismo_inp, NSTEP, dble(DT),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           this%seismo_syn(:, icomp, irec_local) = seismo_inp(1:NSTEP)

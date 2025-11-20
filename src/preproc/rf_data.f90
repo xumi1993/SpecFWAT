@@ -3,8 +3,7 @@ module rf_data
   use rf_misfit
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
-  use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp, &
-                    myconvolution_dp, time_deconv
+  use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
@@ -59,6 +58,8 @@ module rf_data
         ! calculate rf
         uin = this%data(:, 2, irec)
         win = this%data(:, 1, irec)
+        call window_taper(uin, taper_per, 1)
+        call window_taper(win, taper_per, 1)
         call bandpass_dp(uin ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&
                          1/fpar%sim%SHORT_P(1), IORD)
         call bandpass_dp(win ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&
@@ -68,8 +69,6 @@ module rf_data
           datafile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%od%netwk(irec))//'.'&
                      //trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//'R.'&
                      //trim(bandname)//'.rf.sac'
-          ! call deconit(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
-                      !  fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi)
           call deconvolve(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
                            fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi, GPU_MODE)
           call sacio_newhead(header, real(fpar%sim%dt), fpar%sim%nstep, -fpar%sim%rf%tshift)
@@ -123,7 +122,7 @@ module rf_data
     class(RFData), intent(inout) :: this
     character(len=MAX_STRING_LEN) :: msg
     integer :: irec_local, irec, igaus
-    real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3
+    real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3, adj_src_z, adj_src_r
     real(kind=dp), dimension(:,:,:), allocatable :: adj_src
     type(RFMisfit) :: rfm
     type(RECMisfit), dimension(:), allocatable :: recm
@@ -141,6 +140,8 @@ module rf_data
           irec = select_global_id_for_rec(irec_local)
           synz = this%data(:, 1, irec)
           synr = this%data(:, 2, irec)
+          call window_taper(synz, taper_per, 1)
+          call window_taper(synr, taper_per, 1)
           call bandpass_dp(synz, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           call bandpass_dp(synr, NSTEP, dble(DT), 1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
 
@@ -262,6 +263,8 @@ module rf_data
         irec = select_global_id_for_rec(irec_local)
         uin = this%data(:, 2, irec)
         win = this%data(:, 1, irec)
+        call window_taper(uin, taper_per, 1)
+        call window_taper(win, taper_per, 1)
         call bandpass_dp(uin ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&
                          1/fpar%sim%SHORT_P(1), IORD)
         call bandpass_dp(win ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&

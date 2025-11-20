@@ -164,13 +164,13 @@ contains
                                   dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
           call detrend(seismo_inp)
           call demean(seismo_inp)
-          call window_taper(seismo_inp, 0.3_dp, 1)
+          call window_taper(seismo_inp, taper_per, 1)
           call bandpass_dp(seismo_inp, fpar%sim%nstep, dble(fpar%sim%dt),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:fpar%sim%nstep)
 
           this%seismo_syn(:, icomp, irec_local) = this%data(:, icomp, irec)
-          call window_taper(this%seismo_syn(:, icomp, irec_local), 0.3_dp, 1)
+          call window_taper(this%seismo_syn(:, icomp, irec_local), taper_per, 1)
           ! call detrend(this%seismo_syn(:, icomp, irec_local))
           ! call demean(this%seismo_syn(:, icomp, irec_local))
           call bandpass_dp(this%seismo_syn(:, icomp, irec_local), fpar%sim%nstep, dble(fpar%sim%dt),&
