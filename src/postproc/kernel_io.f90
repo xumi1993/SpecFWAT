@@ -145,9 +145,9 @@ contains
                    + c33_kl * (vp**2) + c44_kl * (gcp*vs**2 + vs**2) + c45_kl * (gsp*vs**2) &
                    + c55_kl * (-gcp*vs**2 + vs**2) + c66_kl *(vs**2)
     ! gcp kernel
-    ker(:,:,:,:,4) = c44_kl * (rho_vs*vs) + c55_kl * (-rho_vs*vs)
+    ker(:,:,:,:,4) = (c44_kl - c55_kl) * rho_vs*vs ! ker_Gcp
     ! gsp kernel
-    ker(:,:,:,:,5) = c45_kl * (rho_vs*vs) ! ker_Gs
+    ker(:,:,:,:,5) = c45_kl * rho_vs*vs ! ker_Gs
 
     ! relative scaling
     ker(:,:,:,:,1) = ker(:,:,:,:,1) * vp

@@ -1,8 +1,7 @@
 module input_params
   use config
   use fwat_mpi
-  use adj_config, cfg => adj_config_global
-  ! use ma_variables
+  use adj_config, adj_cfg => adj_config_global, win_cfg => win_config_global
   use utils, only: split_by_spaces
 
   implicit none
@@ -36,9 +35,10 @@ module input_params
 
   type sim_params
     character(len=MAX_STRING_LEN) :: mesh_par_file
-    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE
+    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE, WIN_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
     character(len= MAX_STRING_LEN) :: CH_CODE
+    character(len=PHASE_NAME_LEN) :: PHASE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING, SAVE_FK
@@ -51,17 +51,17 @@ module input_params
   end type model_grid
 
   type postproc_params
-    logical, dimension(2) :: INV_TYPE
-    real(kind=cr), dimension(2) :: JOINT_WEIGHT
+    logical, dimension(NUM_INV_TYPE) :: INV_TYPE = .false.
+    real(kind=cr), dimension(NUM_INV_TYPE) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
     integer :: NORM_TYPE
     logical :: IS_PRECOND
   end type postproc_params
 
   type update_params
-    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER
+    integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER, CURRENT_INV_TYPE
     real(kind=cr) :: MAX_SLEN, MAX_SHRINK, C1
-    logical :: DO_LS
+    logical :: DO_LS, ALT_INV
     real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
     character(len=MAX_STRING_LEN) :: INIT_MODEL_PATH
   end type update_params
@@ -77,7 +77,7 @@ module input_params
     procedure :: select_simu_type
   end type fwat_params
 
-  type(sim_params), target :: tele_par, noise_par
+  type(sim_params), target :: tele_par, noise_par, leq_par
   type(fwat_params) :: fwat_par_global
 
 contains
@@ -90,6 +90,7 @@ contains
     real(kind=cr) :: junk_cr
     integer, parameter :: FID = 878
     integer :: ievt
+    logical :: file_exists
 
     this%evtset_file = trim(SRC_REC_DIR)//'/'//trim(SRC_PREFIX)//'_'//trim(dat_type)//'.dat'
     if (worldrank == 0) then
@@ -141,10 +142,17 @@ contains
         this%station_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(STATIONS_PREFIX)//'_'//trim(evtnm)
         if (simu_type == SIMU_TYPE_NOISE) then
           this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FORCESOLUTION_PREFIX)//'_'//trim(evtnm)
+        else if (simu_type == SIMU_TYPE_LEQ) then
+          this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
         else if (simu_type == SIMU_TYPE_TELE) then
           ! this%src_solution_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(CMTSOLUTION_PREFIX)//'_'//trim(evtnm)
           this%fkmodel_file(ievt) = trim(SRC_REC_DIR)//'/'//trim(FKMODEL_PREFIX)//'_'//trim(evtnm)
           this%src_solution_file(ievt) = 'DATA/'//trim(CMTSOLUTION_PREFIX)
+          inquire(file=trim(this%src_solution_file(ievt)), exist=file_exists)
+          if (.not. file_exists) then
+            write(msg, '(a,a,a)') 'ERROR: CMT solution file ', trim(this%src_solution_file(ievt)), ' does not exist.'
+            call exit_mpi(worldrank, trim(msg))
+          endif
         endif
         this%evtid_names(ievt) = evtnm
         this%out_fwd_path(ievt)=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(dat_type)//'/'//trim(evtnm)
@@ -215,10 +223,12 @@ contains
     class(fwat_params), intent(inout) :: this
     character(len=*), intent(in) :: fname
     class(type_node), pointer :: root
-    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid
+    class(type_dictionary), pointer :: noise, tele, rf, output, post, update, grid, leq, win, win_type, &
+                                       model_type_2          
     class (type_list), pointer :: list
     character(len=error_length) :: error
     type (type_error), pointer :: io_err
+    logical :: is_noise=.true., is_tele=.true., is_leq=.true.
 
     if (worldrank == 0) then
       root => parse(fname, error = error)
@@ -226,98 +236,190 @@ contains
       select type (root)
       class is (type_dictionary)
         ! read parameters for noise FWI
-        this%sim => noise_par
         noise => root%get_dictionary('NOISE', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
-        this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
-        this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
-        this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
-        list => noise%get_list('RCOMPS', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_string_list(list, this%sim%RCOMPS)
-        this%sim%NRCOMP = size(this%sim%RCOMPS)
-        list => noise%get_list('SCOMPS', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_string_list(list, this%sim%SCOMPS)
-        this%sim%NSCOMP = size(this%sim%SCOMPS)
-        this%sim%CH_CODE = noise%get_string('CH_CODE', error=io_err)
-        this%sim%DT = noise%get_real('DT', error=io_err)
-        list => noise%get_list('SHORT_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%SHORT_P)
-        list => noise%get_list('LONG_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%LONG_P)
-        list => noise%get_list('GROUPVEL_MIN', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%GROUPVEL_MIN)
-        list => noise%get_list('GROUPVEL_MAX', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%GROUPVEL_MAX)
-        if (size(this%sim%SHORT_P)      == size(this%sim%LONG_P) .and. &
-            size(this%sim%LONG_P)       == size(this%sim%GROUPVEL_MIN) .and. &
-            size(this%sim%GROUPVEL_MIN) == size(this%sim%GROUPVEL_MAX)) then
-          this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+        if (.not. associated(io_err)) then
+          this%sim => noise_par
+          this%sim%WIN_TYPE = WIN_GROUPVEL_TYPE
+          this%sim%mesh_par_file = noise%get_string('MESH_PAR_FILE', error=io_err)
+          this%sim%NSTEP = noise%get_integer('NSTEP', error=io_err)
+          this%sim%PRECOND_TYPE = noise%get_integer('PRECOND_TYPE', error=io_err)
+          this%sim%IMEAS = noise%get_integer('IMEAS', error=io_err, default=7)
+          list => noise%get_list('RCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%RCOMPS)
+          this%sim%NRCOMP = size(this%sim%RCOMPS)
+          list => noise%get_list('SCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%SCOMPS)
+          this%sim%NSCOMP = size(this%sim%SCOMPS)
+          this%sim%CH_CODE = noise%get_string('CH_CODE', error=io_err)
+          this%sim%DT = noise%get_real('DT', error=io_err)
+          list => noise%get_list('SHORT_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%SHORT_P)
+          list => noise%get_list('LONG_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%LONG_P)
+          list => noise%get_list('GROUPVEL_MIN', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%GROUPVEL_MIN)
+          list => noise%get_list('GROUPVEL_MAX', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%GROUPVEL_MAX)
+          if (size(this%sim%SHORT_P)      == size(this%sim%LONG_P) .and. &
+              size(this%sim%LONG_P)       == size(this%sim%GROUPVEL_MIN) .and. &
+              size(this%sim%GROUPVEL_MIN) == size(this%sim%GROUPVEL_MAX)) then
+            this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+          else
+            call exit_mpi(worldrank, 'ERROR: the number of filters for noise FWI is not consistent')
+          endif
+          this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err, default=.false.)
+          this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err, default=.false.)
+          this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
         else
-          call exit_mpi(worldrank, 'ERROR: the number of filters for noise FWI is not consistent')
-        endif
-        this%sim%USE_NEAR_OFFSET = noise%get_logical('USE_NEAR_OFFSET', error=io_err)
-        this%sim%ADJ_SRC_NORM = noise%get_logical('ADJ_SRC_NORM', error=io_err)
-        this%sim%SUPPRESS_EGF = noise%get_logical('SUPPRESS_EGF', error=io_err)
-        this%sim%SIGMA_H = noise%get_real('SIGMA_H', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%SIGMA_V = noise%get_real('SIGMA_V', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%USE_RHO_SCALING = noise%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
+          if (simu_type == SIMU_TYPE_NOISE) then
+            call exit_mpi(worldrank, 'ERROR: NOISE section is not found in parameter file')
+          endif
+          is_noise = .false.
+        end if
 
         ! read parameters for teleseismic FWI
-        this%sim => tele_par
-        this%sim%IMEAS = 1
-        this%sim%USE_RHO_SCALING = .false.
         tele => root%get_dictionary('TELE', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
-        supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
-        list => tele%get_list('RCOMPS', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_string_list(list, this%sim%RCOMPS)
-        this%sim%NRCOMP = size(this%sim%RCOMPS)
-        this%sim%NSTEP = tele%get_integer('NSTEP', error=io_err)
-        this%sim%PRECOND_TYPE = tele%get_integer('PRECOND_TYPE', error=io_err)
-        this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err)
-        this%sim%DT = tele%get_real('DT', error=io_err)
-        list => tele%get_list('TIME_WIN', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%TIME_WIN)
-        list => tele%get_list('SHORT_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%SHORT_P)
-        list => tele%get_list('LONG_P', required=.true., error=io_err)
-        if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        call read_real_list(list, this%sim%LONG_P)
-        this%sim%NUM_FILTER = 1
-        this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
-        this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
-        this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
-        compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
-        this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
-        ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        ! read parameters for RF proc
-        rf => tele%get_dictionary('RF', required=.true., error=io_err)
-        this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
-        this%sim%rf%TSHIFT = rf%get_real('TSHIFT', error=io_err)
-        this%sim%rf%MAXIT = rf%get_integer('MAXIT', error=io_err)
-        list => rf%get_list('F0', required=.true., error=io_err)
-        if (associated(io_err)) then
-          this%sim%rf%NGAUSS = 0
-        else
-          call read_real_list(list, this%sim%rf%F0)
-          this%sim%rf%NGAUSS = size(this%sim%rf%F0)
-        endif
+        if (.not. associated(io_err)) then
+          this%sim => tele_par
+          this%sim%IMEAS = 1
+          this%sim%USE_RHO_SCALING = .false.
+          this%sim%WIN_TYPE = WIN_ARRIVAL_TYPE
+          this%sim%mesh_par_file = tele%get_string('MESH_PAR_FILE', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: MESH_PAR_FILE is not set')
+          supp_stf = tele%get_logical('SUPPRESS_STF', error=io_err, default=.true.)
+          list => tele%get_list('RCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%RCOMPS)
+          this%sim%NRCOMP = size(this%sim%RCOMPS)
+          this%sim%NSTEP = tele%get_integer('NSTEP', error=io_err)
+          this%sim%PRECOND_TYPE = tele%get_integer('PRECOND_TYPE', error=io_err)
+          this%sim%CH_CODE = tele%get_string('CH_CODE', error=io_err)
+          this%sim%DT = tele%get_real('DT', error=io_err)
+          list => tele%get_list('TIME_WIN', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%TIME_WIN)
+          list => tele%get_list('SHORT_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%SHORT_P)
+          list => tele%get_list('LONG_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%LONG_P)
+          this%sim%NUM_FILTER = 1
+          this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
+          this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
+          this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
+          compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
+          this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
+          ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          ! read parameters for RF proc
+          rf => tele%get_dictionary('RF', required=.true., error=io_err)
+          this%sim%rf%MINDERR = rf%get_real('MINDERR', error=io_err)
+          this%sim%rf%TSHIFT = rf%get_real('TSHIFT', error=io_err)
+          this%sim%rf%MAXIT = rf%get_integer('MAXIT', error=io_err)
+          list => rf%get_list('F0', required=.true., error=io_err)
+          if (associated(io_err)) then
+            this%sim%rf%NGAUSS = 0
+          else
+            call read_real_list(list, this%sim%rf%F0)
+            this%sim%rf%NGAUSS = size(this%sim%rf%F0)
+          endif
+        else ! if (.not. associated(io_err))
+          if (simu_type == SIMU_TYPE_TELE) then
+            call exit_mpi(worldrank, 'ERROR: TELE section is not found in parameter file')
+          endif
+          is_tele = .false.
+        end if
+
+        ! read leq parameters
+        leq => root%get_dictionary('LEQ', required=.true., error=io_err)
+        if (.not. associated(io_err)) then
+          this%sim => leq_par
+          this%sim%mesh_par_file = leq%get_string('MESH_PAR_FILE', error=io_err)
+          this%sim%NSTEP = leq%get_integer('NSTEP', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%DT = leq%get_real('DT', error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%sim%PRECOND_TYPE = leq%get_integer('PRECOND_TYPE', error=io_err)
+          this%sim%IMEAS = leq%get_integer('IMEAS', error=io_err, default=IMEAS_CC_TT_MT)
+          list => leq%get_list('RCOMPS', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_string_list(list, this%sim%RCOMPS)
+          this%sim%NRCOMP = size(this%sim%RCOMPS)
+          this%sim%CH_CODE = leq%get_string('CH_CODE', error=io_err, default='BX')
+          list => leq%get_list('SHORT_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%SHORT_P)
+          list => leq%get_list('LONG_P', required=.true., error=io_err)
+          if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          call read_real_list(list, this%sim%LONG_P)
+          this%sim%NUM_FILTER = size(this%sim%SHORT_P)
+          this%sim%ADJ_SRC_NORM = leq%get_logical('ADJ_SRC_NORM', error=io_err, default=.false.)
+          this%sim%USE_RHO_SCALING = leq%get_logical('USE_RHO_SCALING', error=io_err, default=.true.)
+          this%sim%SIGMA_H = leq%get_real('SIGMA_H', error=io_err)
+          this%sim%SIGMA_V = leq%get_real('SIGMA_V', error=io_err)
+          win => leq%get_dictionary('WINDOW', required=.true., error=io_err)
+          if (.not. associated(io_err)) then
+            this%sim%WIN_TYPE = win%get_integer('WIN_TYPE', error=io_err, default=1)
+            if (this%sim%WIN_TYPE == WIN_SELECTOR_TYPE) then
+              win_type => win%get_dictionary('WIN_TYPE_1', required=.true., error=io_err)
+              if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              this%sim%PHASE = 'P'
+              win_cfg%sliding_win_len_fac = dble(win_type%get_real('SLIDING_WIN_LEN_FAC', error=io_err, default=2.0))
+              win_cfg%min_velocity = dble(win_type%get_real('MIN_VELOCITY', error=io_err, default=2.4))
+              win_cfg%threshold_corr = dble(win_type%get_real('THRESHOLD_CORR', error=io_err, default=0.8))
+              win_cfg%threshold_shift_fac = dble(win_type%get_real('THRESHOLD_SHIFT_FAC', error=io_err, default=0.3))
+              win_cfg%jump_fac = dble(win_type%get_real('JUMP_FAC', error=io_err, default=0.1))
+              win_cfg%min_win_len_fac = dble(win_type%get_real('MIN_WIN_LEN_FAC', error=io_err, default=1.5))
+              win_cfg%min_snr_window = dble(win_type%get_real('MIN_SNR_WINDOW', error=io_err, default=5.0))
+              win_cfg%min_energy_ratio = dble(win_type%get_real('MIN_ENERGY_RATIO', error=io_err, default=5.0))
+              win_cfg%min_peaks_troughs = win_type%get_integer('MIN_PEAKS_TROUGHS', error=io_err, default=3)
+              win_cfg%is_split_phases = win_type%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
+            else if (this%sim%WIN_TYPE == WIN_GROUPVEL_TYPE) then
+              win_type => win%get_dictionary('WIN_TYPE_2', required=.true., error=io_err)
+              list => win_type%get_list('GROUPVEL_MIN', required=.true., error=io_err)
+              if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              call read_real_list(list, this%sim%GROUPVEL_MIN)
+              list => win_type%get_list('GROUPVEL_MAX', required=.true., error=io_err)
+              if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              call read_real_list(list, this%sim%GROUPVEL_MAX)
+              if (size(this%sim%GROUPVEL_MIN) /= this%sim%NUM_FILTER .or. &
+                  size(this%sim%GROUPVEL_MAX) /= this%sim%NUM_FILTER) then
+                call exit_mpi(worldrank, 'ERROR: the number of GROUPVEL for leq FWI is not consistent')
+              endif
+            else if (this%sim%WIN_TYPE == WIN_ARRIVAL_TYPE) then
+              win_type => win%get_dictionary('WIN_TYPE_3', required=.true., error=io_err)
+              block 
+                character(len=MAX_STRING_LEN) :: phase_tmp
+                phase_tmp = win_type%get_string('PHASE', error=io_err, default='P')
+                this%sim%PHASE = trim(phase_tmp)
+              end block
+              list => win_type%get_list('TIME_WIN', required=.true., error=io_err)
+              if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+              call read_real_list(list, this%sim%TIME_WIN)
+            else
+              call exit_mpi(worldrank, 'ERROR: unknown WIN_TYPE ')
+            end if
+          end if
+        else ! if (.not. associated(io_err))
+          if (simu_type == SIMU_TYPE_LEQ) then
+            call exit_mpi(worldrank, 'ERROR: LEQ section is not found in parameter file')
+          endif
+          is_leq = .false.
+        end if
 
         block
           class(type_dictionary), pointer :: ma, macc, mamt, maenv
@@ -325,47 +427,47 @@ contains
 
           ma => root%get_dictionary('ADJOINT_SOURCE', required=.true., error=io_err)
           if (.not. associated(io_err)) then
-            cfg%ITAPER_TYPE = ma%get_integer('ITAPER_TYPE', error=io_err)
+            adj_cfg%ITAPER_TYPE = ma%get_integer('ITAPER_TYPE', error=io_err)
             if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-            cfg%TAPER_PERCENTAGE = dble(ma%get_real('TAPER_PERCENTAGE', error=io_err, default=0.3))
+            adj_cfg%TAPER_PERCENTAGE = dble(ma%get_real('TAPER_PERCENTAGE', error=io_err, default=0.3))
             macc => ma%get_dictionary('CC', required=.true., error=io_err)
             if (.not. associated(io_err)) then
-              cfg%CC_MIN = dble(macc%get_real('CC_MIN', error=io_err))
-              cfg%DT_SIGMA_MIN = dble(macc%get_real('DT_SIGMA_MIN', error=io_err))
-              cfg%DLNA_SIGMA_MIN = dble(macc%get_real('DLNA_SIGMA_MIN', error=io_err))
+              adj_cfg%CC_MIN = dble(macc%get_real('CC_MIN', error=io_err))
+              adj_cfg%DT_SIGMA_MIN = dble(macc%get_real('DT_SIGMA_MIN', error=io_err))
+              adj_cfg%DLNA_SIGMA_MIN = dble(macc%get_real('DLNA_SIGMA_MIN', error=io_err))
               list => macc%get_list('TSHIFT_LIM', required=.true., error=io_err)
               if (.not. associated(io_err)) then
                 call read_static_real_list(list, tshift_lim)
-                cfg%TSHIFT_MIN = dble(tshift_lim(1))
-                cfg%TSHIFT_MAX = dble(tshift_lim(2))
+                adj_cfg%TSHIFT_MIN = dble(tshift_lim(1))
+                adj_cfg%TSHIFT_MAX = dble(tshift_lim(2))
               end if
               list => macc%get_list('DLNA_LIM', required=.true., error=io_err)
               if (.not. associated(io_err)) then
                 call read_static_real_list(list, dlna_lim)
-                cfg%DLNA_MIN = dble(dlna_lim(1))
-                cfg%DLNA_MAX = dble(dlna_lim(2))
+                adj_cfg%DLNA_MIN = dble(dlna_lim(1))
+                adj_cfg%DLNA_MAX = dble(dlna_lim(2))
               end if
             endif
 
             ! multitaper
             mamt => ma%get_dictionary('MT', required=.true., error=io_err)
             if (.not. associated(io_err)) then
-              cfg%MT_NW = dble(mamt%get_real('MT_NW', error=io_err, default=4.0))
-              cfg%NUM_TAPER = mamt%get_integer('NUM_TAPER', error=io_err, default=5)
-              cfg%PHASE_STEP = dble(mamt%get_real('PHASE_STEP', error=io_err, default=1.5))
-              cfg%TRANSFUNC_WATERLEVEL = dble(mamt%get_real('TRANSFUNC_WATERLEVEL', error=io_err, default=1e-10))
-              cfg%WATER_THRESHOLD = dble(mamt%get_real('WATER_THRESHOLD', error=io_err, default=0.02))
-              cfg%DT_FAC = dble(mamt%get_real('DT_FAC', error=io_err, default=2.0))
-              cfg%ERR_FAC = dble(mamt%get_real('ERR_FAC', error=io_err, default=2.0))
-              cfg%DT_MAX_SCALE = dble(mamt%get_real('DT_MAX_SCALE', error=io_err, default=3.5))
-              cfg%MIN_CYCLE_IN_WINDOW = mamt%get_integer('MIN_CYCLE_IN_WINDOW', error=io_err, default=3)
-              cfg%USE_MT_ERROR = mamt%get_logical('USE_MT_ERROR', error=io_err, default=.false.)
+              adj_cfg%MT_NW = dble(mamt%get_real('MT_NW', error=io_err, default=4.0))
+              adj_cfg%NUM_TAPER = mamt%get_integer('NUM_TAPER', error=io_err, default=5)
+              adj_cfg%PHASE_STEP = dble(mamt%get_real('PHASE_STEP', error=io_err, default=1.5))
+              adj_cfg%TRANSFUNC_WATERLEVEL = dble(mamt%get_real('TRANSFUNC_WATERLEVEL', error=io_err, default=1e-10))
+              adj_cfg%WATER_THRESHOLD = dble(mamt%get_real('WATER_THRESHOLD', error=io_err, default=0.02))
+              adj_cfg%DT_FAC = dble(mamt%get_real('DT_FAC', error=io_err, default=2.0))
+              adj_cfg%ERR_FAC = dble(mamt%get_real('ERR_FAC', error=io_err, default=2.0))
+              adj_cfg%DT_MAX_SCALE = dble(mamt%get_real('DT_MAX_SCALE', error=io_err, default=3.5))
+              adj_cfg%MIN_CYCLE_IN_WINDOW = mamt%get_integer('MIN_CYCLE_IN_WINDOW', error=io_err, default=3)
+              adj_cfg%USE_MT_ERROR = mamt%get_logical('USE_MT_ERROR', error=io_err, default=.false.)
             endif
             
             !  envelope
             maenv => ma%get_dictionary('ENV', required=.true., error=io_err)
             if (.not. associated(io_err)) then
-              cfg%WTR_ENV = dble(maenv%get_real('WTR_ENV', error=io_err, default=0.2))
+              adj_cfg%WTR_ENV = dble(maenv%get_real('WTR_ENV', error=io_err, default=0.2))
             endif
           endif
         end block
@@ -412,6 +514,15 @@ contains
         this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: INIT_MODEL_PATH is not set')
         this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err, default=1)
+        if (this%update%MODEL_TYPE == 2) then
+          model_type_2 => update%get_dictionary('MODEL_TYPE_2', required=.true., error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          this%update%ALT_INV = model_type_2%get_logical('ALT_INV', error=io_err, default=.false.)
+          this%update%CURRENT_INV_TYPE = model_type_2%get_integer('CURRENT_INV_TYPE', error=io_err, default=1)
+          if (this%update%CURRENT_INV_TYPE > 2) then
+            call exit_mpi(worldrank, 'ERROR: unsupported CURRENT_INV_TYPE for MODEL_TYPE_2')
+          endif
+        endif
         this%update%ITER_START = update%get_integer('ITER_START', error=io_err)
         this%update%LBFGS_M_STORE = update%get_integer('LBFGS_M_STORE', error=io_err)
         this%update%OPT_METHOD = update%get_integer('OPT_METHOD', error=io_err)
@@ -428,112 +539,156 @@ contains
       deallocate(root)
     endif
     call synchronize_all()
+    call bcast_all_singlel(is_noise)
+    call bcast_all_singlel(is_tele)
+    call bcast_all_singlel(is_leq)
 
     ! broadcast noise parameters
-    call bcast_all_ch_array(noise_par%mesh_par_file, 1, MAX_STRING_LEN)
-    call bcast_all_singlei(noise_par%NSTEP)
-    call bcast_all_singlei(noise_par%IMEAS)
-    call bcast_all_singlei(noise_par%PRECOND_TYPE)
-    call bcast_all_singlei(noise_par%NRCOMP)
-    call bcast_all_singlei(noise_par%NSCOMP)
-    call bcast_all_singlei(noise_par%NUM_FILTER)
-    call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
-    call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
-    call bcast_all_singlel(noise_par%SUPPRESS_EGF)
-    call bcast_all_singlel(noise_par%USE_RHO_SCALING)
-    if (worldrank > 0) then
-      allocate(noise_par%RCOMPS(noise_par%NRCOMP))
-      allocate(noise_par%SCOMPS(noise_par%NSCOMP))
-      allocate(noise_par%SHORT_P(noise_par%NUM_FILTER))
-      allocate(noise_par%LONG_P(noise_par%NUM_FILTER))
-      allocate(noise_par%GROUPVEL_MIN(noise_par%NUM_FILTER))
-      allocate(noise_par%GROUPVEL_MAX(noise_par%NUM_FILTER))
+    if (is_noise) then
+      call bcast_all_ch_array(noise_par%mesh_par_file, 1, MAX_STRING_LEN)
+      call bcast_all_singlei(noise_par%NSTEP)
+      call bcast_all_singlei(noise_par%IMEAS)
+      call bcast_all_singlei(noise_par%PRECOND_TYPE)
+      call bcast_all_singlei(noise_par%NRCOMP)
+      call bcast_all_singlei(noise_par%NSCOMP)
+      call bcast_all_singlei(noise_par%NUM_FILTER)
+      call bcast_all_singlel(noise_par%USE_NEAR_OFFSET)
+      call bcast_all_singlel(noise_par%ADJ_SRC_NORM)
+      call bcast_all_singlel(noise_par%SUPPRESS_EGF)
+      call bcast_all_singlel(noise_par%USE_RHO_SCALING)
+      call bcast_all_singlei(noise_par%WIN_TYPE)
+      if (worldrank > 0) then
+        allocate(noise_par%RCOMPS(noise_par%NRCOMP))
+        allocate(noise_par%SCOMPS(noise_par%NSCOMP))
+        allocate(noise_par%SHORT_P(noise_par%NUM_FILTER))
+        allocate(noise_par%LONG_P(noise_par%NUM_FILTER))
+        allocate(noise_par%GROUPVEL_MIN(noise_par%NUM_FILTER))
+        allocate(noise_par%GROUPVEL_MAX(noise_par%NUM_FILTER))
+      endif
+      call bcast_all_ch_array(noise_par%RCOMPS, noise_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(noise_par%SCOMPS, noise_par%NSCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(noise_par%CH_CODE, 1, MAX_STRING_LEN)
+      call bcast_all_singlecr(noise_par%DT)
+      call bcast_all_r(noise_par%SHORT_P, noise_par%NUM_FILTER)
+      call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
+      call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
+      call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
+      call bcast_all_singlecr(noise_par%SIGMA_H)
+      call bcast_all_singlecr(noise_par%SIGMA_V)
     endif
-    call bcast_all_ch_array(noise_par%RCOMPS, noise_par%NRCOMP, MAX_STRING_LEN)
-    call bcast_all_ch_array(noise_par%SCOMPS, noise_par%NSCOMP, MAX_STRING_LEN)
-    call bcast_all_ch_array(noise_par%CH_CODE, 1, MAX_STRING_LEN)
-    call bcast_all_singlecr(noise_par%DT)
-    call bcast_all_r(noise_par%SHORT_P, noise_par%NUM_FILTER)
-    call bcast_all_r(noise_par%LONG_P, noise_par%NUM_FILTER)
-    call bcast_all_r(noise_par%GROUPVEL_MIN, noise_par%NUM_FILTER)
-    call bcast_all_r(noise_par%GROUPVEL_MAX, noise_par%NUM_FILTER)
-    call bcast_all_singlecr(noise_par%SIGMA_H)
-    call bcast_all_singlecr(noise_par%SIGMA_V)
 
     ! broadcast tele parameters
-    call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
-    call bcast_all_singlel(supp_stf)
-    call bcast_all_singlei(tele_par%NSTEP)
-    call bcast_all_singlei(tele_par%IMEAS)
-    call bcast_all_singlei(tele_par%PRECOND_TYPE)
-    call bcast_all_singlei(tele_par%NRCOMP)
-    call bcast_all_singlei(tele_par%NUM_FILTER)
-    call bcast_all_singlel(tele_par%USE_LOCAL_STF)
-    call bcast_all_singlei(tele_par%rf%MAXIT)
-    call bcast_all_singlecr(tele_par%rf%MINDERR)
-    call bcast_all_singlecr(tele_par%rf%TSHIFT)
-    call bcast_all_singlei(tele_par%rf%NGAUSS)
-    call bcast_all_singlel(tele_par%USE_RHO_SCALING)
-    call bcast_all_singlel(tele_par%SAVE_FK)
-    call bcast_all_singlei(compress_level)
-    if (worldrank > 0) then
-      allocate(tele_par%RCOMPS(tele_par%NRCOMP))
-      allocate(tele_par%TIME_WIN(2))
-      allocate(tele_par%SHORT_P(1))
-      allocate(tele_par%LONG_P(1))
+    if (is_tele) then
+      call bcast_all_ch_array(tele_par%mesh_par_file, 1, MAX_STRING_LEN)
+      call bcast_all_singlel(supp_stf)
+      call bcast_all_singlei(tele_par%NSTEP)
+      call bcast_all_singlei(tele_par%IMEAS)
+      call bcast_all_singlei(tele_par%PRECOND_TYPE)
+      call bcast_all_singlei(tele_par%NRCOMP)
+      call bcast_all_singlei(tele_par%NUM_FILTER)
+      call bcast_all_singlel(tele_par%USE_LOCAL_STF)
+      call bcast_all_singlei(tele_par%rf%MAXIT)
+      call bcast_all_singlecr(tele_par%rf%MINDERR)
+      call bcast_all_singlecr(tele_par%rf%TSHIFT)
+      call bcast_all_singlei(tele_par%rf%NGAUSS)
+      call bcast_all_singlel(tele_par%USE_RHO_SCALING)
+      call bcast_all_singlel(tele_par%SAVE_FK)
+      call bcast_all_singlei(compress_level)
+      call bcast_all_singlei(tele_par%WIN_TYPE)
+      if (worldrank > 0) then
+        allocate(tele_par%RCOMPS(tele_par%NRCOMP))
+        allocate(tele_par%TIME_WIN(2))
+        allocate(tele_par%SHORT_P(1))
+        allocate(tele_par%LONG_P(1))
+        if (tele_par%rf%NGAUSS > 0) then
+          allocate(tele_par%rf%F0(tele_par%rf%NGAUSS))
+        endif
+      endif
+      call bcast_all_ch_array(tele_par%RCOMPS, tele_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(tele_par%CH_CODE, 1, MAX_STRING_LEN)
+      call bcast_all_singlecr(tele_par%DT)
+      call bcast_all_r(tele_par%TIME_WIN, 2)
+      call bcast_all_r(tele_par%SHORT_P, 1)
+      call bcast_all_r(tele_par%LONG_P, 1)
+      call bcast_all_singlecr(tele_par%SIGMA_H)
+      call bcast_all_singlecr(tele_par%SIGMA_V)
+      call bcast_all_singlei(tele_par%TELE_TYPE)
       if (tele_par%rf%NGAUSS > 0) then
-        allocate(tele_par%rf%F0(tele_par%rf%NGAUSS))
+        call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
       endif
     endif
-    call bcast_all_ch_array(tele_par%RCOMPS, tele_par%NRCOMP, MAX_STRING_LEN)
-    call bcast_all_ch_array(tele_par%CH_CODE, 1, MAX_STRING_LEN)
-    call bcast_all_singlecr(tele_par%DT)
-    call bcast_all_r(tele_par%TIME_WIN, 2)
-    call bcast_all_r(tele_par%SHORT_P, 1)
-    call bcast_all_r(tele_par%LONG_P, 1)
-    call bcast_all_singlecr(tele_par%SIGMA_H)
-    call bcast_all_singlecr(tele_par%SIGMA_V)
-    call bcast_all_singlei(tele_par%TELE_TYPE)
-    if (tele_par%rf%NGAUSS > 0) then
-      call bcast_all_r(tele_par%rf%F0, tele_par%rf%NGAUSS)
+
+    ! broadcast leq parameters
+    if (is_leq) then
+      call bcast_all_ch_array(leq_par%mesh_par_file, 1, MAX_STRING_LEN)
+      call bcast_all_singlei(leq_par%NSTEP)
+      call bcast_all_singlei(leq_par%IMEAS)
+      call bcast_all_singlei(leq_par%PRECOND_TYPE)
+      call bcast_all_singlei(leq_par%NRCOMP)
+      call bcast_all_singlei(leq_par%NUM_FILTER)
+      call bcast_all_singlel(leq_par%ADJ_SRC_NORM)
+      call bcast_all_singlel(leq_par%USE_RHO_SCALING)
+      if (worldrank > 0) then
+        allocate(leq_par%RCOMPS(leq_par%NRCOMP))
+        allocate(leq_par%SHORT_P(leq_par%NUM_FILTER))
+        allocate(leq_par%LONG_P(leq_par%NUM_FILTER))
+      endif
+      call bcast_all_ch_array(leq_par%RCOMPS, leq_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(leq_par%CH_CODE, 1, MAX_STRING_LEN)
+      call bcast_all_singlecr(leq_par%DT)
+      call bcast_all_r(leq_par%SHORT_P, leq_par%NUM_FILTER)
+      call bcast_all_r(leq_par%LONG_P, leq_par%NUM_FILTER)
+      call bcast_all_singlecr(leq_par%SIGMA_H)
+      call bcast_all_singlecr(leq_par%SIGMA_V)
+      call bcast_all_singlei(leq_par%WIN_TYPE)
+      ! broadcast window parameters
+      if (leq_par%WIN_TYPE == WIN_SELECTOR_TYPE) then
+        call bcast_all_ch_array(leq_par%PHASE, 1, PHASE_NAME_LEN)
+        call bcast_all_singledp(win_cfg%sliding_win_len_fac)
+        call bcast_all_singledp(win_cfg%min_velocity)
+        call bcast_all_singledp(win_cfg%threshold_corr)
+        call bcast_all_singledp(win_cfg%threshold_shift_fac)
+        call bcast_all_singledp(win_cfg%jump_fac)
+        call bcast_all_singledp(win_cfg%min_win_len_fac)
+        call bcast_all_singledp(win_cfg%min_snr_window)
+        call bcast_all_singledp(win_cfg%min_energy_ratio)
+        call bcast_all_singlei(win_cfg%min_peaks_troughs)
+        call bcast_all_singlel(win_cfg%is_split_phases)
+      else if (leq_par%WIN_TYPE == WIN_GROUPVEL_TYPE) then
+        if (worldrank > 0) then
+          allocate(leq_par%GROUPVEL_MIN(leq_par%NUM_FILTER))
+          allocate(leq_par%GROUPVEL_MAX(leq_par%NUM_FILTER))
+        endif
+        call bcast_all_r(leq_par%GROUPVEL_MIN, leq_par%NUM_FILTER)
+        call bcast_all_r(leq_par%GROUPVEL_MAX, leq_par%NUM_FILTER)
+      else if (leq_par%WIN_TYPE == WIN_ARRIVAL_TYPE) then
+        call bcast_all_ch_array(leq_par%PHASE, 1, PHASE_NAME_LEN)
+        if (worldrank > 0) allocate(leq_par%TIME_WIN(2))
+        call bcast_all_r(leq_par%TIME_WIN, 2)
+      endif
     endif
 
     ! measure adjoint source
-    ! call bcast_all_singledp(TSHIFT_MIN)
-    ! call bcast_all_singledp(TSHIFT_MAX)
-    ! call bcast_all_singledp(DLNA_MIN)
-    ! call bcast_all_singledp(DLNA_MAX)
-    ! call bcast_all_singledp(CC_MIN)
-    ! call bcast_all_singlei(ERROR_TYPE)
-    ! call bcast_all_singledp(DT_SIGMA_MIN)
-    ! call bcast_all_singledp(DLNA_SIGMA_MIN)
-    ! call bcast_all_singledp(WTR)
-    ! call bcast_all_singledp(NPI)
-    ! call bcast_all_singledp(DT_FAC)
-    ! call bcast_all_singledp(ERR_FAC)
-    ! call bcast_all_singledp(DT_MAX_SCALE)
-    ! call bcast_all_singledp(NCYCLE_IN_WINDOW)
-    ! call bcast_all_singlel(USE_PHYSICAL_DISPERSION)
-    call bcast_all_singlei(cfg%ITAPER_TYPE)
-    call bcast_all_singledp(cfg%TAPER_PERCENTAGE)
-    call bcast_all_singledp(cfg%CC_MIN)
-    call bcast_all_singledp(cfg%DT_SIGMA_MIN)
-    call bcast_all_singledp(cfg%DLNA_SIGMA_MIN)
-    call bcast_all_singledp(cfg%TSHIFT_MIN)
-    call bcast_all_singledp(cfg%TSHIFT_MAX)
-    call bcast_all_singledp(cfg%DLNA_MIN)
-    call bcast_all_singledp(cfg%DLNA_MAX)
-    call bcast_all_singledp(cfg%MT_NW)
-    call bcast_all_singlei(cfg%NUM_TAPER)
-    call bcast_all_singledp(cfg%PHASE_STEP)
-    call bcast_all_singledp(cfg%TRANSFUNC_WATERLEVEL)
-    call bcast_all_singledp(cfg%WATER_THRESHOLD)
-    call bcast_all_singledp(cfg%DT_FAC)
-    call bcast_all_singledp(cfg%ERR_FAC)
-    call bcast_all_singledp(cfg%DT_MAX_SCALE)
-    call bcast_all_singlei(cfg%MIN_CYCLE_IN_WINDOW)
-    call bcast_all_singlel(cfg%USE_MT_ERROR)
-    call bcast_all_singledp(cfg%WTR_ENV)
+    call bcast_all_singlei(adj_cfg%ITAPER_TYPE)
+    call bcast_all_singledp(adj_cfg%TAPER_PERCENTAGE)
+    call bcast_all_singledp(adj_cfg%CC_MIN)
+    call bcast_all_singledp(adj_cfg%DT_SIGMA_MIN)
+    call bcast_all_singledp(adj_cfg%DLNA_SIGMA_MIN)
+    call bcast_all_singledp(adj_cfg%TSHIFT_MIN)
+    call bcast_all_singledp(adj_cfg%TSHIFT_MAX)
+    call bcast_all_singledp(adj_cfg%DLNA_MIN)
+    call bcast_all_singledp(adj_cfg%DLNA_MAX)
+    call bcast_all_singledp(adj_cfg%MT_NW)
+    call bcast_all_singlei(adj_cfg%NUM_TAPER)
+    call bcast_all_singledp(adj_cfg%PHASE_STEP)
+    call bcast_all_singledp(adj_cfg%TRANSFUNC_WATERLEVEL)
+    call bcast_all_singledp(adj_cfg%WATER_THRESHOLD)
+    call bcast_all_singledp(adj_cfg%DT_FAC)
+    call bcast_all_singledp(adj_cfg%ERR_FAC)
+    call bcast_all_singledp(adj_cfg%DT_MAX_SCALE)
+    call bcast_all_singlei(adj_cfg%MIN_CYCLE_IN_WINDOW)
+    call bcast_all_singlel(adj_cfg%USE_MT_ERROR)
+    call bcast_all_singledp(adj_cfg%WTR_ENV)
 
     ! output
     call bcast_all_singlel(IS_OUTPUT_PREPROC)
@@ -554,8 +709,8 @@ contains
     call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
     call bcast_all_singlecr(this%postproc%TAPER_V_BUFFER)
     call bcast_all_singlel(this%postproc%IS_PRECOND)
-    call bcast_all_l_array(this%postproc%INV_TYPE, 2)
-    call bcast_all_r(this%postproc%JOINT_WEIGHT, 2)
+    call bcast_all_l_array(this%postproc%INV_TYPE, NUM_INV_TYPE)
+    call bcast_all_r(this%postproc%JOINT_WEIGHT, NUM_INV_TYPE)
     call bcast_all_singlel(is_joint)
     call bcast_all_singlei(this%postproc%NORM_TYPE)
 
@@ -572,23 +727,29 @@ contains
     call bcast_all_singlel(this%update%DO_LS)
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)
     parameter_type = this%update%MODEL_TYPE
+    if (parameter_type == 2) then
+      call bcast_all_singlel(this%update%ALT_INV)
+      call bcast_all_singlei(this%update%CURRENT_INV_TYPE)
+    endif
     call synchronize_all()
 
   end subroutine read_fwat_parameter_file
 
   subroutine select_simu_type(this)
-    use specfem_par, only: NSTEP, DT, LOCAL_PATH
+    use specfem_par, only: NSTEP, DT, T0, LOCAL_PATH, GPU_MODE
     class(fwat_params), intent(inout) :: this
 
     select case (simu_type)
       case (SIMU_TYPE_TELE)
         this%sim => tele_par
-        ! is_mtm0 = 0
       case (SIMU_TYPE_NOISE)
         this%sim => noise_par
-        ! is_mtm0 = 1
+      case (SIMU_TYPE_LEQ)
+        this%sim => leq_par
+        T0 = MAX_TIME_SHIFT
     end select
-    cfg%imeasure_type = this%sim%IMEAS
+    adj_cfg%imeasure_type = this%sim%IMEAS
+    adj_cfg%use_gpu = GPU_MODE
     DT = this%sim%DT
     NSTEP = this%sim%NSTEP
     if (is_joint) then

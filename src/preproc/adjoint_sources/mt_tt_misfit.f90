@@ -110,7 +110,8 @@ contains
         call dpss_windows(nlen_win, cfg%mt_nw, cfg%num_taper, tapers, eig)
         do i = 1, cfg%num_taper
           if (eig(i) > HUGEVAL) then
-            if (is_verbose) write(*,*) 'Warning: DPSS taper ', i, ' has infinite eigenvalue:', eig(i),'. Skipping MTM for window ', iwin
+            if (is_verbose) write(*,*) 'Warning: DPSS taper ', i, ' has infinite eigenvalue:', eig(i), &
+                                       '. Skipping MTM for window ', iwin
             is_mtm = .false.
             exit
           end if

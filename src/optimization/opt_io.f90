@@ -35,28 +35,6 @@ contains
 
   end subroutine read_model
 
-  subroutine read_model_grid_iso(iter, model_data)
-    integer, intent(in) :: iter
-    character(len=MAX_STRING_LEN) :: this_model, fprname
-    integer :: imod
-    real(kind=cr), dimension(:,:,:,:), allocatable, intent(out) :: model_data
-    real(kind=cr), dimension(:,:,:), allocatable :: gm
-    type(hdf5_file) :: h5file
-
-    if (worldrank == 0) then
-      allocate(model_data(ext_grid%nx,ext_grid%ny,ext_grid%nz,3))
-      write(this_model, '(A1,I2.2)') 'M', iter
-      fprname = trim(OPT_DIR)//'/model_'//trim(this_model)//'.h5'
-      call h5file%open(fprname, status='old', action='read')
-      do imod = 1, 3
-        call h5file%get('/'//trim(MODEL_ISO(imod)), gm)
-        model_data(:,:,:,imod) = transpose_3(gm)
-      end do
-      call h5file%close(finalize=.true.)
-    endif
-
-  end subroutine read_model_grid_iso
-
   subroutine read_model_grid(iter, model_data, log_iso)
     use input_params, fpar => fwat_par_global
 
@@ -76,15 +54,31 @@ contains
     end if
     if (worldrank == 0) then
       allocate(model_data(ext_grid%nx,ext_grid%ny,ext_grid%nz,nkernel))
+      model_data = 0.0_cr
       write(this_model, '(A1,I2.2)') 'M', iter
       fprname = trim(OPT_DIR)//'/model_'//trim(this_model)//'.h5'
       call h5file%open(fprname, status='old', action='read')
-      do imod = 1, nkernel
-        call h5file%get('/'//trim(parameter_names(imod)), gm)
-        model_data(:,:,:,imod) = transpose_3(gm)
-      end do
-      if (log_iso_loc .and. fpar%update%model_type <= 2) then
-        model_data(:,:,:,1:3) = log(model_data(:,:,:,1:3)) ! log transform for vp, vs, rho
+      ! parameter type <= 2
+      if (fpar%update%model_type <= 2) then
+        ! read vp, vs, rho
+        do imod = 1, 3
+          call h5file%get('/'//trim(parameter_names(imod)), gm)
+          model_data(:,:,:,imod) = transpose_3(gm)
+        end do
+        ! read anisotropic parameters (Gcp, Gsp) if any
+        if (fpar%update%model_type == 2) then
+          if (h5file%exist('/gcp')) then
+            call h5file%get('/gcp', gm) 
+            model_data(:,:,:,4) = transpose_3(gm)
+          endif
+          if (h5file%exist('/gsp')) then
+            call h5file%get('/gsp', gm) 
+            model_data(:,:,:,5) = transpose_3(gm)
+          endif
+        endif
+        if (log_iso_loc) then
+          model_data(:,:,:,1:3) = log(model_data(:,:,:,1:3)) ! log transform for vp, vs, rho
+        endif
       endif
       call h5file%close(finalize=.true.)
     endif
@@ -115,6 +109,8 @@ contains
   end subroutine read_gradient
 
   subroutine read_gradient_grid(iter, gradient_data)
+    use input_params, fpar => fwat_par_global
+
     integer, intent(in) :: iter
     character(len=MAX_STRING_LEN) :: this_model, fprname
     integer :: imod
@@ -132,6 +128,9 @@ contains
         gradient_data(:,:,:,imod) = transpose_3(gm)
       end do
       call h5file%close(finalize=.true.)
+
+      ! zero out the non-updated parameters for alternating inversion
+      call mask_model_param(gradient_data)
     endif
   end subroutine read_gradient_grid
 
@@ -156,6 +155,18 @@ contains
     end do
   end subroutine write_model
 
+  subroutine mask_model_param(model_vector)
+    use input_params, fpar => fwat_par_global
+    real(kind=cr), dimension(:,:,:,:), intent(inout) :: model_vector
+
+    if (fpar%update%MODEL_TYPE == 2 .and. fpar%update%ALT_INV) then
+      if (fpar%update%CURRENT_INV_TYPE == 1) then
+        model_vector(:,:,:,4:5) = 0.0_cr
+      elseif (fpar%update%CURRENT_INV_TYPE == 2) then
+        model_vector(:,:,:,1:3) = 0.0_cr
+      endif
+    endif
+  end subroutine mask_model_param
 
   subroutine Parallel_ComputeInnerProduct(vect1, vect2, qp)
 

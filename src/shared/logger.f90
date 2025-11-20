@@ -1,5 +1,7 @@
 module logger
-  use config, only: MAX_STRING_LEN, worldrank
+  use config, only: MAX_STRING_LEN, worldrank, &
+    PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, &
+    PROJECT_VERSION_PATCH, GIT_COMMIT
 
   implicit none
   integer, parameter :: log_unit=888
@@ -17,8 +19,20 @@ contains
   subroutine logger_init(this, log_file)
     class(logger_type), intent(inout) :: this
     character(len=*), intent(in) :: log_file
+    character(len=MAX_STRING_LEN) :: version_str
 
-    if(worldrank == 0) open(unit=log_unit, file=log_file, status='replace', action='write')
+    if(worldrank == 0) then
+      open(unit=log_unit, file=log_file, status='replace', action='write')
+      
+      ! Write header with version and commit information
+      write(log_unit, '(A)') '============================================='
+      write(version_str, '("SpecFWAT Version: ",I0,".",I0,".",I0)') &
+            PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH
+      write(log_unit, '(A)') trim(version_str)
+      write(log_unit, '(A)') 'Git Commit: '//trim(GIT_COMMIT)
+      write(log_unit, '(A)') '============================================='
+      call flush(log_unit)
+    endif
 
   end subroutine logger_init
 

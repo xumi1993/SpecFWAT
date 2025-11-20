@@ -4,8 +4,8 @@ module tele_data
   use waveform_misfit
   use misfit_mod
   use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, get_gauss_fac, mkdir
-  use signal, only: bandpass_dp, interpolate_syn_dp, detrend, demean, &
-                    myconvolution_dp, time_deconv, mycorrelation_dp, interpolate_func_dp
+  use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp, &
+                    myconvolution_dp, time_deconv, mycorrelation_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
@@ -16,7 +16,7 @@ module tele_data
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
   use specfem_par, only: T0,OUTPUT_FILES
-  use decon_mod, only: deconit
+  use decon_mod, only: deconvolve
   implicit none
 
   integer, private :: ier
@@ -145,7 +145,13 @@ contains
     call this%calc_fktimes()
 
     call synchronize_all()
-    
+
+    if (worldrank == 0) then
+      this%avgamp = average_amp_scale(this%od%data, 1)
+      this%od%data = this%od%data / this%avgamp
+    end if
+    call bcast_all_singlecr(this%avgamp)
+    call sync_from_main_rank_dp_3d(this%od%data, this%od%npts, fpar%sim%NRCOMP, this%nrec)
     ! call log%write('Preprocessing', .true.)
     if (this%nrec_loc > 0) then
       this%seismo_dat = zeros_dp(fpar%sim%nstep, fpar%sim%NRCOMP, this%nrec_loc)
@@ -158,11 +164,13 @@ contains
                                   dble(this%od%tarr(irec)), dble(this%ttp(irec)), dble(this%od%dt), seismo_inp)
           call detrend(seismo_inp)
           call demean(seismo_inp)
+          call window_taper(seismo_inp, taper_per, 1)
           call bandpass_dp(seismo_inp, fpar%sim%nstep, dble(fpar%sim%dt),&
                            1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
           this%seismo_dat(:, icomp, irec_local) = seismo_inp(1:fpar%sim%nstep)
 
           this%seismo_syn(:, icomp, irec_local) = this%data(:, icomp, irec)
+          call window_taper(this%seismo_syn(:, icomp, irec_local), taper_per, 1)
           ! call detrend(this%seismo_syn(:, icomp, irec_local))
           ! call demean(this%seismo_syn(:, icomp, irec_local))
           call bandpass_dp(this%seismo_syn(:, icomp, irec_local), fpar%sim%nstep, dble(fpar%sim%dt),&
@@ -184,12 +192,11 @@ contains
     if (worldrank == 0) then
       ! call log%write('Calculating STF', .true.)
       call this%seis_pca(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob)
-      this%avgamp = average_amp_scale(seismo_dat_glob, 1)
       if (IS_OUTPUT_PREPROC) then
         block
           type(sachead) :: header
           integer :: i
-          call sacio_newhead(header, real(DT), NSTEP, -real(T0))
+          call sacio_newhead(header, real(DT), NSTEP, -real(NSTEP*DT)/2.0)
           do i = 1, fpar%sim%NRCOMP
             call sacio_writesac(trim(OUTPUT_FILES)//'/STF_'//trim(fpar%acqui%evtid_names(this%ievt))//&
                                 '_'//trim(fpar%sim%RCOMPS(i))//'.sac', header, this%stf_array(:, i), ier)
@@ -201,7 +208,6 @@ contains
       allocate(this%stf_array(fpar%sim%nstep, fpar%sim%NRCOMP))
     endif
     call synchronize_all()
-    call bcast_all_singlecr(this%avgamp)
     call bcast_all_dp(this%stf_array, fpar%sim%nstep*fpar%sim%NRCOMP)
 
     if (worldrank == 0) deallocate(seismo_dat_glob, seismo_syn_glob, seismo_stf_glob)
@@ -215,7 +221,6 @@ contains
   subroutine measure_adj(this)
     class(TeleData), intent(inout) :: this
     type(sachead) :: header
-    real(kind=dp) :: tstart, tend
     character(len=MAX_STRING_LEN) :: sacfile
     real(kind=dp), dimension(:), allocatable :: seismo_syn_local, tmpl
     real(kind=dp), dimension(:, :), allocatable :: adj_src
@@ -254,17 +259,26 @@ contains
           endif
 
           ! measure adjoint
-          tstart = this%ttp(irec) + T0
-          tend = this%ttp(irec) + T0
-          windows(1, :) = [tstart, tend] + fpar%sim%time_win
+          windows(1, :) = fpar%sim%time_win + this%ttp(irec)
           call wm%calc_adjoint_source(this%seismo_dat(:, icomp, irec_local), &
                                       this%seismo_syn(:, icomp, irec_local), &
-                                      dble(fpar%sim%dt), windows)
+                                      dble(fpar%sim%dt), windows + T0)
           adj_syn_local = 0.0_dp
-          adj_syn_local = wm%adj_src / this%avgamp
+          adj_syn_local = wm%adj_src
           call mycorrelation_dp(adj_syn_local, this%stf_array(:, icomp), tmpl, 0)
           adj_syn_local = tmpl * fpar%sim%dt / maxval(abs(this%stf_array(:, icomp)))
-
+          ! save misfits
+          recm(irec_local)%trm(icomp)%misfits(1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt)
+          recm(irec_local)%trm(icomp)%residuals(1) = wm%residuals(1)
+          recm(irec_local)%trm(icomp)%imeas(1) = wm%imeas(1)
+          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wm%total_misfit * fpar%acqui%src_weight(this%ievt)
+          recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
+          recm(irec_local)%trm(icomp)%tstart(1) = windows(1, 1)
+          recm(irec_local)%trm(icomp)%tend(1) = windows(1, 2)
+          if (icomp == 1) then
+            recm(irec_local)%sta = trim(this%od%stnm(irec))
+            recm(irec_local)%net = trim(this%od%netwk(irec))
+          endif
           if (IS_OUTPUT_ADJ_SRC) then
             call sacio_newhead(header, real(DT), NSTEP, -real(T0))
             header%knetwk = trim(this%od%netwk(irec))
@@ -287,19 +301,6 @@ contains
             call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
             call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
           end select
-          ! save misfits
-          recm(irec_local)%trm(icomp)%misfits(1) = wm%misfits(1)*fpar%acqui%src_weight(this%ievt) &
-                                                   / this%avgamp / this%avgamp * dt
-          recm(irec_local)%trm(icomp)%residuals(1) = wm%residuals(1)
-          recm(irec_local)%trm(icomp)%imeas(1) = wm%imeas(1)
-          recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + wm%total_misfit * fpar%acqui%src_weight(this%ievt)
-          recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
-          recm(irec_local)%trm(icomp)%tstart(1) = tstart
-          recm(irec_local)%trm(icomp)%tend(1) = tend
-          if (icomp == 1) then
-            recm(irec_local)%sta = trim(this%od%stnm(irec))
-            recm(irec_local)%net = trim(this%od%netwk(irec))
-          endif
         enddo ! icomp
       enddo ! irec_local
     end if ! this%nrec_loc > 0
@@ -387,9 +388,9 @@ contains
   subroutine deconv_for_stf(data_num, data_den, tref, stf)
     real(kind=dp), dimension(:), intent(in) :: data_num, data_den
     real(kind=dp), dimension(:), allocatable, intent(out) :: stf
-    real(kind=cr), dimension(:), allocatable :: stf_dp
+    real(kind=dp), dimension(:), allocatable :: stf_dp
     real(kind=cr), intent(in) :: tref
-    real(kind=cr) :: tb, te, time_shift
+    real(kind=cr) :: tb, te, time_shift, f0
     integer :: nstep_cut, nb, ne
     real(kind=dp), dimension(:), allocatable :: data_num_win, data_den_win
 
@@ -406,13 +407,14 @@ contains
     data_den_win(1:nstep_cut) = data_den(nb:ne)
     if (maxval(abs(data_den_win)) < 1.0e-10) &
       call exit_MPI(0, 'Error: data_den_win is zero')
-    call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
-                     fpar%sim%nstep,NITER,stf_dp)
+    ! call time_deconv(real(data_num_win),real(data_den_win),fpar%sim%dt,&
+                    !  fpar%sim%nstep,NITER,stf_dp)
+    f0 = get_gauss_fac(1/fpar%sim%SHORT_P(1))
+    call deconvolve(data_num_win, data_den_win, fpar%sim%dt, &
+                    time_shift, f0, NITER, 0.001, 1, stf_dp, use_gpu=GPU_MODE)
     stf = real(stf_dp)
-    ! f0 = dble(get_gauss_fac(1/fpar%sim%SHORT_P(1))) * 4
-    ! call deconit(data_num_win, data_den_win, fpar%sim%dt, time_shift, f0, NITER, 0.001, 1, stf)
-    call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
-                     1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), 2)
+    ! call bandpass_dp(stf, fpar%sim%nstep, dble(fpar%sim%dt),&
+                    !  1/fpar%sim%LONG_P(1), 1/fpar%sim%SHORT_P(1), IORD)
 
   end subroutine deconv_for_stf
 

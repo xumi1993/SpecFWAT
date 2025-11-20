@@ -16,11 +16,13 @@ module preproc_fwd
   use rf_data, only: RFData
   use telecc_data, only: TeleCCData
   use noise_data, only: NoiseData
+  use leq_data, only: LEQData
   use common_lib, only: get_dat_type, mkdir
 
   implicit none
 
   integer, private :: ier
+  character(len=MAX_STRING_LEN), private :: msg
 
   type :: PrepareFWD
     integer :: ievt=0, run_mode
@@ -55,6 +57,8 @@ contains
       else
         call log%init('output_fwd_measure_adj_'//trim(dat_type)//'_'//trim(model_name)//'.log')
       endif
+      call log%write('Forward/Adjoint simulation started ...', .false.)
+      write(msg, '(A,I0,A)') 'run mode: ', run_mode, ', simu type: '//trim(simu_type)//', data type: '//trim(dat_type)
     endif
     call log%write('*******************************************', .false.)
 
@@ -183,32 +187,37 @@ contains
     call create_name_database(prname,worldrank,LOCAL_PATH)
 
     ! change simulation parameters for simu_type
-    if (simu_type == SIMU_TYPE_TELE) then
-      USE_FORCE_POINT_SOURCE = .false.
-      COUPLE_WITH_INJECTION_TECHNIQUE=.true.
-      INJECTION_TECHNIQUE_TYPE=3
-      FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
-      if (dat_type == 'rf') then
-        fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
-      endif
-    else if (simu_type == SIMU_TYPE_NOISE) then
-      USE_FORCE_POINT_SOURCE = .true.
-      COUPLE_WITH_INJECTION_TECHNIQUE=.false.
-    endif
-    source_fname = fpar%acqui%src_solution_file(this%ievt)
-    station_fname = fpar%acqui%station_file(this%ievt)
+    select case (simu_type)
+      case (SIMU_TYPE_TELE)
+        USE_FORCE_POINT_SOURCE = .false.
+        COUPLE_WITH_INJECTION_TECHNIQUE=.true.
+        INJECTION_TECHNIQUE_TYPE=3
+        FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
+        if (dat_type == 'rf') then
+          fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
+        endif
+        source_fname = trim(FKMODEL_FILE)
+      case (SIMU_TYPE_NOISE)
+        USE_FORCE_POINT_SOURCE = .true.
+        COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+        source_fname = trim(fpar%acqui%src_solution_file(this%ievt))
+      case (SIMU_TYPE_LEQ)
+        USE_FORCE_POINT_SOURCE = .false.
+        COUPLE_WITH_INJECTION_TECHNIQUE=.false.
+        source_fname = trim(fpar%acqui%src_solution_file(this%ievt))
+    end select
+
+    ! set station file names
+    station_fname = trim(fpar%acqui%station_file(this%ievt))
 
     ! print info
-    block 
-      character(len=MAX_STRING_LEN) :: msg
-      write(msg, '(a,I4,a)') 'Index:',this%ievt,', Event ID: '//trim(evtid)
-      call log%write(msg)
-      msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
-      call log%write(msg)
-      write(msg, '(A, f6.4)') 'Weight: ', fpar%acqui%src_weight(this%ievt)
-      call log%write(msg)
-      call log%write('out_fwd_path = '//trim(path))
-    end block
+    write(msg, '(a,I4,a)') 'Index:',this%ievt,', Event ID: '//trim(evtid)
+    call log%write(msg)
+    msg = 'Source file: '//trim(source_fname)//', Station file: '//trim(station_fname)
+    call log%write(msg)
+    write(msg, '(A, f6.4)') 'Weight: ', fpar%acqui%src_weight(this%ievt)
+    call log%write(msg)
+    call log%write('Output path: '//trim(path))
 
     call synchronize_all()
 
@@ -220,6 +229,7 @@ contains
     type(TeleData) :: td
     type(RFData) :: rd
     type(NoiseData) :: nd
+    type(LEQData) :: ld
 
     select case (dat_type)
       case ('tele') 
@@ -230,6 +240,8 @@ contains
         call rd%semd2sac(this%ievt)
       case ('noise')
         call nd%semd2sac(this%ievt)
+      case ('leq')
+        call ld%semd2sac(this%ievt)
     end select
 
   end subroutine semd2sac
@@ -240,6 +252,7 @@ contains
     type(RFData) :: rd
     type(TeleCCData) :: tc
     type(NoiseData) :: nd
+    type(LEQData) :: ld
     
     select case(dat_type)
     case ('tele')
@@ -262,6 +275,11 @@ contains
       call nd%od%copy_adjoint_stations()
       this%obj_func = sum(nd%total_misfit)
       call nd%finalize()
+    case ('leq')
+      call ld%preprocess(this%ievt)
+      call ld%od%copy_adjoint_stations()
+      this%obj_func = sum(ld%total_misfit)
+      call ld%finalize()
     end select
     call bcast_all_singledp(this%obj_func)
     call synchronize_all()

@@ -309,10 +309,9 @@ contains
   end subroutine InitSpecfem
 
   subroutine FinalizeSpecfem()
-    use config, only: local_path_backup, output_files_backup
     use wavefield_discontinuity_solver, only: &
                finalize_wavefield_discontinuity
-    integer                                :: ier
+    integer  :: ier
 
     if (GPU_MODE)  call prepare_cleanup_device(Mesh_pointer,ACOUSTIC_SIMULATION,ELASTIC_SIMULATION,NOISE_TOMOGRAPHY)
     

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-set(project_version 0.5.0)
+set(project_version 0.6.0)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
@@ -141,6 +141,20 @@ endif()
 
 
 # setup version
+# set the version number and git commit hash
+execute_process(
+    COMMAND git rev-parse --short HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_COMMIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+# setup taup data directory
+set(TAUP_DATA_DIR "${PROJECT_SOURCE_DIR}/src/preproc/window_selector/ttimes_mod")
+configure_file(
+  ${PROJECT_SOURCE_DIR}/include/fwat_config.h.in
+  ${PROJECT_SOURCE_DIR}/include/fwat_config.h
+)
+
 execute_process(
     COMMAND git rev-parse --short HEAD
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/src/specfem3d 

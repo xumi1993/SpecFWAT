@@ -3,8 +3,8 @@ include_directories(
 )
 
 add_subdirectory(telesubs)
-# add_subdirectory(measure_adj)
 add_subdirectory(adjoint_sources)
+add_subdirectory(window_selector)
 
 # object libraries of preproc
 file(GLOB SOURCES_Fortran "*.f90")
@@ -16,7 +16,8 @@ target_link_libraries(window_chi_objs PRIVATE shared_objs shared_fwat_objs
 add_library(preproc_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(preproc_objs PRIVATE shared_objs shared_fwat_objs
                       specfem_api_objs cuda_objs tele_objs
-                      window_chi_objs adjsrc_objs config_objs)
+                      window_chi_objs adjsrc_objs config_objs
+                      window_selector_objs)
 
 # executables
 set(APP_SOURCES
@@ -34,6 +35,7 @@ foreach(execsourcefile ${APP_SOURCES})
                         shared_objs cuda_objs specfem3D_objs window_chi_objs
                         specfem_api_objs tele_objs adjsrc_objs
                         config_objs hdf5_interface_objs utils_objs fftpack_objs
+                        window_selector_objs tau
 
   )
   if (USE_CUDA)

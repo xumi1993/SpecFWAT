@@ -156,6 +156,7 @@
   implicit none
 
   character(len=MAX_STRING_LEN) :: fname
+  type(hdf5_file) :: h5fp
 
 !---
 !
@@ -163,24 +164,37 @@
 !
 !---
   fname = trim(TOMOGRAPHY_PATH)//'/tomography_model.h5'
-  call h5read(fname, '/x', MEXT_V%x)
-  call h5read(fname, '/y', MEXT_V%y)
-  call h5read(fname, '/z', MEXT_V%z)
+  call h5fp%open(fname, status='old', action='r')
+  call h5fp%get('/x', MEXT_V%x)
+  call h5fp%get('/y', MEXT_V%y)
+  call h5fp%get('/z', MEXT_V%z)
+  ! call h5read(fname, '/x', MEXT_V%x)
+  ! call h5read(fname, '/y', MEXT_V%y)
+  ! call h5read(fname, '/z', MEXT_V%z)
   MEXT_V%nx = size(MEXT_V%x)
   MEXT_V%ny = size(MEXT_V%y)
   MEXT_V%nz = size(MEXT_V%z)
-  call h5read(fname, '/vp', MEXT_V%vp)
-  call h5read(fname, '/vs', MEXT_V%vs)
-  call h5read(fname, '/rho', MEXT_V%rho)
+  call h5fp%get('/vp', MEXT_V%vp)
+  call h5fp%get('/vs', MEXT_V%vs)
+  call h5fp%get('/rho', MEXT_V%rho)
   MEXT_V%vp = transpose_3(MEXT_V%vp)
   MEXT_V%vs = transpose_3(MEXT_V%vs)
   MEXT_V%rho = transpose_3(MEXT_V%rho)    
   if (parameter_type == 2) then
-    call h5read(fname, '/gcp', MEXT_V%Gcp)
-    call h5read(fname, '/gsp', MEXT_V%Gsp)
-    MEXT_V%Gcp = transpose_3(MEXT_V%Gcp)
-    MEXT_V%Gsp = transpose_3(MEXT_V%Gsp)
+    if (h5fp%exist('/gcp') .and. h5fp%exist('/gsp')) then
+      call h5fp%get('/gcp', MEXT_V%Gcp)
+      call h5fp%get('/gsp', MEXT_V%Gsp)
+      MEXT_V%Gcp = transpose_3(MEXT_V%Gcp)
+      MEXT_V%Gsp = transpose_3(MEXT_V%Gsp)
+    else
+      allocate(MEXT_V%Gcp(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      allocate(MEXT_V%Gsp(MEXT_V%nx,MEXT_V%ny,MEXT_V%nz))
+      MEXT_V%Gcp = 0.0_CUSTOM_REAL
+      MEXT_V%Gsp = 0.0_CUSTOM_REAL
+
+    endif
   endif
+  call h5fp%close(finalize=.true.)
 
   end subroutine read_external_model
 

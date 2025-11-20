@@ -13,12 +13,13 @@ module obs_data
   type ObsData
     character(len=MAX_STRING_LEN), dimension(:), pointer :: netwk, stnm
     character(len=MAX_STRING_LEN) :: evt_id
-    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, stbur, baz, tarr, tbeg, dist
+    real(kind=cr), dimension(:), pointer :: stla, stlo, stel, stbur, baz, tarr, tbeg,&
+                                            dist, gcarc
     real(kind=dp) :: dt
     integer :: nsta, npts, ievt
     real(kind=dp), dimension(:, :, :), pointer :: data ! npts, ncomp, nsta
     integer :: net_win, sta_win, stla_win, stlo_win, stel_win, dat_win, &
-                baz_win, t0_win, tb_win, bur_win, dis_win
+                baz_win, tarr_win, tb_win, bur_win, dis_win, gcarc_win
     contains
     procedure :: read_stations, read_obs_data, copy_adjoint_stations
     procedure, private :: alloc_sta_info
@@ -87,9 +88,10 @@ contains
     call prepare_shm_array_cr_1d(this%stbur, this%nsta, this%bur_win)
     call prepare_shm_array_cr_1d(this%baz, this%nsta, this%baz_win)
     call prepare_shm_array_cr_1d(this%dist, this%nsta, this%dis_win)
+    call prepare_shm_array_cr_1d(this%gcarc, this%nsta, this%gcarc_win)
     call prepare_shm_array_cr_1d(this%tbeg, this%nsta, this%tb_win)
     if (simu_type == SIMU_TYPE_TELE) &
-      call prepare_shm_array_cr_1d(this%tarr, this%nsta, this%t0_win)
+      call prepare_shm_array_cr_1d(this%tarr, this%nsta, this%tarr_win)
   end subroutine alloc_sta_info
 
   subroutine finalize(this)
@@ -102,8 +104,9 @@ contains
     call free_shm_array(this%stel_win)
     call free_shm_array(this%baz_win)
     call free_shm_array(this%dis_win)
+    call free_shm_array(this%gcarc_win)
     if (simu_type == SIMU_TYPE_TELE) &
-      call free_shm_array(this%t0_win)
+      call free_shm_array(this%tarr_win)
     call free_shm_array(this%dat_win)
     call free_shm_array(this%tb_win)
     call free_shm_array(this%bur_win)
@@ -167,13 +170,18 @@ contains
           ! assign header info
           if (icomp == 1) then
             this%tbeg(ista) = header%b
-            if (header%baz == SAC_rnull) then
-              call exit_MPI(0, 'Back azimuth not found in SAC header')
-            else
+            if (header%baz /= SAC_rnull) then
               this%baz(ista) = header%baz
+            else
+              call exit_MPI(0, 'baz not found in SAC header')
             endif
             if (header%dist /= SAC_rnull) then
               this%dist(ista) = header%dist
+              this%gcarc(ista) = header%dist*km2deg
+            else 
+              if (dat_type == SIMU_TYPE_LEQ) then
+                call exit_MPI(0, 'dist not found in SAC header')
+              endif
             endif
             if (index(dat_type, 'tele') /= 0 ) then
               if (header%t0 /= SAC_rnull) then
@@ -192,6 +200,7 @@ contains
 
     call sync_from_main_rank_cr_1d(this%baz, this%nsta)
     call sync_from_main_rank_cr_1d(this%dist, this%nsta)
+    call sync_from_main_rank_cr_1d(this%gcarc, this%nsta)
     if (simu_type == SIMU_TYPE_TELE) call sync_from_main_rank_cr_1d(this%tarr, this%nsta)
     call sync_from_main_rank_cr_1d(this%tbeg, this%nsta)
     call sync_from_main_rank_dp_3d(this%data, this%npts, ncomp, this%nsta)

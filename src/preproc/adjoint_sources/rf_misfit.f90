@@ -2,7 +2,7 @@ module rf_misfit
   use config
   use signal
   use adj_config, cfg => adj_config_global
-  use decon_mod, only: deconit
+  use decon_mod, only: deconvolve
   use utils, only: simpson
 
   type, extends(AdjointMeasurement) :: RFMisfit
@@ -64,7 +64,7 @@ contains
     call this%initialize()
 
     ! calculate z-rf for normalization
-    call deconit(synz, synz, real(dt), 10., real(f0), 10, 0.001, 0, zrf)
+    call deconvolve(synz, synz, real(dt), 10., real(f0), 10, 0.001, 0, zrf, cfg%use_gpu)
 
     if (nlen >= nlen_rf) then
       dat_norm(1:nlen_rf) = dat(1:nlen_rf) / maxval(abs(zrf))
@@ -88,10 +88,12 @@ contains
     ! calculate adjoint source
     shift_rev = nlen * dt - shift_loc
     diff = syn_norm - dat_norm
-    call deconit(diff, z_rev, real(dt), real(shift_rev), real(f0), maxit_loc, real(minderr_loc), 1, adj_r)
+    call deconvolve(diff, z_rev, real(dt), real(shift_rev), real(f0), &
+                    maxit_loc, real(minderr_loc), 1, adj_r, cfg%use_gpu)
     call myconvolution_dp(-diff, r_rev, num, 1)
     call myconvolution_dp(z_rev, z_rev, den, 1)
-    call deconit(num, den, real(dt), real(shift_rev), real(f0), maxit_loc, real(minderr_loc), 1, adj_z)
+    call deconvolve(num, den, real(dt), real(shift_rev), real(f0), &
+                    maxit_loc, real(minderr_loc), 1, adj_z, cfg%use_gpu)
     deallocate(num, den, z_rev, r_rev)
 
     ! tapper

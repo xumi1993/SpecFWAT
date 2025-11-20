@@ -45,7 +45,7 @@ program fwat_post_proc
       call fpp%write_gradient_grid()
 
       ! remove event kernels
-      call fpp%remove_ekernel()
+      call remove_ekernel()
 
       call fpar%acqui%finalize()
 

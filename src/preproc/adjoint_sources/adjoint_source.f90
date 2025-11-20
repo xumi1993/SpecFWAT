@@ -2,6 +2,7 @@ module adjoint_source
   use cc_tt_misfit, only: CCTTMisfit
   use mt_tt_misfit, only: MTTTMisfit  
   use exponentiated_phase_misfit, only: ExponentiatedPhaseMisfit
+  use ccc_misfit, only: CCCmisfit
   use waveform_misfit, only: WaveformMisfit
   use waveform_conv_misfit, only: WaveformConvMisfit
   use rf_misfit, only: RFMisfit
@@ -24,7 +25,6 @@ contains
         select type (misfit_out)
         type is (WaveformMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case (IMEAS_WAVEFORM_CONV) ! Waveform convolution
@@ -45,7 +45,13 @@ contains
         select type (misfit_out)
         type is (ExponentiatedPhaseMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
+        end select
+
+      case (IMEAS_CCC) ! Coda correlation
+        allocate(CCCmisfit :: misfit_out)
+        select type (misfit_out)
+        type is (CCCmisfit)
+          call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
         end select
         
       case (IMEAS_CC_TT, IMEAS_CC_DLNA) ! Cross-correlation traveltime/amplitude
@@ -53,7 +59,6 @@ contains
         select type (misfit_out)
         type is (CCTTMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case (IMEAS_CC_TT_MT, IMEAS_CC_DLNA_MT) ! Multitaper traveltime/amplitude
@@ -61,7 +66,6 @@ contains
         select type (misfit_out)
         type is (MTTTMisfit)
           call misfit_out%calc_adjoint_source(dat, syn, dt, windows)
-          call filter_adj(misfit_out%adj_src, dt, windows)
         end select
         
       case default
@@ -71,12 +75,16 @@ contains
         write(*,*) '  2 (IMEAS_WAVEFORM_CONV): Waveform convolution'
         write(*,*) '  3 (IMEAS_RF): Receiver function'
         write(*,*) '  4 (IMEAS_EXP_PHASE): Exponentiated phase'
+        write(*,*) '  5 (IMEAS_CCC): Cross-correlation coefficient'
         write(*,*) ' 11 (IMEAS_CC_TT): Cross-correlation traveltime'
         write(*,*) ' 12 (IMEAS_CC_DLNA): Cross-correlation amplitude'
         write(*,*) ' 13 (IMEAS_CC_TT_MT): Multitaper traveltime'
         write(*,*) ' 14 (IMEAS_CC_DLNA_MT): Multitaper amplitude'
         error stop
     end select
+
+    call filter_adj(misfit_out%adj_src, dt, windows)
+
 
   end subroutine calculate_adjoint_source
 
