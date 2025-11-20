@@ -104,7 +104,7 @@ module rf_data
     call this%od%read_stations(ievt)
 
     call this%od%read_obs_data()
-    print *, worldrank, maxval(this%od%data(:, 1, 44)), minval(this%od%data(:, 1, 44))  ! DEBUG
+
     call this%interp_data()
 
     call this%get_baz()
