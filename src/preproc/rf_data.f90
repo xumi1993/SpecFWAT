@@ -122,7 +122,7 @@ module rf_data
     class(RFData), intent(inout) :: this
     character(len=MAX_STRING_LEN) :: msg
     integer :: irec_local, irec, igaus
-    real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3, adj_src_z, adj_src_r
+    real(kind=dp), dimension(:), allocatable :: synz, synr, adj_2, adj_3
     real(kind=dp), dimension(:,:,:), allocatable :: adj_src
     type(RFMisfit) :: rfm
     type(RECMisfit), dimension(:), allocatable :: recm

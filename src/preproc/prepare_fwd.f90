@@ -29,7 +29,7 @@ module preproc_fwd
     real(kind=dp) :: obj_func
     contains
     procedure :: init, prepare_for_event, destroy, simulation
-    procedure, private :: initialize_kernel_matrice, semd2sac, measure_adj, run_simulation,&
+    procedure, private :: semd2sac, measure_adj, run_simulation,&
                           postproc_adjoint
   end type PrepareFWD
 
@@ -90,7 +90,7 @@ contains
 
     call detect_mesh_surfaces()
 
-    if(this%run_mode == FORWARD_ADJOINT) call this%initialize_kernel_matrice()
+    if(this%run_mode == FORWARD_ADJOINT) call initialize_kernel_matrice()
 
   end subroutine init
 
@@ -138,8 +138,7 @@ contains
     if (allocated(sum_hess_kl)) deallocate(sum_hess_kl)
   end subroutine destroy
 
-  subroutine initialize_kernel_matrice(this)
-    class(PrepareFWD), intent(inout) :: this
+  subroutine initialize_kernel_matrice()
     if (ELASTIC_SIMULATION) then
       allocate(sum_rho_kl(NGLLX,NGLLY,NGLLZ,NSPEC_ADJOINT),stat=ier)
       sum_rho_kl = 0.
