@@ -62,11 +62,9 @@ jobs:
           export FC=mpifort
         fi
         
-        MPI_INC=$(mpicc -showme:incdirs)
         cmake -B build \
           -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }} \
-          -DCUDA_ARCH=11 \
-          -DCMAKE_CUDA_FLAGS="-I${MPI_INC}"
+          -DCUDA_ARCH=11
 
     - name: Build
       run: |
