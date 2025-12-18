@@ -34,11 +34,9 @@ endif()
 
 # CUDA
 if (USE_CUDA)
-  get_target_property(MPI_CXX_INCS MPI::MPI_CXX INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(
     ${SPECFEM_DIR}/src/gpu
     ${SPECFEM_DIR}/src/gpu/kernels
-    ${MPI_CXX_INCS}
   )
   file(GLOB SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/*.cu")
   set(CUDA_KERNEL_DIR "${SPECFEM_DIR}/src/gpu/kernels")
