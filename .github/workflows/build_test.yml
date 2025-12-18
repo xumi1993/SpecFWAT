@@ -37,10 +37,9 @@ jobs:
 
     - name: Install CUDA (Linux)
       if: runner.os == 'Linux' && matrix.cuda
-      uses: Jimver/cuda-toolkit@v0.2.19
+      uses: Jimver/cuda-toolkit@v0.2.29
       with:
-        cuda: '12.4.0'
-        linux-local-args: '["--toolkit"]'
+        cuda: '12.8.0'
 
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
@@ -69,4 +68,4 @@ jobs:
 
     - name: Verify Binaries
       run: |
-        ls -l bin/fwat*
+        ls -l bin/xfwat*
