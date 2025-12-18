@@ -34,9 +34,11 @@ endif()
 
 # CUDA
 if (USE_CUDA)
+  get_target_property(MPI_CXX_INCS MPI::MPI_CXX INTERFACE_INCLUDE_DIRECTORIES)
   include_directories(
     ${SPECFEM_DIR}/src/gpu
     ${SPECFEM_DIR}/src/gpu/kernels
+    ${MPI_CXX_INCS}
   )
   file(GLOB SOURCES_CUDA "${SPECFEM_DIR}/src/gpu/*.cu")
   set(CUDA_KERNEL_DIR "${SPECFEM_DIR}/src/gpu/kernels")
@@ -50,8 +52,7 @@ if (USE_CUDA)
   message(STATUS "CUDA_ARCH: ${CUDA_ARCH}")
   # if (${CUDA_ARCH} EQUAL 0)
   foreach(tgt cuda_objs cuda_kernels_objs)
-    target_include_directories(${tgt} PRIVATE ${MPI_C_INCLUDE_DIRS})
-    target_link_libraries(${tgt} PRIVATE ${MPI_LIBRARIES} MPI::MPI_C)
+    target_link_libraries(${tgt} PRIVATE  MPI::MPI_CXX)
   endforeach()
   # endif()
 else()

@@ -52,7 +52,7 @@ message(STATUS "BLAS_FOUND: ${BLAS_FOUND}")
 message(STATUS "BLAS_LIBRARIES: ${BLAS_LIBRARIES}")
 
 # setup MPI
-find_package(MPI REQUIRED Fortran C)
+find_package(MPI REQUIRED Fortran CXX)
 if (MPI_FOUND)
   message(STATUS "MPI_FOUND: ${MPI_FOUND}")
   message(STATUS "MPI_VERSION: ${MPI_VERSION}")
