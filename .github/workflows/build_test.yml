@@ -33,7 +33,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y gfortran libopenmpi-dev openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev cmake
+        sudo apt-get install -y gfortran libopenmpi-dev openmpi-bin libhdf5-dev liblapack-dev libblas-dev cmake
 
     - name: Install CUDA (Linux)
       if: runner.os == 'Linux' && matrix.cuda
