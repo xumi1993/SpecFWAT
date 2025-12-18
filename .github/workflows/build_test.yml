@@ -41,7 +41,7 @@ jobs:
       with:
         cuda: '12.8.0'
         method: 'network'
-        sub-packages: '["nvcc", "libcufft-dev"]'
+        sub-packages: '["nvcc", "libcufft"]'
 
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
