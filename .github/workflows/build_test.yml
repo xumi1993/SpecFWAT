@@ -56,6 +56,7 @@ jobs:
           export CC=mpicc
           export CXX=mpicxx
           export FC=mpif90
+          export CPATH="/usr/lib/x86_64-linux-gnu/openmpi/include:$CPATH"
         elif [ "${{ runner.os }}" == "macOS" ]; then
           export CC=mpicc
           export CXX=mpicxx
