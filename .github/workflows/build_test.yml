@@ -39,12 +39,15 @@ jobs:
       if: runner.os == 'Linux' && matrix.cuda
       uses: Jimver/cuda-toolkit@v0.2.19
       with:
-        cuda: '12.6.0'
+        cuda: '12.4.0'
+        linux-local-args: '["--toolkit"]'
 
     - name: Install Dependencies (macOS)
       if: runner.os == 'macOS'
       run: |
         brew install gcc open-mpi hdf5-mpi openblas cmake
+        # Set OMPI_FC to the installed gfortran version
+        echo "OMPI_FC=$(ls /opt/homebrew/bin/gfortran-* | sort -V | tail -n 1)" >> $GITHUB_ENV
 
     - name: Configure CMake
       run: |
@@ -55,7 +58,7 @@ jobs:
         elif [ "${{ runner.os }}" == "macOS" ]; then
           export CC=mpicc
           export CXX=mpicxx
-          export FC=mpif90
+          export FC=mpifort
         fi
         
         cmake -B build -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }}
@@ -66,4 +69,4 @@ jobs:
 
     - name: Verify Binaries
       run: |
-        ls -l build/bin/
+        ls -l bin/fwat*
