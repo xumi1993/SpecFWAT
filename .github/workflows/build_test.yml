@@ -56,14 +56,16 @@ jobs:
           export CC=mpicc
           export CXX=mpicxx
           export FC=mpif90
-          export CPATH="/usr/lib/x86_64-linux-gnu/openmpi/include:$CPATH"
         elif [ "${{ runner.os }}" == "macOS" ]; then
           export CC=mpicc
           export CXX=mpicxx
           export FC=mpifort
         fi
         
-        cmake -B build -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }} 
+        MPI_INC=$(mpicc -showme:incdirs)
+        cmake -B build \
+          -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }} \
+          -DCMAKE_CUDA_FLAGS="-I${MPI_INC}"
 
     - name: Build
       run: |
