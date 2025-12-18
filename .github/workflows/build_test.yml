@@ -1,0 +1,69 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ devel ]
+  pull_request:
+    branches: [ devel ]
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            cuda: true
+            name: Linux CUDA
+          - os: ubuntu-latest
+            cuda: false
+            name: Linux CPU
+          - os: macos-latest
+            cuda: false
+            name: macOS CPU
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Dependencies (Linux)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gfortran libopenmpi-dev openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev cmake
+
+    - name: Install CUDA (Linux)
+      if: runner.os == 'Linux' && matrix.cuda
+      uses: Jimver/cuda-toolkit@v0.2.19
+      with:
+        cuda: '12.6.0'
+
+    - name: Install Dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install gcc open-mpi hdf5-mpi openblas cmake
+
+    - name: Configure CMake
+      run: |
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          export CC=mpicc
+          export CXX=mpicxx
+          export FC=mpif90
+        elif [ "${{ runner.os }}" == "macOS" ]; then
+          export CC=mpicc
+          export CXX=mpicxx
+          export FC=mpif90
+        fi
+        
+        cmake -B build -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }}
+
+    - name: Build
+      run: |
+        cmake --build build -j2
+
+    - name: Verify Binaries
+      run: |
+        ls -l build/bin/
