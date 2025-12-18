@@ -23,10 +23,6 @@ jobs:
           - os: macos-latest
             cuda: false
             name: macOS CPU
-          - os: ubuntu-latest
-            cuda: false
-            compiler: intel
-            name: Linux Intel
 
     steps:
     - uses: actions/checkout@v4
@@ -34,26 +30,10 @@ jobs:
         submodules: recursive
 
     - name: Install Dependencies (Linux GNU)
-      if: runner.os == 'Linux' && matrix.compiler != 'intel'
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y gfortran libopenmpi-dev openmpi-bin libhdf5-openmpi-dev liblapack-dev libblas-dev cmake
-
-    - name: Install Dependencies (Linux Intel)
-      if: matrix.compiler == 'intel'
-      uses: oneapi-src/setup-oneapi@v1
-      with:
-        components: |
-          icx
-          ifx
-          mpi
-          mkl
-
-    - name: Install CMake (Linux Intel)
-      if: matrix.compiler == 'intel'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake build-essential
 
     - name: Install CUDA (Linux)
       if: runner.os == 'Linux' && matrix.cuda
@@ -72,25 +52,17 @@ jobs:
 
     - name: Configure CMake
       run: |
-        USE_HDF5="ON"
         if [ "${{ runner.os }}" == "Linux" ]; then
-          if [ "${{ matrix.compiler }}" == "intel" ]; then
-            export CC=mpiicx
-            export CXX=mpiicpx
-            export FC=mpiifx
-            USE_HDF5="OFF"
-          else
-            export CC=mpicc
-            export CXX=mpicxx
-            export FC=mpif90
-          fi
+          export CC=mpicc
+          export CXX=mpicxx
+          export FC=mpif90
         elif [ "${{ runner.os }}" == "macOS" ]; then
           export CC=mpicc
           export CXX=mpicxx
           export FC=mpifort
         fi
         
-        cmake -B build -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }} -DUSE_HDF5=$USE_HDF5
+        cmake -B build -DUSE_CUDA=${{ matrix.cuda && 'ON' || 'OFF' }} 
 
     - name: Build
       run: |
