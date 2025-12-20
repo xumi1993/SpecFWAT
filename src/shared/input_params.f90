@@ -398,7 +398,8 @@ contains
               win_cfg%threshold_dlna = dble(win_type%get_real('THRESHOLD_DLNA', error=io_err, default=1.0))
               win_cfg%min_snr_window = dble(win_type%get_real('MIN_SNR_WINDOW', error=io_err, default=5.0))
               win_cfg%is_split_phases = win_type%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
-              win_cfg%max_time_before_first_arrival = dble(win_type%get_real('MAX_TIME_BEFORE_FIRST_ARRIVAL', error=io_err, default=10.0))
+              win_cfg%max_time_before_first_arrival = dble(win_type%get_real('MAX_TIME_BEFORE_FIRST_ARRIVAL', &
+                                                           error=io_err, default=10.0))
               win_cfg%stalta_water_level = dble(win_type%get_real('STALTA_WATER_LEVEL', error=io_err, default=0.07))
               win_cfg%c_0 = dble(win_type%get_real('C_0', error=io_err, default=1.0))
               win_cfg%c_1 = dble(win_type%get_real('C_1', error=io_err, default=1.5))
