@@ -16,20 +16,20 @@ module sta_lta_mod
     ! the sta_lta value peaks at the begining of the trace.
     ! there is no phase incoming at that time, but there is some small trend to positive values.
     ! tweak only sets the sta/lta value when a threshold value in the envelope is reached
-    logical,parameter:: TWEAK = .true.
+    logical,parameter:: TWEAK = .false.
     integer :: thres_noise
     real(kind=dp) :: lta_max, lta_org
 
   ! set the Cs Cl for STA/LTA ratio using the Bai & Kennett (2001) expressions
 
-    Cs = 10**(-dt/min_period)
-    Cl = 10**(-dt/(12*min_period))
-    TOL = 1e-9
+    Cs = 10.0_dp**(-dt/min_period)
+    Cl = 10.0_dp**(-dt/(12.0_dp*min_period))
+    TOL = 1.0e-9_dp
 
   ! set pre-extension for synthetic data and allocate extended_syn
   !  n_extend=5*12*min_period/dt
     npts = size(env_synt_lp)
-    n_extend=1000*int(min_period/dt)
+    n_extend=1000
     allocate(extended_syn(npts+n_extend))
 
   ! set noise level
@@ -94,6 +94,8 @@ module sta_lta_mod
         else
           STA_LTA(i)=sta/lta
         endif
+      else
+         STA_LTA(i) = noise ! Match Pyflex: sta[lta < TOL] = noise
       endif
 
     enddo

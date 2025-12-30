@@ -41,7 +41,12 @@ module adj_config
   type :: WINConfig
     real(kind=dp) :: jump_fac = 0.1, min_velocity = 2.4, sliding_win_len_fac = 3.0, &
                      threshold_shift_fac = 0.3, threshold_corr = 0.7, min_win_len_fac = 1.5, &
-                     min_snr_window = 5.0, min_energy_ratio = 5.0
+                     min_snr_window = 5.0, min_energy_ratio = 5.0, &
+                     stalta_water_level = 0.08_dp, threshold_dlna = 0.8_dp, &
+                     c_0 = 1.0_dp, c_1 = 1.5_dp, c_2 = 0.0_dp, &
+                     c_3a = 4.0_dp, c_3b = 2.5_dp, c_4a = 2.0_dp, c_4b = 6.0_dp, &
+                     snr_integrate_base = 3.5_dp, &
+                     max_time_before_first_arrival = 50.0_dp
     integer :: min_peaks_troughs = 3
     logical :: is_split_phases = .true.
   end type WINConfig

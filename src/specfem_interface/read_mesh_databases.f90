@@ -732,32 +732,33 @@
       call bcast_all_cr_for_database(alpha_store_y(1,1,1,1), size(alpha_store_y,kind=4))
       call bcast_all_cr_for_database(alpha_store_z(1,1,1,1), size(alpha_store_z,kind=4))
 
-      if ((SIMULATION_TYPE == 1 .and. SAVE_FORWARD) .or. SIMULATION_TYPE == 3) then
-        if (I_should_read_the_database) read(IIN) nglob_interface_PML_acoustic
-        call bcast_all_i_for_database(nglob_interface_PML_acoustic, 1)
+      ! if ((SIMULATION_TYPE == 1 .and. SAVE_FORWARD) .or. SIMULATION_TYPE == 3) then
+      ! read PML interface points whatever the simulation type is
+      if (I_should_read_the_database) read(IIN) nglob_interface_PML_acoustic
+      call bcast_all_i_for_database(nglob_interface_PML_acoustic, 1)
 
-        if (I_should_read_the_database) read(IIN) nglob_interface_PML_elastic
-        call bcast_all_i_for_database(nglob_interface_PML_elastic, 1)
+      if (I_should_read_the_database) read(IIN) nglob_interface_PML_elastic
+      call bcast_all_i_for_database(nglob_interface_PML_elastic, 1)
 
-        if (nglob_interface_PML_acoustic > 0) then
-          allocate(points_interface_PML_acoustic(nglob_interface_PML_acoustic),stat=ier)
-          if (ier /= 0) call exit_MPI_without_rank('error allocating array 1516')
-          if (ier /= 0) stop 'Error allocating array points_interface_PML_acoustic'
-          points_interface_PML_acoustic(:) = 0
+      if (nglob_interface_PML_acoustic > 0) then
+        allocate(points_interface_PML_acoustic(nglob_interface_PML_acoustic),stat=ier)
+        if (ier /= 0) call exit_MPI_without_rank('error allocating array 1516')
+        if (ier /= 0) stop 'Error allocating array points_interface_PML_acoustic'
+        points_interface_PML_acoustic(:) = 0
 
-          if (I_should_read_the_database) read(IIN) points_interface_PML_acoustic
-          call bcast_all_i_for_database(points_interface_PML_acoustic(1), size(points_interface_PML_acoustic,kind=4))
-        endif
-        if (nglob_interface_PML_elastic > 0) then
-          allocate(points_interface_PML_elastic(nglob_interface_PML_elastic),stat=ier)
-          if (ier /= 0) call exit_MPI_without_rank('error allocating array 1517')
-          if (ier /= 0) stop 'Error allocating array points_interface_PML_elastic'
-          points_interface_PML_elastic(:) = 0
-
-          if (I_should_read_the_database) read(IIN) points_interface_PML_elastic
-          call bcast_all_i_for_database(points_interface_PML_elastic(1), size(points_interface_PML_elastic,kind=4))
-        endif
+        if (I_should_read_the_database) read(IIN) points_interface_PML_acoustic
+        call bcast_all_i_for_database(points_interface_PML_acoustic(1), size(points_interface_PML_acoustic,kind=4))
       endif
+      if (nglob_interface_PML_elastic > 0) then
+        allocate(points_interface_PML_elastic(nglob_interface_PML_elastic),stat=ier)
+        if (ier /= 0) call exit_MPI_without_rank('error allocating array 1517')
+        if (ier /= 0) stop 'Error allocating array points_interface_PML_elastic'
+        points_interface_PML_elastic(:) = 0
+
+        if (I_should_read_the_database) read(IIN) points_interface_PML_elastic
+        call bcast_all_i_for_database(points_interface_PML_elastic(1), size(points_interface_PML_elastic,kind=4))
+      endif
+      ! endif
     endif
   endif
 

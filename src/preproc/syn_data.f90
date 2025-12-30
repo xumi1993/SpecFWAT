@@ -241,7 +241,7 @@ contains
 
     adj_file = trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(ADJOINT_PATH)//&
                '/'//trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-               '.'//trim(fpar%sim%CH_CODE)//trim(kcmp)//'.adj'
+               '.'//trim(kcmp)//'.adj'
     call dwascii(adj_file, adj_data, NSTEP, -dble(T0), dble(DT))
     if (IS_OUTPUT_ADJ_SRC) then
       adj_file = trim(adj_file)//'.sac'
@@ -318,11 +318,14 @@ contains
 
   subroutine get_comp_name_adj(this)
     class(SynData), intent(inout) :: this
+    character(len=2) :: bic
     
+    call band_instrument_code(DT, bic)
+
     if (SUPPRESS_UTM_PROJECTION) then
-      this%comp_name = ['Z', 'Y', 'X']
+      this%comp_name = [bic(1:2)//'Z', bic(1:2)//'Y', bic(1:2)//'X']
     else
-      this%comp_name = ['Z', 'N', 'E']
+      this%comp_name = [bic(1:2)//'Z', bic(1:2)//'N', bic(1:2)//'E']
     endif
     call synchronize_all()
   end subroutine get_comp_name_adj

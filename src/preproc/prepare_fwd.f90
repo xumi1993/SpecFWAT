@@ -5,7 +5,7 @@ module preproc_fwd
                          PRINT_SOURCE_TIME_FUNCTION, SAVE_FORWARD, SAVE_MESH_FILES, SIMULATION_TYPE, LOCAL_PATH,&
                          ANISOTROPIC_KL, NSPEC_ADJOINT, FKMODEL_FILE, prname, COUPLE_WITH_INJECTION_TECHNIQUE,&
                          USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH, &
-                         ATTENUATION, ANISOTROPY
+                         ATTENUATION, ANISOTROPY, PML_CONDITIONS, UNDO_ATTENUATION_AND_OR_PML
   use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz, COMPUTE_AND_STORE_STRAIN
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
@@ -331,6 +331,7 @@ contains
     else
       COMPUTE_AND_STORE_STRAIN = .true.
       ATTENUATION = .false.
+      if (PML_CONDITIONS) UNDO_ATTENUATION_AND_OR_PML = .true.
     endif
 
     ! Initialize variables of Specfem

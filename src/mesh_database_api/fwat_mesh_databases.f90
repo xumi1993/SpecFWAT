@@ -28,6 +28,12 @@ program fwat_mesh_databases
     ANISOTROPIC_KL = .false.
   end if
 
+  ! PML parameters
+  if (PML_CONDITIONS) then
+    SIMULATION_TYPE = 1
+    SAVE_FORWARD = .true.
+  end if
+
   ! select simulation type
   call fpar%select_simu_type()
 

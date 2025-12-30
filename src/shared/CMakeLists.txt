@@ -30,6 +30,10 @@ list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/conf
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/aniso.f90")
 list(FILTER SOURCES_Fortran EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/src/shared/fftpack.f90")
 
+if ("${CMAKE_Fortran_COMPILER_ID}" MATCHES "GNU")
+  set_source_files_properties(sacio.f90 PROPERTIES COMPILE_OPTIONS -Wno-pedantic)
+endif()
+
 add_library(shared_fwat_objs OBJECT ${SOURCES_Fortran})
 target_link_libraries(shared_fwat_objs PUBLIC shared_objs ${MPI_LIBRARIES} 
                       ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES}

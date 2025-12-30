@@ -12,7 +12,8 @@ module leq_data
   use distaz_lib
   use common_lib, only: get_band_name, get_icomp_syn, rotate_ZRT_to_ZNE, mkdir
   use signal, only: interpolate_func_dp, detrend, demean, bandpass_dp
-  use win_sel
+  use win_sel, only: win_sel_type
+  use flexwin, only: flexwin_type
   use travel_times_mod
   use sacio
   use logger, only: log
@@ -55,6 +56,7 @@ contains
     type(EVTMisfit) :: evtm
     class(AdjointMeasurement), allocatable :: misfit_out
     type(win_sel_type) :: win
+    type(flexwin_type) :: fw
 
     if (this%nrec_loc > 0) then
       adj_src = zeros_dp(NSTEP, fpar%sim%NRCOMP, this%nrec_loc, fpar%sim%NUM_FILTER)
@@ -105,11 +107,18 @@ contains
             ! Select windows
             select case (fpar%sim%WIN_TYPE)
               case (WIN_SELECTOR_TYPE)
-                call win%init(seismo_dat, seismo_syn, dble(fpar%sim%dt), dble(T0), &
+                win = win_sel_type(seismo_dat, seismo_syn, dble(fpar%sim%dt), dble(T0), &
                               tp, dble(this%od%dist(irec)), dble(fpar%sim%SHORT_P(iflt)))
-                call win%gen_good_windows()
+                call win%select_windows()
                 nwin = win%n_win
                 if (nwin > 0) windows = win%twin(:, :)
+              case (WIN_FLEX_TYPE)
+                ! dat, syn, dt, t0, tp, dis, min_period, max_period
+                fw = flexwin_type(seismo_dat, seismo_syn, dble(fpar%sim%dt), dble(T0), &
+                                  tp, dble(this%od%dist(irec)), dble(fpar%sim%SHORT_P(iflt)), dble(fpar%sim%LONG_P(iflt)))
+                call fw%select_windows()
+                nwin = fw%n_win
+                if (nwin > 0) windows = fw%twin(:, :)
               case (WIN_GROUPVEL_TYPE)
                 allocate(windows(1,2))
                 windows(1,1) = this%od%dist(irec)/fpar%sim%GROUPVEL_MAX(iflt)-fpar%sim%LONG_P(iflt)/2.

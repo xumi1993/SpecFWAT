@@ -2,6 +2,7 @@ module fftpack
   implicit none
   integer, private, parameter :: dp = kind(1.0d0), sp = kind(1.0)
   real(kind=sp), parameter, private :: PI = 3.14159265358979323846_sp
+  real(kind=dp), parameter, private :: PI_DP = 3.14159265358979323846_dp
 
   type, public :: fft_cls
     contains
@@ -19,7 +20,6 @@ contains
     integer, intent(in) :: nft
     real(kind=dp), dimension(nft) :: x
     complex(kind=dp), dimension(nft) :: fpx
-    complex(kind=sp), dimension(nft) :: fpr
     integer :: n_input
 
     n_input = size(x)
@@ -28,10 +28,9 @@ contains
       error stop
     end if
 
-    fpr = 0.0
-    fpr(1:n_input) = cmplx(real(x), 0.0)
-    call fft_raw(nft, fpr, -1)
-    fpx = cmplx(fpr, kind=dp)
+    fpx = (0.0_dp, 0.0_dp)
+    fpx(1:n_input) = cmplx(x, 0.0_dp, kind=dp)
+    call fft_raw_dp(nft, fpx, -1)
   end function fft_dp
 
   function fft(this, x, nft) result(fpx)
@@ -146,7 +145,7 @@ contains
     ! Local variables
     integer :: n, n_input, nft
     real(kind=dp), dimension(:), allocatable :: x_padded
-    complex, dimension(:), allocatable :: xf, h_weights
+    complex(kind=dp), dimension(:), allocatable :: xf, h_weights
     
     n_input = size(x)
     
@@ -161,7 +160,7 @@ contains
       n = n_input
     end if
     
-    nft = 2**ceiling(log(real(n))/log(2.0))
+    nft = 2**exponent(real(n))
 
     ! Prepare input data with zero padding if necessary
     allocate(x_padded(nft))
@@ -170,22 +169,22 @@ contains
     
     ! Compute FFT
     ! allocate(xf(n))
-    xf = this%fft(x_padded, nft)
+    xf = this%fft_dp(x_padded, nft)
     
     ! Create Hilbert filter weights
     allocate(h_weights(nft))
-    h_weights = (0.0, 0.0)
+    h_weights = (0.0_dp, 0.0_dp)
     
     if (mod(n, 2) == 0) then
       ! Even length
-      h_weights(1) = (1.0, 0.0)          ! DC component
-      h_weights(nft/2 + 1) = (1.0, 0.0)    ! Nyquist frequency
-      h_weights(2: nft/2) = (2.0, 0.0)      ! Positive frequencies
+      h_weights(1) = (1.0_dp, 0.0_dp)          ! DC component
+      h_weights(nft/2 + 1) = (1.0_dp, 0.0_dp)    ! Nyquist frequency
+      h_weights(2: nft/2) = (2.0_dp, 0.0_dp)      ! Positive frequencies
       ! Negative frequencies remain zero
     else
       ! Odd length
-      h_weights(1) = (1.0, 0.0)          ! DC component
-      h_weights(2: (nft + 1)/2) = (2.0, 0.0) ! Positive frequencies
+      h_weights(1) = (1.0_dp, 0.0_dp)          ! DC component
+      h_weights(2: (nft + 1)/2) = (2.0_dp, 0.0_dp) ! Positive frequencies
       ! Negative frequencies remain zero
     end if
     
@@ -194,10 +193,50 @@ contains
     
     ! Compute inverse FFT to get analytic signal
     ! xa = this%ifft_complex(xf, n)
-    call fft_raw(nft, xf, +1)
+    call fft_raw_dp(nft, xf, +1)
     allocate(xa(n))
-    xa = cmplx(xf(1:n)/real(nft), kind=dp)
+    xa = xf(1:n)/real(nft, kind=dp)
     deallocate(x_padded, xf, h_weights)
     
   end function hilbert
-end module fftpack
+
+  subroutine fft_raw_dp(n, x, ind)
+    integer :: n, ind, j, i, kmax, istep,m, k
+    complex(kind=dp) :: temp, theta
+    complex(kind=dp), intent(inout) :: x(n)
+
+    j = 1
+    do i = 1, n
+      if (i < j) then
+        temp = x(j)
+        x(j) = x(i)
+        x(i) = temp
+      endif
+      m = n/2
+      do while (.true.)
+        if (j > m) then
+          j = j - m
+          m = m / 2
+          if (m < 2) exit
+        else
+          exit
+        endif
+      enddo
+      j = j + m
+    enddo
+    kmax = 1
+    do while (kmax < n)
+      istep = kmax * 2
+      do k = 1, kmax
+        theta = cmplx(0.0_dp, PI_DP * ind * (k - 1) / kmax, kind=dp)
+        do i = k, n, istep
+          j = i + kmax
+          temp = x(j) * exp(theta)
+          x(j) = x(i) - temp
+          x(i) = x(i) + temp
+        enddo
+      enddo
+      kmax=istep
+    enddo
+  end subroutine fft_raw_dp
+end module

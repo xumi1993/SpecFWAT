@@ -25,8 +25,6 @@ LEQ:
     WIN_TYPE_1:
       # This section is for window selection parameters with basic
       # algorithms from Krischer et al., 2015, SRL.
-      # The STA/LTA is used to separate phases with algorithm from
-      # Maggi et al., 2009, GJI.
       SLIDING_WIN_LEN_FAC: 2.0 # Sliding window length = fac * minimum period, Default: 2.0
       MIN_VELOCITY: 2.3 # Minimum velocity to calculate the end of window, Default: 2.4 km/s
       THRESHOLD_CORR: 0.8 # Minimum cross-correlation to select a window, Default: 0.8
@@ -38,11 +36,29 @@ LEQ:
       MIN_PEAKS_TROUGHS: 3 # Minimum number of peaks and troughs in a window, Default: 3
       IS_SPLIT_PHASES: False # Whether to split phases into different windows. It is useful for CC based adjoint source.
     WIN_TYPE_2:
+      # This section is for window selection using FlexWIN
+      # Maggi et al., 2009, GJI.
+      MAX_TIME_BEFORE_FIRST_ARRIVAL: 10.0 # Maximum time before the first arrival to start window selection
+      MIN_VELOCITY: 2.3 # Minimum group velocity for surface wave window selection
+      MIN_WIN_LEN_FAC: 1.5 # Minimum window length = fac * minimum period
+      THRESHOLD_CORR: 0.8 # Minimum cross-correlation to select a window
+      THRESHOLD_SHIFT_FAC: 0.3 # Maximum time shift to select a window = fac * minimum period
+      THRESHOLD_DLNA: 0.1 # Maximum DLNA to select a window
+      MIN_SNR_WINDOW: 5.0 # Minimum signal to noise ratio in a window
+      IS_SPLIT_PHASES: False # Whether to split phases into different windows. It is useful for CC based adjoint source.
+      C_0: 1.0
+      C_1: 1.5
+      C_2: 0.0
+      C_3A: 4.0
+      C_3B: 2.5
+      C_4A: 2.0
+      C_4B: 6.0
+    WIN_TYPE_3:
       # GROUPVEL_MIN: [2.3, 2.3, 2.3] # Approximate minimum group velocity
       # GROUPVEL_MAX: [3.2, 3.5, 4.0] # Approximate maximum group velocity
       GROUPVEL_MIN: [2.3] # Approximate minimum group velocity
       GROUPVEL_MAX: [4.0] # Approximate maximum group velocity
-    WIN_TYPE_3:
+    WIN_TYPE_4:
       PHASE: 'P' # Phase name for window selection
       TIME_WIN: [-5, 10] # Time window relative to the phase arrival (IASP91)
 

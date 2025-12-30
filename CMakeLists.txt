@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWI")
-set(project_version 0.6.0)
+set(project_version 0.7.0)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
@@ -13,7 +13,6 @@ set(project_version 0.6.0)
 # - CUDA 10 for Turing, like GeForce RTX 2080
 # - CUDA 11 for Ampere, like A100
 # - CUDA 12 for Hopper, like H100
-
 if(USE_CUDA)
   if (NOT DEFINED CUDA_ARCH OR CUDA_ARCH EQUAL 0)
     set(CMAKE_CUDA_ARCHITECTURES native)
@@ -38,15 +37,6 @@ if(USE_CUDA)
   endif()
   project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran CUDA)
   find_package(CUDAToolkit REQUIRED)
-  if (CUDAToolkit_FOUND)
-    message(STATUS "CUDAToolkit_FOUND: ${CUDAToolkit_FOUND}")
-    message(STATUS "CUDAToolkit_VERSION: ${CUDAToolkit_VERSION}")
-    add_definitions(-DUSE_CUDA)
-    set(USE_CUDA ON)
-  else()
-    message(SEND_ERROR "-DUSE_CUDA=True is defined, but CUDAToolkit not found, Non-CUDA build is used")
-    set(USE_CUDA OFF)
-  endif()  
 else()
   project(${CMAKE_PROJECT_NAME}, VERSION ${project_version} LANGUAGES C CXX Fortran)
   message(STATUS "SpecFWI is compiled without cuda, because -DUSE_CUDA=True is not defined")
@@ -62,13 +52,25 @@ message(STATUS "BLAS_FOUND: ${BLAS_FOUND}")
 message(STATUS "BLAS_LIBRARIES: ${BLAS_LIBRARIES}")
 
 # setup MPI
-find_package(MPI REQUIRED Fortran)
+find_package(MPI REQUIRED Fortran CXX)
 if (MPI_FOUND)
   message(STATUS "MPI_FOUND: ${MPI_FOUND}")
   message(STATUS "MPI_VERSION: ${MPI_VERSION}")
   add_definitions(-DWITH_MPI)
 else()
   message(FATAL_ERROR "MPI not found, which is required for SpecFWI")
+endif()
+
+if(USE_CUDA)
+  if (CUDAToolkit_FOUND)
+    message(STATUS "CUDAToolkit_FOUND: ${CUDAToolkit_FOUND}")
+    message(STATUS "CUDAToolkit_VERSION: ${CUDAToolkit_VERSION}")
+    add_definitions(-DUSE_CUDA)
+    set(USE_CUDA ON)
+  else()
+    message(SEND_ERROR "-DUSE_CUDA=True is defined, but CUDAToolkit not found, Non-CUDA build is used")
+    set(USE_CUDA OFF)
+  endif()  
 endif()
 
 option(NO_UPDATE_SUBMODULE "Do not update submodule" OFF)

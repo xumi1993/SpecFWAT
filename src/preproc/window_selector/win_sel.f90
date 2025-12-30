@@ -22,15 +22,26 @@ module win_sel
     integer :: nstart, nend, npts
     integer, allocatable :: win_samp(:,:)
   contains
-    procedure :: init => initialize, gen_good_windows
-    procedure, private :: sliding_cc, split_window_by_phases
+    procedure :: select_windows
+    procedure, private :: initialize, sliding_cc, split_window_by_phases
+    final :: finalize
   end type win_sel_type
 
+  interface win_sel_type
+    module procedure new_win_sel_type
+  end interface win_sel_type
+
 contains
-  subroutine initialize(this, dat, syn, dt, t0, tp, dis, min_period)
-    class(win_sel_type), intent(inout) :: this
+  function new_win_sel_type(dat, syn, dt, t0, tp, dis, min_period) result(this)
     real(kind=dp), dimension(:), intent(in) :: dat, syn
     real(kind=dp), intent(in) :: dt, t0, tp, dis, min_period
+    type(win_sel_type) :: this
+
+    call this%initialize(dat, syn, dt, t0, tp, dis, min_period)
+  end function new_win_sel_type
+
+  subroutine finalize(this)
+    type(win_sel_type), intent(inout) :: this
 
     if (allocated(this%dat)) deallocate(this%dat)
     if (allocated(this%syn)) deallocate(this%syn)
@@ -40,6 +51,13 @@ contains
     if (allocated(this%twin)) deallocate(this%twin)
     if (allocated(this%wt)) deallocate(this%wt)
     if (allocated(this%win_samp)) deallocate(this%win_samp)
+  end subroutine finalize
+
+  subroutine initialize(this, dat, syn, dt, t0, tp, dis, min_period)
+    class(win_sel_type), intent(inout) :: this
+    real(kind=dp), dimension(:), intent(in) :: dat, syn
+    real(kind=dp), intent(in) :: dt, t0, tp, dis, min_period
+
     this%dat = dat / maxval(abs(syn))
     this%syn = syn / maxval(abs(syn))
     this%dt = dt
@@ -81,7 +99,7 @@ contains
     
   end subroutine sliding_cc
 
-  subroutine gen_good_windows(this)
+  subroutine select_windows(this)
     class(win_sel_type), intent(inout) :: this
     integer :: i, n_jump, n_groups, group_start, group_end, ib, ie, n_peaks, &
                groups(max_good_win, 2)
@@ -256,7 +274,7 @@ contains
     if (allocated(final_win_samp)) deallocate(final_win_samp)
     if (allocated(final_twin)) deallocate(final_twin)
 
-  end subroutine gen_good_windows
+  end subroutine select_windows
 
   subroutine split_window_by_phases(this, start_idx, end_idx, stalta, peaks, troughs, &
                                     min_window_length, sub_windows, n_sub_windows)

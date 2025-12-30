@@ -388,8 +388,28 @@ contains
               win_cfg%min_energy_ratio = dble(win_type%get_real('MIN_ENERGY_RATIO', error=io_err, default=5.0))
               win_cfg%min_peaks_troughs = win_type%get_integer('MIN_PEAKS_TROUGHS', error=io_err, default=3)
               win_cfg%is_split_phases = win_type%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
-            else if (this%sim%WIN_TYPE == WIN_GROUPVEL_TYPE) then
+            else if (this%sim%WIN_TYPE == WIN_FLEX_TYPE) then
+              this%sim%PHASE = 'P'
               win_type => win%get_dictionary('WIN_TYPE_2', required=.true., error=io_err)
+              win_cfg%min_velocity = dble(win_type%get_real('MIN_VELOCITY', error=io_err, default=2.4))
+              win_cfg%min_win_len_fac = dble(win_type%get_real('MIN_WIN_LEN_FAC', error=io_err, default=1.5))
+              win_cfg%threshold_corr = dble(win_type%get_real('THRESHOLD_CORR', error=io_err, default=0.8))
+              win_cfg%threshold_shift_fac = dble(win_type%get_real('THRESHOLD_SHIFT_FAC', error=io_err, default=0.3))
+              win_cfg%threshold_dlna = dble(win_type%get_real('THRESHOLD_DLNA', error=io_err, default=1.0))
+              win_cfg%min_snr_window = dble(win_type%get_real('MIN_SNR_WINDOW', error=io_err, default=5.0))
+              win_cfg%is_split_phases = win_type%get_logical('IS_SPLIT_PHASES', error=io_err, default=.false.)
+              win_cfg%max_time_before_first_arrival = dble(win_type%get_real('MAX_TIME_BEFORE_FIRST_ARRIVAL', &
+                                                           error=io_err, default=10.0))
+              win_cfg%stalta_water_level = dble(win_type%get_real('STALTA_WATER_LEVEL', error=io_err, default=0.07))
+              win_cfg%c_0 = dble(win_type%get_real('C_0', error=io_err, default=1.0))
+              win_cfg%c_1 = dble(win_type%get_real('C_1', error=io_err, default=1.5))
+              win_cfg%c_2 = dble(win_type%get_real('C_2', error=io_err, default=0.0))
+              win_cfg%c_3a = dble(win_type%get_real('C_3A', error=io_err, default=4.0))
+              win_cfg%c_3b = dble(win_type%get_real('C_3B', error=io_err, default=2.5))
+              win_cfg%c_4a = dble(win_type%get_real('C_4A', error=io_err, default=2.0))
+              win_cfg%c_4b = dble(win_type%get_real('C_4B', error=io_err, default=6.0))
+            else if (this%sim%WIN_TYPE == WIN_GROUPVEL_TYPE) then
+              win_type => win%get_dictionary('WIN_TYPE_3', required=.true., error=io_err)
               list => win_type%get_list('GROUPVEL_MIN', required=.true., error=io_err)
               if(associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
               call read_real_list(list, this%sim%GROUPVEL_MIN)
@@ -401,7 +421,7 @@ contains
                 call exit_mpi(worldrank, 'ERROR: the number of GROUPVEL for leq FWI is not consistent')
               endif
             else if (this%sim%WIN_TYPE == WIN_ARRIVAL_TYPE) then
-              win_type => win%get_dictionary('WIN_TYPE_3', required=.true., error=io_err)
+              win_type => win%get_dictionary('WIN_TYPE_4', required=.true., error=io_err)
               block 
                 character(len=MAX_STRING_LEN) :: phase_tmp
                 phase_tmp = win_type%get_string('PHASE', error=io_err, default='P')
@@ -421,6 +441,7 @@ contains
           is_leq = .false.
         end if
 
+        ! read adjoint source parameters
         block
           class(type_dictionary), pointer :: ma, macc, mamt, maenv
           real(kind=cr) :: tshift_lim(2), dlna_lim(2)
@@ -654,6 +675,24 @@ contains
         call bcast_all_singledp(win_cfg%min_energy_ratio)
         call bcast_all_singlei(win_cfg%min_peaks_troughs)
         call bcast_all_singlel(win_cfg%is_split_phases)
+      else if (leq_par%WIN_TYPE == WIN_FLEX_TYPE) then
+        call bcast_all_ch_array(leq_par%PHASE, 1, PHASE_NAME_LEN)
+        call bcast_all_singledp(win_cfg%min_velocity)
+        call bcast_all_singledp(win_cfg%min_win_len_fac)
+        call bcast_all_singledp(win_cfg%threshold_corr)
+        call bcast_all_singledp(win_cfg%threshold_shift_fac)
+        call bcast_all_singledp(win_cfg%threshold_dlna)
+        call bcast_all_singledp(win_cfg%min_snr_window)
+        call bcast_all_singlel(win_cfg%is_split_phases)
+        call bcast_all_singledp(win_cfg%max_time_before_first_arrival)
+        call bcast_all_singledp(win_cfg%stalta_water_level)
+        call bcast_all_singledp(win_cfg%c_0)
+        call bcast_all_singledp(win_cfg%c_1)
+        call bcast_all_singledp(win_cfg%c_2)
+        call bcast_all_singledp(win_cfg%c_3a)
+        call bcast_all_singledp(win_cfg%c_3b)
+        call bcast_all_singledp(win_cfg%c_4a)
+        call bcast_all_singledp(win_cfg%c_4b)
       else if (leq_par%WIN_TYPE == WIN_GROUPVEL_TYPE) then
         if (worldrank > 0) then
           allocate(leq_par%GROUPVEL_MIN(leq_par%NUM_FILTER))
