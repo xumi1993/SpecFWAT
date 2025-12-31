@@ -1,5 +1,4 @@
 module sta_lta_mod
-  use config
   use signal
   implicit none
   contains

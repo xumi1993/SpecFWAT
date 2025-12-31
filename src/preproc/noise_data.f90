@@ -258,12 +258,13 @@ contains
     call free_shm_array(this%dat_win)
   end subroutine finalize
 
-  subroutine write_in_preocess(this, irec, icomp, tb, te, label, trace)
+  subroutine write_in_preocess(this, irec, icomp, tb, te, label, trace, a)
     class(NoiseData), intent(inout) :: this
     integer, intent(in) :: irec, icomp
     real(kind=dp), intent(in) :: tb, te
     real(kind=dp), dimension(:), intent(in) :: trace
     character(len=*), intent(in) :: label
+    real(kind=dp), optional, intent(in) :: a
     type(sachead) :: header
     character(len=MAX_STRING_LEN) :: datafile
 
@@ -287,6 +288,7 @@ contains
     header%kevnm = trim(fpar%acqui%evtid_names(this%ievt))
     header%t1 = real(tb)
     header%t2 = real(te)
+    if (present(a)) header%a = real(a)
     call sacio_writesac(datafile, header, trace, ier)
 
   end subroutine write_in_preocess
