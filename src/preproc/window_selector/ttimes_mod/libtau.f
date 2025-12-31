@@ -1468,13 +1468,14 @@ c     if(prnt(1)) write(10,100,iostat=ios)'   ',j,pt(j)
      1 (jndx(jb,k),k=1,2),(cn*xbrn(jb,k),k=1,2),xbrn(jb,3),
      2 (cn*dbrn(jb,k),k=1,2),(idel(jb,k),k=1,3),int,newgrd,makgrd
  101  format(1x,a,2i5,2f8.2,f8.4,2f8.2,4i3,2l2)
-      go to 15
+c      go to 15
  3    if(prnt(2)) write(10,103,iostat=ios)phcd(jb),
      1 (jndx(jb,k),k=1,2),(cn*xbrn(jb,k),k=1,2),xbrn(jb,3),
      2 (idel(jb,k),k=1,3),int,newgrd,makgrd
  103  format(1x,a,2i5,2f8.2,f8.4,16x,4i3,2l2)
- 15   if(mxcnt.gt.mncnt.or.mncnt.gt.mxcnt+1)
-     1 call warn('Bad interpolation on '//phcd(jb))
+c  15   if(mxcnt.gt.mncnt.or.mncnt.gt.mxcnt+1)
+c      1 call warn('Bad interpolation on '//phcd(jb))
+      
       return
       end
       subroutine tabin(in,modnam)
