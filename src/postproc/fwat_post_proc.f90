@@ -35,7 +35,8 @@ program fwat_post_proc
       if (fpar%postproc%IS_PRECOND) then
         call fpp%apply_precond()
       else
-        if (.not. (is_joint .and. itype == 1)) call fpp%sum_precond()
+        if ((.not. (is_joint .and. (itype == 1 .or. itype == 3))) .and. &
+            run_mode == 1) call fpp%sum_precond()
       endif
 
       call fpp%pde_smooth()

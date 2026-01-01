@@ -104,7 +104,8 @@ kernel_smooth_sph_pde(int is_sph, int num_elmts,int iphase,int num_phase_ispec,
                     const realw* wgllwgll_yz,const realw* hprimeT,
                     const realw* hprime_wgll,const int *ibool,
                     const realw cv,const realw ch,
-                    const realw* dat_glob,realw_p ddat_glob)
+                    const realw* dat_glob,realw_p ddat_glob,
+                    const int * irregular_element_number, realw xix_regular)
 {
     int bx = blockIdx.x + gridDim.x*blockIdx.y;
     if(bx >= num_elmts) return;
@@ -144,15 +145,30 @@ kernel_smooth_sph_pde(int is_sph, int num_elmts,int iphase,int num_phase_ispec,
     rxl = rotate[(ispec*3+0)*NGLL3PAD + tx];
     ryl = rotate[(ispec*3+1)*NGLL3PAD + tx];
     rzl = rotate[(ispec*3+2)*NGLL3PAD + tx];
-    xixl = xix[offset];
-    xiyl = xiy[offset];
-    xizl = xiz[offset];
-    etaxl = etax[offset];
-    etayl = etay[offset];
-    etazl = etaz[offset];
-    gamxl = gamx[offset];
-    gamyl = gamy[offset];
-    gamzl = gamz[offset];
+
+    int ispec_irreg = irregular_element_number[ispec];
+    if (ispec_irreg != 0) {
+        int offset_irreg = (ispec_irreg - 1) * NGLL3PAD + tx;
+        xixl = xix[offset_irreg];
+        xiyl = xiy[offset_irreg];
+        xizl = xiz[offset_irreg];
+        etaxl = etax[offset_irreg];
+        etayl = etay[offset_irreg];
+        etazl = etaz[offset_irreg];
+        gamxl = gamx[offset_irreg];
+        gamyl = gamy[offset_irreg];
+        gamzl = gamz[offset_irreg];
+    } else {
+        xixl = xix_regular;
+        xiyl = xix_regular;
+        xizl = xix_regular;
+        etaxl = xix_regular;
+        etayl = xix_regular;
+        etazl = xix_regular;
+        gamxl = xix_regular;
+        gamyl = xix_regular;
+        gamzl = xix_regular;
+    }
     jacobianl = jaco[offset];
     mxm_optx(sh_u,sh_hprimeT,I,J,K,&temp1);
     mxm_opty(sh_u,sh_hprimeT,I,J,K,&temp2);
@@ -294,7 +310,9 @@ smooth_pde_cuda_(int *h_is_sph, int *h_nspec, int *h_nglob,int *nprocs,
                 int *h_num_intfs,int *h_max_nibool,const int *my_neighbors,
                 const int *nibool_intf,const int* ibool_intf,
                 const realw* dat_bak, realw_p dat,const realw *rvol,
-                realw_p dat_glob,realw_p ddat_glob)
+                realw_p dat_glob,realw_p ddat_glob,
+                const int * irregular_element_number, const realw * h_xix_regular,
+                const int * h_nspec_irregular)
 {
     // allocate memory on device
     cudaError_t err;
@@ -315,6 +333,8 @@ smooth_pde_cuda_(int *h_is_sph, int *h_nspec, int *h_nglob,int *nprocs,
     GET(realw,cv); GET(realw,ch);
     GET(int,num_intfs); GET(int,max_nibool);
     GET(int,is_sph);
+    GET(int,nspec_irregular);
+    GET(realw,xix_regular);
     #undef GET
     
     // allocate a new rotate with shape(nspec,3,NGLL3)
@@ -326,12 +346,12 @@ smooth_pde_cuda_(int *h_is_sph, int *h_nspec, int *h_nglob,int *nprocs,
         }}
     }
     ALLOCEM(realw,rotate,nspec*3);
-    ALLOCEM(realw,xix,nspec);   
-    ALLOCEM(realw,xiy,nspec);   ALLOCEM(realw,jaco,nspec);
-    ALLOCEM(realw,xiz,nspec);   ALLOCEM(realw,dat_bak,nspec);
-    ALLOCEM(realw,etax,nspec);  ALLOCEM(realw,gamx,nspec); 
-    ALLOCEM(realw,etay,nspec);  ALLOCEM(realw,gamy,nspec); 
-    ALLOCEM(realw,etaz,nspec);  ALLOCEM(realw,gamz,nspec);
+    ALLOCEM(realw,xix,nspec_irregular);   
+    ALLOCEM(realw,xiy,nspec_irregular);   ALLOCEM(realw,jaco,nspec);
+    ALLOCEM(realw,xiz,nspec_irregular);   ALLOCEM(realw,dat_bak,nspec);
+    ALLOCEM(realw,etax,nspec_irregular);  ALLOCEM(realw,gamx,nspec_irregular); 
+    ALLOCEM(realw,etay,nspec_irregular);  ALLOCEM(realw,gamy,nspec_irregular); 
+    ALLOCEM(realw,etaz,nspec_irregular);  ALLOCEM(realw,gamz,nspec_irregular);
     ALLOCEM(int,ibool,nspec); 
     ALLOC(realw,wgllwgll_xy,NGLL2); ALLOC(realw,hprimeT,NGLL2);
     ALLOC(realw,wgllwgll_xz,NGLL2); ALLOC(realw,hprime_wgll,NGLL2);
@@ -339,6 +359,7 @@ smooth_pde_cuda_(int *h_is_sph, int *h_nspec, int *h_nglob,int *nprocs,
     ALLOC(realw,rvol,nglob);
     ALLOC(realw,dat_glob,nglob);
     ALLOC(int,is_CPML,nspec);
+    ALLOC(int,irregular_element_number,nspec);
 
     // phase ispec
     ALLOC(int,phase_ispec_inner_elastic,*nspec_max*2);
@@ -374,7 +395,8 @@ smooth_pde_cuda_(int *h_is_sph, int *h_nspec, int *h_nglob,int *nprocs,
                 is_sph,nelmnts,iphase,*nspec_max,d_phase_ispec_inner_elastic,d_xix,
                 d_xiy,d_xiz,d_etax,d_etay,d_etaz,d_gamx,d_gamy,d_gamz,
                 d_jaco,d_rotate,d_wgllwgll_xy,d_wgllwgll_xz,d_wgllwgll_yz,
-                d_hprimeT,d_hprime_wgll,d_ibool,cv,ch,d_dat_glob,d_ddat_glob
+                d_hprimeT,d_hprime_wgll,d_ibool,cv,ch,d_dat_glob,d_ddat_glob,
+                d_irregular_element_number,xix_regular
             );
 
             // communication if required
@@ -447,6 +469,7 @@ smooth_pde_cuda_(int *h_is_sph, int *h_nspec, int *h_nglob,int *nprocs,
     cudaFree(d_nibool_intf);
     cudaFree(d_ibool_intf);
     cudaFree(d_is_CPML);
+    cudaFree(d_irregular_element_number);
     cudaFree(d_dat_glob); cudaFree(d_dat_bak);
     cudaFree(d_rvol);
     delete[] rotate;

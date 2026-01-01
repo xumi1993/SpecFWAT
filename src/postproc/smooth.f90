@@ -1,4 +1,5 @@
 module smooth_mod
+  use, intrinsic :: ieee_arithmetic, only: ieee_is_nan
 
 implicit none
 
@@ -242,23 +243,46 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
         endif
         do ispec_p = 1,num_elements
           ispec = phase_ispec_inner_elastic(ispec_p,iphase)
+          ispec_irreg = irregular_element_number(ispec)
+          if (ispec_irreg /= 0) then
+            call get_gradient_element(dat(:,:,:,ispec), &
+              dx_elem, dy_elem, dz_elem, &
+              xixstore(:,:,:,ispec), xiystore(:,:,:,ispec), xizstore(:,:,:,ispec), &
+              etaxstore(:,:,:,ispec), etaystore(:,:,:,ispec), etazstore(:,:,:,ispec), &
+              gammaxstore(:,:,:,ispec), gammaystore(:,:,:,ispec), gammazstore(:,:,:,ispec))
+          else
+            call get_gradient_element_regular(dat(:,:,:,ispec), &
+              xix_regular,dx_elem, dy_elem, dz_elem)
+          endif
           call get_gradient_element(dat(:,:,:,ispec), &
             dx_elem, dy_elem, dz_elem, &
             xixstore(:,:,:,ispec), xiystore(:,:,:,ispec), xizstore(:,:,:,ispec), &
             etaxstore(:,:,:,ispec), etaystore(:,:,:,ispec), etazstore(:,:,:,ispec), &
             gammaxstore(:,:,:,ispec), gammaystore(:,:,:,ispec), gammazstore(:,:,:,ispec))
-          ispec_irreg = irregular_element_number(ispec)
           do k=1,NGLLZ;do j=1,NGLLY;do i=1,NGLLX
-            xixl = xixstore(i,j,k,ispec_irreg)
-            xiyl = xiystore(i,j,k,ispec_irreg)
-            xizl = xizstore(i,j,k,ispec_irreg)
-            etaxl = etaxstore(i,j,k,ispec_irreg)
-            etayl = etaystore(i,j,k,ispec_irreg)
-            etazl = etazstore(i,j,k,ispec_irreg)
-            gammaxl = gammaxstore(i,j,k,ispec_irreg)
-            gammayl = gammaystore(i,j,k,ispec_irreg)
-            gammazl = gammazstore(i,j,k,ispec_irreg)
-            jacobianl = jacobianstore(i,j,k,ispec_irreg)
+            if (ispec_irreg /= 0) then
+              xixl = xixstore(i,j,k,ispec_irreg)
+              xiyl = xiystore(i,j,k,ispec_irreg)
+              xizl = xizstore(i,j,k,ispec_irreg)
+              etaxl = etaxstore(i,j,k,ispec_irreg)
+              etayl = etaystore(i,j,k,ispec_irreg)
+              etazl = etazstore(i,j,k,ispec_irreg)
+              gammaxl = gammaxstore(i,j,k,ispec_irreg)
+              gammayl = gammaystore(i,j,k,ispec_irreg)
+              gammazl = gammazstore(i,j,k,ispec_irreg)
+              jacobianl = jacobianstore(i,j,k,ispec_irreg)
+            else
+              xixl = xix_regular
+              xiyl = xix_regular
+              xizl = xix_regular
+              etaxl = xix_regular
+              etayl = xix_regular
+              etazl = xix_regular
+              gammaxl = xix_regular
+              gammayl = xix_regular
+              gammazl = xix_regular
+              jacobianl = jacobian_regular
+            endif
             if (is_sph) then
               !! spherical coordinate
               rxl = rotate_r(1,i,j,k,ispec)
@@ -379,7 +403,8 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
                           wgllwgll_yz,hprime_xxT,hprimewgll_xx,ibool, &
                           is_CPML,cv,ch,num_interfaces_ext_mesh,max_nibool_interfaces_ext_mesh, &
                           my_neighbors_ext_mesh,nibool_interfaces_ext_mesh, &
-                          ibool_interfaces_ext_mesh,dat_bak,dat,rvol,dat_glob,ddat_glob)
+                          ibool_interfaces_ext_mesh,dat_bak,dat,rvol,dat_glob,ddat_glob, &
+                          irregular_element_number,xix_regular,NSPEC_IRREGULAR)
   endif
   call synchronize_all()
   ! call cpu_time(t2)
@@ -627,4 +652,46 @@ subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
   enddo
   end subroutine get_gradient_element
 
+  subroutine get_gradient_element_regular(s, xix, dx_elem, dy_elem, dz_elem)
+    use constants, only: CUSTOM_REAL, NGLLX, NGLLY, NGLLZ
+    use specfem_par, only: hprime_xxT,hprime_yyT,hprime_zzT
+    implicit none
+    real(kind=CUSTOM_REAL), dimension(NGLLX, NGLLY, NGLLZ), intent(in) :: s
+    real(kind=CUSTOM_REAL), dimension(NGLLX, NGLLY, NGLLZ), intent(out) :: &
+            dx_elem, dy_elem, dz_elem
+    real(kind=CUSTOM_REAL), intent(in) :: xix
+    integer :: i,j,k,l
+    real(kind=CUSTOM_REAL) :: hp1,hp2,hp3
+    real(kind=CUSTOM_REAL) :: temp1l, temp2l, temp3l
+    dx_elem(:,:,:) = 0.0
+    dy_elem(:,:,:) = 0.0
+    dz_elem(:,:,:) = 0.0
+    do k = 1, NGLLZ
+      do j = 1, NGLLY
+        do i = 1, NGLLX
+          temp1l = 0.0
+          temp2l = 0.0
+          temp3l = 0.0
+          do l = 1, NGLLX
+            hp1 = hprime_xxT(l,i)
+            temp1l = temp1l + s(l,j,k) * hp1
+          enddo
+          do l = 1, NGLLY
+            hp2 = hprime_yyT(l,j)
+            temp2l = temp2l + s(i,l,k) * hp2
+          enddo
+          do l = 1, NGLLZ
+            hp3 = hprime_zzT(l,k)
+            temp3l = temp3l + s(i,j,l) * hp3
+          enddo
+          dx_elem(i,j,k)=temp1l*xix+&
+                  temp2l*xix+temp3l*xix
+          dy_elem(i,j,k)=temp1l*xix+&
+                  temp2l*xix+temp3l*xix
+          dz_elem(i,j,k)=temp1l*xix+&
+                  temp2l*xix+temp3l*xix
+        enddo
+      enddo
+    enddo
+  end subroutine get_gradient_element_regular
 end module
