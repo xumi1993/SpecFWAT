@@ -254,11 +254,6 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
             call get_gradient_element_regular(dat(:,:,:,ispec), &
               xix_regular,dx_elem, dy_elem, dz_elem)
           endif
-          call get_gradient_element(dat(:,:,:,ispec), &
-            dx_elem, dy_elem, dz_elem, &
-            xixstore(:,:,:,ispec), xiystore(:,:,:,ispec), xizstore(:,:,:,ispec), &
-            etaxstore(:,:,:,ispec), etaystore(:,:,:,ispec), etazstore(:,:,:,ispec), &
-            gammaxstore(:,:,:,ispec), gammaystore(:,:,:,ispec), gammazstore(:,:,:,ispec))
           do k=1,NGLLZ;do j=1,NGLLY;do i=1,NGLLX
             if (ispec_irreg /= 0) then
               xixl = xixstore(i,j,k,ispec_irreg)
