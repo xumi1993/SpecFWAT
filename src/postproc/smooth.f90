@@ -426,13 +426,11 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   ! close(IOUT)
   ! if (myrank == 0) print *,'written: ',trim(ks_file)
 
-  ! deallocate(ibool,irregular_element_number)
-  ! deallocate(xix,xiy,xiz,etax,etay,etaz,gammax,gammay,gammaz,jacobian)
-  ! deallocate(rotate_r)
-  ! deallocate(dat, dat_glob, ddat_glob)
-  ! deallocate(buffer_send_vector_ext_mesh_smooth, &
-  !            buffer_recv_vector_ext_mesh_smooth)
-  ! deallocate(rvol, rvol_local)
+  deallocate(rotate_r)
+  deallocate(dat_glob, ddat_glob, dat_bak, jacobian_all)
+  deallocate(buffer_send_vector_ext_mesh_smooth, &
+             buffer_recv_vector_ext_mesh_smooth)
+  deallocate(rvol, rvol_local)
 
   ! call finalize_mpi()
 

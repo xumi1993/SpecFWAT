@@ -331,7 +331,11 @@ contains
     else
       COMPUTE_AND_STORE_STRAIN = .true.
       ATTENUATION = .false.
-      if (PML_CONDITIONS) UNDO_ATTENUATION_AND_OR_PML = .true.
+      if (PML_CONDITIONS) then
+        UNDO_ATTENUATION_AND_OR_PML = .true.
+      else
+        UNDO_ATTENUATION_AND_OR_PML = .false.
+      endif
     endif
 
     ! Initialize variables of Specfem
