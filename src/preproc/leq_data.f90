@@ -141,8 +141,8 @@ contains
             if (nwin > 0) then
               if (IS_OUTPUT_PREPROC) then
                 ! Write preprocessed data
-                call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'syn', seismo_syn)
-                call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'obs', seismo_dat)
+                call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'syn', seismo_syn, a=tp)
+                call this%write_in_preocess(irec, icomp, windows(1, 1), windows(nwin, 2), 'obs', seismo_dat, a=tp)
               end if
               ! calculate adjoint source
               call calculate_adjoint_source(seismo_dat, seismo_syn, dble(fpar%sim%dt), windows+T0, &

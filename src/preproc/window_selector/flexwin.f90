@@ -71,6 +71,7 @@ contains
     class(flexwin_type), intent(inout) :: this
     real(kind=dp), dimension(:), intent(in) :: dat, syn
     real(kind=dp), intent(in) :: dt, t0, tp, dis, min_period, max_period
+    integer :: ntp
 
     this%dat = dat / maxval(abs(syn))
     this%syn = syn / maxval(abs(syn))
@@ -90,9 +91,16 @@ contains
     ! So noise_level^2 is mean energy of noise.
     ! Energy of window = sum(dat_win**2) / nlen
     if (this%nstart > 0) then
-       this%noise_level = maxval(abs(dat(1:this%nstart)))
+      this%noise_level = sqrt(sum(dat(1:this%nstart)**2) / real(this%nstart, kind=dp))
     else
-       this%noise_level = 1.0_dp ! Avoid division by zero
+      ! Fallback: use data up to first arrival if available
+      ntp = int((tp + t0) / dt) + 1
+      if (ntp > 1) then
+        ntp = min(ntp, size(dat))
+        this%noise_level = sqrt(sum(dat(1:ntp)**2) / real(ntp, kind=dp))
+      else
+        this%noise_level = 0.001_dp ! Avoid division by zero
+      end if
     end if
 
   end subroutine initialize
@@ -145,6 +153,18 @@ contains
        cand%snr_eng = (sum(dat_win**2) / real(nlen, kind=dp)) / (this%noise_level**2)
     else
        cand%snr_eng = 1.0e5_dp
+    end if
+
+    ! Check min peaks/troughs
+    if (win_config_global%min_peaks_troughs > 0) then
+      block
+        integer, allocatable :: pks(:), trgs(:)
+        pks = find_maxima(syn_win)
+        trgs = find_maxima(-syn_win)
+        if (size(pks) + size(trgs) < win_config_global%min_peaks_troughs) then
+          cand%rejected = .true.
+        end if
+      end block
     end if
     
     ! Calculate weight (example: based on CC and shift)
@@ -217,11 +237,16 @@ contains
              
              ! Initial rejection based on travel times (if available)
              ! In Fortran, tstart/tend are set in initialize.
-             if ((real(candidates(n_cand)%left_idx - 1, kind=dp) * this%dt < this%tstart) .or. &
-                 (real(candidates(n_cand)%right_idx - 1, kind=dp) * this%dt > this%tend)) then
-                candidates(n_cand)%rejected = .true.
-             end if
-             
+            !  if ((real(candidates(n_cand)%left_idx - 1, kind=dp) * this%dt < this%tstart) .or. &
+                !  (real(candidates(n_cand)%right_idx - 1, kind=dp) * this%dt > this%tend)) then
+                ! candidates(n_cand)%rejected = .true.
+            !  end if
+            if ((real(candidates(n_cand)%left_idx - 1, kind=dp) * this%dt < this%tstart)) then
+              candidates(n_cand)%left_idx = this%nstart
+            end if 
+            if ((real(candidates(n_cand)%right_idx - 1, kind=dp) * this%dt > this%tend)) then
+              candidates(n_cand)%right_idx = this%nend
+            end if             
           end do
           if (n_cand >= max_good_win) exit
        end do
@@ -271,7 +296,7 @@ contains
       if (candidates(i)%rejected) cycle
       
       call this%calculate_criteria(candidates(i))
-      
+
       ! Check CC
       if (candidates(i)%cc < win_config_global%threshold_corr) then
         candidates(i)%rejected = .true.
@@ -291,7 +316,6 @@ contains
       if (candidates(i)%snr_amp < win_config_global%min_snr_window) then
         candidates(i)%rejected = .true.
       end if
-      
     end do
     
     ! 5. Resolution Strategy
