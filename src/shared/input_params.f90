@@ -37,8 +37,8 @@ module input_params
     character(len=MAX_STRING_LEN) :: mesh_par_file
     integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE, WIN_TYPE, INJECTION_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
-    character(len= MAX_STRING_LEN) :: CH_CODE
-    character(len=PHASE_NAME_LEN) :: PHASE, AXISEM_BASE_PATH
+    character(len= MAX_STRING_LEN) :: CH_CODE, AXISEM_BASE_PATH
+    character(len=PHASE_NAME_LEN) :: PHASE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
     logical :: USE_NEAR_OFFSET, ADJ_SRC_NORM, SUPPRESS_EGF, USE_LOCAL_STF, USE_RHO_SCALING, SAVE_FK
