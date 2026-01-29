@@ -11,10 +11,12 @@ contains
     character(len=MAX_STRING_LEN) :: prname_trac
 
       ! AxiSEM coupling
+    if (allocated(Veloc_axisem)) deallocate(Veloc_axisem)
     allocate(Veloc_axisem(3,NGLLSQUARE*num_abs_boundary_faces),stat=ier)
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 2192')
     Veloc_axisem(:,:) = 0._CUSTOM_REAL
 
+    if (allocated(Tract_axisem)) deallocate(Tract_axisem)
     allocate(Tract_axisem(3,NGLLSQUARE*num_abs_boundary_faces),stat=ier)
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 2193')
     Tract_axisem(:,:) = 0._CUSTOM_REAL
