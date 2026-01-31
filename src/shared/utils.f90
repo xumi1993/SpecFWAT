@@ -12,7 +12,7 @@
 !=====================================================================
 module utils
   use fwat_constants, only: cr, dp, rad2deg, deg2rad, km2deg,&
-                            r_earth_km, MAX_STRING_LEN
+                            r_earth_km, MAX_STRING_LEN,PI
 
   implicit none
 
@@ -1661,5 +1661,21 @@ end function
     end if
 
   end function simpson
+
+  function mean_angle(angles) result(avg)
+    real(kind=dp), dimension(:), intent(in) :: angles
+    real(kind=dp) :: avg
+    real(kind=dp) :: sum_cos, sum_sin
+    integer :: n
+    n = size(angles)
+    if (n == 0) then
+      avg = 0.0_dp
+      return
+    end if
+    sum_cos = sum(cos(angles * pi / 180.0_dp))
+    sum_sin = sum(sin(angles * pi / 180.0_dp))
+    avg = atan2(sum_sin, sum_cos) * 180.0_dp / pi
+    if (avg < 0.0_dp) avg = avg + 360.0_dp
+  end function mean_angle
 
 end module
