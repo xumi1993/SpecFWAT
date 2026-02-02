@@ -496,6 +496,8 @@ contains
     call this%od%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
+    call free_shm_array(this%baz_win)
+    call free_shm_array(this%az_win)
     deallocate(this%stf_array, stat=ier)
     deallocate(this%seismo_dat, stat=ier)
     deallocate(this%seismo_syn, stat=ier)

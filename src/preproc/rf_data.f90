@@ -392,6 +392,8 @@ module rf_data
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%rf_win)
     call free_shm_array(this%syn_win)
+    call free_shm_array(this%baz_win)
+    call free_shm_array(this%az_win)
   end subroutine finalize
 
 end module rf_data

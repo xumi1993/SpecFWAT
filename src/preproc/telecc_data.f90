@@ -222,18 +222,20 @@ contains
   subroutine calc_times(this)
     class(TeleCCData), intent(inout) :: this
     real(kind=cr), dimension(:), allocatable :: ttp_local
+    real(kind=cr) :: baz, az
     integer :: irec_local, irec
 
     call read_fk_model(fpar%acqui%evtid_names(this%ievt))
     
-    this%baz = -phi_FK - 90.d0
-    this%az = 90.d0 - phi_FK
+    baz = -phi_FK - 90.d0
+    az = 90.d0 - phi_FK
 
     call free_fk_arrays()
 
     ttp_local = zeros(this%nrec)
     call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
-    
+    call prepare_shm_array_cr_1d(this%baz, this%nrec, this%baz_win)
+    call prepare_shm_array_cr_1d(this%az, this%nrec, this%az_win)
     if (this%nrec_loc > 0) then
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
@@ -242,6 +244,15 @@ contains
     endif
     call sum_all_1Darray_cr(ttp_local, this%ttp, this%nrec)
     call sync_from_main_rank_cr_1d(this%ttp, this%nrec)
+    if (noderank == 0) then
+      do irec = 1, this%nrec
+        this%baz(irec) = baz
+        this%az(irec) = az
+      end do
+    endif
+    call sync_from_main_rank_cr_1d(this%baz, this%nrec)
+    call sync_from_main_rank_cr_1d(this%az, this%nrec)
+    
   end subroutine calc_times
 
   subroutine finalize(this)
@@ -250,6 +261,8 @@ contains
     call this%od%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
+    call free_shm_array(this%baz_win)
+    call free_shm_array(this%az_win)
     deallocate(this%seismo_dat, stat=ier)
     deallocate(this%seismo_syn, stat=ier)
   end subroutine finalize
