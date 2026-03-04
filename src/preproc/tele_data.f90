@@ -11,7 +11,7 @@ module tele_data
   use input_params, fpar => fwat_par_global
   use fk_coupling
   use fwat_mpi
-  use utils, only: zeros_dp, zeros, interp1, mean_angle
+  use utils, only: zeros_dp, zeros, interp1
   use distaz_lib, only: distaz
   use sacio
   use logger, only: log
