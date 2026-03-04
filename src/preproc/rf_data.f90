@@ -363,6 +363,8 @@ module rf_data
         this%az(irec) = az_local
       enddo
     end if
+    call sync_from_main_rank_cr_1d(this%baz, this%nrec)
+    call sync_from_main_rank_cr_1d(this%az, this%nrec)
     call free_fk_arrays()
   end subroutine get_baz
 
