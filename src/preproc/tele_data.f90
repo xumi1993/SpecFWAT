@@ -49,7 +49,7 @@ contains
 
     call this%od%read_stations(ievt, .true.)
 
-    if (fpar%sim%INJECTION_TYPE == 1) then
+    if (fpar%sim%INJECTION_TYPE == INJECTION_FK) then
       call this%calc_fktimes()
     else
       call this%calc_axisem_baz_time()
