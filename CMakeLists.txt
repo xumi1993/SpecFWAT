@@ -141,6 +141,14 @@ elseif("${CMAKE_Fortran_COMPILER_ID}" MATCHES "Flang")
   set(CMAKE_Fortran_FLAGS_DEBUG "-g -O0 -fbacktrace -fbounds-check -ffpe-trap=invalid,zero,overflow")
 endif()
 
+# debug flags
+option(DEBUG_MODE OFF)
+if (DEBUG_MODE)
+  message(STATUS "Debug mode is ON")
+  set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${CMAKE_Fortran_FLAGS_DEBUG}")
+else()
+  message(STATUS "Debug mode is OFF")
+endif()
 
 # setup version
 # set the version number and git commit hash

@@ -27,6 +27,10 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
   character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
 
+  !Injection types
+  integer, parameter :: INJECTION_FK = 1
+  integer, parameter :: INJECTION_AXISEM = 2
+
   ! Kernel types
   character(len=MAX_STRING_LEN), dimension(3), parameter :: KERNEL_ISO = ['alpha', 'beta ', 'rhop ']
   character(len=MAX_STRING_LEN), dimension(5), parameter :: KERNEL_AZI_ANI = ['alpha', 'beta ', 'rhop ', 'gcp  ', 'gsp  ']

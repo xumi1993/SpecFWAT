@@ -12,6 +12,7 @@ module tele_data
   use fk_coupling
   use fwat_mpi
   use utils, only: zeros_dp, zeros, interp1
+  use distaz_lib, only: distaz
   use sacio
   use logger, only: log
   use shared_parameters, only: SUPPRESS_UTM_PROJECTION
@@ -23,13 +24,13 @@ module tele_data
   character(len=MAX_STRING_LEN), private :: msg
 
   type, extends(SynData) :: TeleData
-    real(kind=cr), dimension(:), pointer :: ttp ! travel time of P
+    real(kind=cr), dimension(:), pointer :: ttp, baz, az ! travel time of P
     real(kind=dp), dimension(:,:), allocatable :: stf_array
     real(kind=dp), dimension(:,:,:), allocatable :: seismo_dat, seismo_syn
-    real(kind=cr) :: baz, az, avgamp
-    integer :: ttp_win
+    real(kind=cr) :: avgamp
+    integer :: ttp_win, baz_win, az_win
     contains
-    procedure :: preprocess, calc_fktimes, semd2sac
+    procedure :: preprocess, calc_fktimes, semd2sac, calc_axisem_baz_time
     procedure, private :: seis_pca, measure_adj
     procedure :: finalize
   end type TeleData
@@ -41,17 +42,20 @@ contains
     integer, intent(in) :: ievt
     integer :: irec, irec_local, icomp
     real(kind=dp), dimension(:), allocatable :: stf_array, seismo_syn
-    real(kind=cr), dimension(:), allocatable :: bazi
     character(len=MAX_STRING_LEN) :: datafile
     type(sachead) :: header
 
     call this%init(ievt)
 
     call this%od%read_stations(ievt, .true.)
-    call this%calc_fktimes()
 
-    bazi = zeros(this%nrec)+this%baz
-    call this%read(bazi)
+    if (fpar%sim%INJECTION_TYPE == INJECTION_FK) then
+      call this%calc_fktimes()
+    else
+      call this%calc_axisem_baz_time()
+    end if
+
+    call this%read(this%baz)
 
     call mkdir(fpar%acqui%in_dat_path(this%ievt))
     call synchronize_all()
@@ -81,8 +85,8 @@ contains
                      //trim(fpar%sim%RCOMPS(icomp))//'.sac'
           call sacio_newhead(header, real(fpar%sim%dt), fpar%sim%nstep, -real(T0))
           ! header%dist = dist
-          header%az = this%az
-          header%baz = this%baz
+          header%az = this%az(irec)
+          header%baz = this%baz(irec)
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
@@ -297,7 +301,7 @@ contains
             call this%write_adj(adj_syn_local(1:NSTEP), trim(this%comp_name(1)), irec)
           case (2)
             adj_src = zeros_dp(fpar%sim%nstep, 2)
-            call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz)
+            call rotate_R_to_NE_dp(adj_syn_local(1:NSTEP), adj_src(:, 2), adj_src(:, 1), this%baz(irec))
             call this%write_adj(adj_src(:, 1), trim(this%comp_name(2)), irec)
             call this%write_adj(adj_src(:, 2), trim(this%comp_name(3)), irec)
           end select
@@ -418,6 +422,37 @@ contains
 
   end subroutine deconv_for_stf
 
+  subroutine calc_axisem_baz_time(this)
+    class(TeleData), intent(inout) :: this
+    real(kind=dp) :: dist_in_km, delta, stla, stlo
+    real(kind=dp), dimension(:), allocatable :: baz_array, az_array
+    integer :: irec
+
+    call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
+    call prepare_shm_array_cr_1d(this%baz, this%nrec, this%baz_win)
+    call prepare_shm_array_cr_1d(this%az, this%nrec, this%az_win)
+    
+    if (worldrank == 0) then
+      allocate(baz_array(this%nrec))
+      allocate(az_array(this%nrec))
+      do irec = 1, this%nrec
+        stlo = dble(this%od%stlo(irec))
+        stla = dble(this%od%stla(irec))
+        call distaz(stla, stlo, &
+                    dble(fpar%acqui%evla(this%ievt)), dble(fpar%acqui%evlo(this%ievt)), &
+                    az_array(irec), baz_array(irec), delta, dist_in_km)
+      end do
+      this%baz = real(baz_array)
+      this%az = real(az_array)
+      this%ttp = 0.0_cr
+      deallocate(baz_array, az_array)
+    end if
+    call sync_from_main_rank_cr_1d(this%ttp, this%nrec)
+    call sync_from_main_rank_cr_1d(this%baz, this%nrec)
+    call sync_from_main_rank_cr_1d(this%az, this%nrec)
+
+  end subroutine calc_axisem_baz_time
+
   subroutine calc_fktimes(this)
     class(TeleData), intent(inout) :: this
 
@@ -427,14 +462,15 @@ contains
     integer :: irec
 
     call prepare_shm_array_cr_1d(this%ttp, this%nrec, this%ttp_win)
+    call prepare_shm_array_cr_1d(this%baz, this%nrec, this%baz_win)
+    call prepare_shm_array_cr_1d(this%az, this%nrec, this%az_win)
 
     call read_fk_model(fpar%acqui%evtid_names(this%ievt))
 
-    this%baz = -phi_FK - 90.d0
-    this%az = 90.d0 - phi_FK
-    
     if (worldrank == 0) then
       do irec = 1, this%nrec
+        this%baz(irec) = -phi_FK - 90.d0
+        this%az(irec) = 90.d0 - phi_FK
         stlo = dble(this%od%stlo(irec))
         stla = dble(this%od%stla(irec))
         if (.not. SUPPRESS_UTM_PROJECTION) then
@@ -449,6 +485,8 @@ contains
       this%ttp = this%ttp - T0
     endif
     call sync_from_main_rank_cr_1d(this%ttp, this%nrec)
+    call sync_from_main_rank_cr_1d(this%baz, this%nrec)
+    call sync_from_main_rank_cr_1d(this%az, this%nrec)
     call free_fk_arrays()
   end subroutine calc_fktimes
 
@@ -458,6 +496,8 @@ contains
     call this%od%finalize()
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%dat_win)
+    call free_shm_array(this%baz_win)
+    call free_shm_array(this%az_win)
     deallocate(this%stf_array, stat=ier)
     deallocate(this%seismo_dat, stat=ier)
     deallocate(this%seismo_syn, stat=ier)

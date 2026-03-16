@@ -35,9 +35,9 @@ module input_params
 
   type sim_params
     character(len=MAX_STRING_LEN) :: mesh_par_file
-    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE, WIN_TYPE
+    integer :: NRCOMP, NSCOMP, NUM_FILTER, NSTEP, IMEAS, PRECOND_TYPE, TELE_TYPE, WIN_TYPE, INJECTION_TYPE
     character(len= MAX_STRING_LEN), dimension(:), allocatable :: RCOMPS, SCOMPS
-    character(len= MAX_STRING_LEN) :: CH_CODE
+    character(len= MAX_STRING_LEN) :: CH_CODE, AXISEM_BASE_PATH
     character(len=PHASE_NAME_LEN) :: PHASE
     real(kind=cr) :: DT, SIGMA_H, SIGMA_V
     real(kind=cr), dimension(:), allocatable :: SHORT_P, LONG_P, GROUPVEL_MIN, GROUPVEL_MAX, TIME_WIN
@@ -319,8 +319,16 @@ contains
           this%sim%NUM_FILTER = 1
           this%sim%USE_LOCAL_STF = tele%get_logical('USE_LOCAL_STF', error=io_err)
           this%sim%TELE_TYPE = tele%get_integer('TELE_TYPE', error=io_err)
-          this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
-          compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
+          this%sim%INJECTION_TYPE = tele%get_integer('INJECTION_TYPE', error=io_err, default=INJECTION_FK)
+          if (this%sim%INJECTION_TYPE /= INJECTION_FK .and. this%sim%INJECTION_TYPE /= INJECTION_AXISEM) then
+            call exit_mpi(worldrank, 'ERROR: INVALID INJECTION_TYPE in TELE section')
+          endif
+          if (this%sim%INJECTION_TYPE == INJECTION_AXISEM) then
+            this%sim%AXISEM_BASE_PATH = tele%get_string('AXISEM_BASE_PATH', error=io_err)
+          else
+            this%sim%SAVE_FK = tele%get_logical('SAVE_FK', error=io_err, default=.true.)
+            compress_level = tele%get_integer('COMPRESS_LEVEL', error=io_err, default=0)
+          endif
           this%sim%SIGMA_H = tele%get_real('SIGMA_H', error=io_err)
           ! if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
           this%sim%SIGMA_V = tele%get_real('SIGMA_V', error=io_err)
@@ -613,6 +621,7 @@ contains
       call bcast_all_singlecr(tele_par%rf%TSHIFT)
       call bcast_all_singlei(tele_par%rf%NGAUSS)
       call bcast_all_singlel(tele_par%USE_RHO_SCALING)
+      call bcast_all_singlei(tele_par%INJECTION_TYPE)
       call bcast_all_singlel(tele_par%SAVE_FK)
       call bcast_all_singlei(compress_level)
       call bcast_all_singlei(tele_par%WIN_TYPE)
@@ -626,6 +635,7 @@ contains
         endif
       endif
       call bcast_all_ch_array(tele_par%RCOMPS, tele_par%NRCOMP, MAX_STRING_LEN)
+      call bcast_all_ch_array(tele_par%AXISEM_BASE_PATH, 1, MAX_STRING_LEN)
       call bcast_all_ch_array(tele_par%CH_CODE, 1, MAX_STRING_LEN)
       call bcast_all_singlecr(tele_par%DT)
       call bcast_all_r(tele_par%TIME_WIN, 2)

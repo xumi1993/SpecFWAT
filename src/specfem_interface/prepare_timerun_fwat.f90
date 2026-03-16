@@ -101,7 +101,7 @@
 
   ! prepares coupling with injection boundary
   ! call couple_with_injection_prepare_boundary()
-  if (COUPLE_WITH_INJECTION_TECHNIQUE .and. SIMULATION_TYPE==1) then
+  if (COUPLE_WITH_INJECTION_TECHNIQUE .and. SIMULATION_TYPE==1 .and. INJECTION_TECHNIQUE_TYPE==3) then
     if (check_fk_files(fpar%acqui%evtid_names(ievt))) then
       call log%write('Read FK wavefield for event '//trim(fpar%acqui%evtid_names(ievt)), .true.)
       call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))

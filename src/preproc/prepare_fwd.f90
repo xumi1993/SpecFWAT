@@ -5,12 +5,13 @@ module preproc_fwd
                          PRINT_SOURCE_TIME_FUNCTION, SAVE_FORWARD, SAVE_MESH_FILES, SIMULATION_TYPE, LOCAL_PATH,&
                          ANISOTROPIC_KL, NSPEC_ADJOINT, FKMODEL_FILE, prname, COUPLE_WITH_INJECTION_TECHNIQUE,&
                          USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH, &
-                         ATTENUATION, ANISOTROPY, PML_CONDITIONS, UNDO_ATTENUATION_AND_OR_PML
+                         ATTENUATION, ANISOTROPY, PML_CONDITIONS, UNDO_ATTENUATION_AND_OR_PML, TRACTION_PATH
   use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz, COMPUTE_AND_STORE_STRAIN
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
   use input_params, fpar => fwat_par_global
   use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files, read_fk_model
+  use axisem_coupling, only: setup_axisem_coupling
   use logger, only: log
   use tele_data, only: TeleData
   use rf_data, only: RFData
@@ -190,12 +191,21 @@ contains
       case (SIMU_TYPE_TELE)
         USE_FORCE_POINT_SOURCE = .false.
         COUPLE_WITH_INJECTION_TECHNIQUE=.true.
-        INJECTION_TECHNIQUE_TYPE=3
-        FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
-        if (dat_type == 'rf') then
-          fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
+        if (fpar%sim%INJECTION_TYPE == INJECTION_FK) then
+          INJECTION_TECHNIQUE_TYPE=3
+          FKMODEL_FILE = fpar%acqui%fkmodel_file(this%ievt)
+          if (dat_type == 'rf') then
+            fpar%sim%NUM_FILTER = fpar%sim%rf%NGAUSS
+          endif
+          source_fname = trim(FKMODEL_FILE)
+        elseif(fpar%sim%INJECTION_TYPE == INJECTION_AXISEM) then
+          INJECTION_TECHNIQUE_TYPE=2
+          TRACTION_PATH = trim(fpar%sim%AXISEM_BASE_PATH)//'/'//trim(evtid)
+          source_fname = trim(TRACTION_PATH)
+          call setup_axisem_coupling()
+        else
+          call exit_mpi(worldrank, 'ERROR: INVALID INJECTION_TYPE for TELE simulation')
         endif
-        source_fname = trim(FKMODEL_FILE)
       case (SIMU_TYPE_NOISE)
         USE_FORCE_POINT_SOURCE = .true.
         COUPLE_WITH_INJECTION_TECHNIQUE=.false.

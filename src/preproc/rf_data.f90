@@ -20,10 +20,9 @@ module rf_data
 
   integer :: ier
   type, extends(SynData) :: RFData
-    real(kind=cr), dimension(:), pointer :: ttp
+    real(kind=cr), dimension(:), pointer :: ttp, baz, az
     real(kind=dp), dimension(:, :, :), pointer :: rf_dat, rf_syn
-    real(kind=cr) :: baz, az
-    integer :: ttp_win, rf_win, syn_win
+    integer :: ttp_win, rf_win, syn_win, baz_win, az_win
     contains
     procedure :: semd2sac, preprocess, finalize
     procedure, private :: calc_times, calc_rf, interp_data, measure_adj, get_baz
@@ -34,7 +33,6 @@ module rf_data
   subroutine semd2sac(this, ievt)
     class(RFData), intent(inout) :: this
     integer, intent(in) :: ievt
-    real(kind=cr), dimension(:), allocatable :: bazi
     real(kind=dp), dimension(:), allocatable :: uin, win, rfi
     type(sachead) :: header
     integer :: irec_local, irec, igauss
@@ -44,8 +42,8 @@ module rf_data
     call this%od%read_stations(ievt, .true.)
 
     call this%get_baz()
-    bazi = zeros(this%nrec)+this%baz
-    call this%read(bazi)
+
+    call this%read(this%baz)
 
     call this%calc_times()
 
@@ -72,8 +70,8 @@ module rf_data
           call deconvolve(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
                            fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi, GPU_MODE)
           call sacio_newhead(header, real(fpar%sim%dt), fpar%sim%nstep, -fpar%sim%rf%tshift)
-          header%az = this%az
-          header%baz = this%baz
+          header%az = this%az(irec)
+          header%baz = this%baz(irec)
           header%stla = this%od%stla(irec)
           header%stlo = this%od%stlo(irec)
           header%stel = this%od%stel(irec)
@@ -93,7 +91,6 @@ module rf_data
   subroutine preprocess(this, ievt)
     class(RFData), intent(inout) :: this
     integer, intent(in) :: ievt    
-    real(kind=cr), dimension(:), allocatable :: bazi
     
     fpar%sim%NRCOMP = 1
     fpar%sim%RCOMPS(1) = 'R'
@@ -107,8 +104,7 @@ module rf_data
     call this%interp_data()
 
     call this%get_baz()
-    bazi = zeros(this%nrec)+this%baz
-    call this%read(bazi)
+    call this%read(this%baz)
     call this%calc_times()
 
     call this%calc_rf()
@@ -218,7 +214,7 @@ module rf_data
         ! Reuse existing arrays instead of reallocating
         adj_2 = 0.0_dp
         adj_3 = 0.0_dp
-        call rotate_R_to_NE_dp(adj_src(:, 2, irec_local), adj_3, adj_2, this%baz)
+        call rotate_R_to_NE_dp(adj_src(:, 2, irec_local), adj_3, adj_2, this%baz(irec))
         ! write N component
         call this%write_adj(adj_2, this%comp_name(2), irec)
         ! write E component
@@ -271,8 +267,8 @@ module rf_data
                          1/fpar%sim%SHORT_P(1), IORD)
         if (IS_OUTPUT_PREPROC) then
           call sacio_newhead(header, real(DT), NSTEP, -real(T0))
-          header%az = this%az
-          header%baz = this%baz
+          header%az = this%az(irec)
+          header%baz = this%baz(irec)
           header%kstnm = trim(this%od%stnm(irec))
           header%knetwk = trim(this%od%netwk(irec))
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'Z'
@@ -293,8 +289,8 @@ module rf_data
           if (IS_OUTPUT_PREPROC) then
             call sacio_newhead(header, real(DT), NSTEP, -real(fpar%sim%rf%tshift))
             write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
-            header%az = this%az
-            header%baz = this%baz
+            header%az = this%az(irec)
+            header%baz = this%baz(irec)
             header%kstnm = trim(this%od%stnm(irec))
             header%knetwk = trim(this%od%netwk(irec))
             header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
@@ -353,10 +349,22 @@ module rf_data
 
   subroutine get_baz(this)
     class(RFData), intent(inout) :: this
+    real(kind=cr) :: baz_local, az_local
+    integer :: irec
 
+    call prepare_shm_array_cr_1d(this%baz, this%nrec, this%baz_win)
+    call prepare_shm_array_cr_1d(this%az, this%nrec, this%az_win)
     call read_fk_model(fpar%acqui%evtid_names(this%ievt)) 
-    this%baz = -phi_FK - 90.d0
-    this%az = 90.d0 - phi_FK
+    baz_local = -phi_FK - 90.d0
+    az_local = 90.d0 - phi_FK
+    if (noderank == 0) then
+      do irec = 1, this%nrec
+        this%baz(irec) = baz_local
+        this%az(irec) = az_local
+      enddo
+    end if
+    call sync_from_main_rank_cr_1d(this%baz, this%nrec)
+    call sync_from_main_rank_cr_1d(this%az, this%nrec)
     call free_fk_arrays()
   end subroutine get_baz
 
@@ -386,6 +394,8 @@ module rf_data
     call free_shm_array(this%ttp_win)
     call free_shm_array(this%rf_win)
     call free_shm_array(this%syn_win)
+    call free_shm_array(this%baz_win)
+    call free_shm_array(this%az_win)
   end subroutine finalize
 
 end module rf_data

@@ -20,6 +20,11 @@ program fwat_mesh_databases
   call read_parameter_file(.true.)
   local_path_backup = trim(LOCAL_PATH)
 
+  if (simu_type == SIMU_TYPE_TELE) then
+    INJECTION_TECHNIQUE_TYPE = 3
+    COUPLE_WITH_INJECTION_TECHNIQUE = .true.
+  endif
+
   if ( fpar%update%MODEL_TYPE > 1) then
     ANISOTROPY = .true.
     ANISOTROPIC_KL = .true. 
