@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(CMAKE_PROJECT_NAME "SpecFWI")
-set(project_version 0.7.0)
+set(CMAKE_PROJECT_NAME "SpecFWAT")
+set(project_version 0.7.1)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
@@ -101,8 +101,10 @@ endif()
 
 option(USE_EXTERNAL_LIBS "Force download and use external libraries" ON)
 # yaml parser
-find_package(yaml-cpp 0.8 QUIET)
-if (yaml-cpp_FOUND AND NOT ${USE_EXTERNAL_LIBS})
+if (NOT USE_EXTERNAL_LIBS)
+  find_package(yaml-cpp 0.8 QUIET)
+endif()
+if (yaml-cpp_FOUND AND NOT USE_EXTERNAL_LIBS)
   message(STATUS "yaml-cpp found")
 else()
   message(STATUS "yaml-cpp not found. Using external_libs/yaml-cpp ...")
