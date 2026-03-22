@@ -221,7 +221,7 @@ contains
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_inv_kernel', total_hess)
       call smooth_sem_pde(total_hess, fpar%sim%sigma_h, fpar%sim%sigma_v, total_hess_smooth, .false.)
       call gll2grid(total_hess_smooth, gm)
-      this%hess_smooth = gm/maxval(abs(gm))
+      if (worldrank == 0) this%hess_smooth = gm/maxval(abs(gm))
     else
       call zprecond_grid(this%hess_smooth)
     endif
