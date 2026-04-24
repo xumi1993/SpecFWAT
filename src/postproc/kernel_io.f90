@@ -155,6 +155,18 @@ contains
     ker(:,:,:,:,3) = ker(:,:,:,:,3) * rhostore
   end subroutine kernel_cijkl2hti
 
+  subroutine convert_kernel_vp2vpvs(ker, vpvs)
+
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(in) :: vpvs
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(inout) :: ker
+
+    ! vs kernel
+    ker(:,:,:,:,2) = ker(:,:,:,:,2) + ker(:,:,:,:,1)
+    ! vp/vs kernel
+    ker(:,:,:,:,1) = ker(:,:,:,:,1) / vpvs
+
+  end subroutine convert_kernel_vp2vpvs
+
   subroutine remove_event_kernel(ievt, dataname)
     integer, intent(in) :: ievt
     character(len=*), intent(in) :: dataname
