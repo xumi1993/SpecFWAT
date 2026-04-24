@@ -158,11 +158,11 @@ contains
   subroutine convert_kernel_vp2vpvs(ker, vpvs)
 
     real(kind=cr), dimension(:,:,:,:), allocatable, intent(in) :: vpvs
-    real(kind=cr), dimension(:,:,:,:), allocatable, intent(inout) :: ker
+    real(kind=cr), dimension(:,:,:,:,:), allocatable, intent(inout) :: ker
 
     ! vs kernel
     ker(:,:,:,:,2) = ker(:,:,:,:,2) + ker(:,:,:,:,1)
-    ! vp/vs kernel
+    ! vp -> vp/vs kernel
     ker(:,:,:,:,1) = ker(:,:,:,:,1) / vpvs
 
   end subroutine convert_kernel_vp2vpvs
