@@ -20,12 +20,12 @@ module rf_data
 
   integer :: ier
   type, extends(SynData) :: RFData
-    real(kind=cr), dimension(:), pointer :: ttp, baz, az
+    real(kind=cr), dimension(:), pointer :: ttp, baz, az, inc
     real(kind=dp), dimension(:, :, :), pointer :: rf_dat, rf_syn
-    integer :: ttp_win, rf_win, syn_win, baz_win, az_win
+    integer, private :: ttp_win, rf_win, syn_win, baz_win, az_win, inc_win
     contains
     procedure :: semd2sac, preprocess, finalize
-    procedure, private :: calc_times, calc_rf, interp_data, measure_adj, get_baz
+    procedure, private :: calc_times, calc_rf, interp_data, measure_adj, get_baz, rotate_to_LQ
   end type RFData
 
   contains
@@ -87,6 +87,30 @@ module rf_data
     call synchronize_all()
 
   end subroutine semd2sac
+
+  subroutine rotate_to_LQ(this)
+    class(RFData), intent(inout) :: this
+    integer :: irec_local, irec
+    real(kind=dp), dimension(:), allocatable :: l, q
+
+    if (this%nrec_loc > 0) then
+      ! Allocate temporary arrays outside loop to avoid repeated allocation
+      l = zeros_dp(NSTEP)
+      q = zeros_dp(NSTEP)
+
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
+        ! Reuse existing arrays instead of reallocating
+        call rotate_ZR_to_LQ(this%data_local(:, 1, irec_local), this%data_local(:, 2, irec_local), &
+                             l, q, NSTEP, this%inc(irec))
+
+        ! write L component
+        this%data_local(:, 1, irec_local) = l
+        ! write Q component
+        this%data_local(:, 2, irec_local) = q
+      enddo
+    endif
+  end subroutine rotate_to_LQ
 
   subroutine preprocess(this, ievt)
     class(RFData), intent(inout) :: this
@@ -354,6 +378,7 @@ module rf_data
 
     call prepare_shm_array_cr_1d(this%baz, this%nrec, this%baz_win)
     call prepare_shm_array_cr_1d(this%az, this%nrec, this%az_win)
+    call prepare_shm_array_cr_1d(this%inc, this%nrec, this%inc_win)
     call read_fk_model(fpar%acqui%evtid_names(this%ievt)) 
     baz_local = -phi_FK - 90.d0
     az_local = 90.d0 - phi_FK
@@ -361,10 +386,12 @@ module rf_data
       do irec = 1, this%nrec
         this%baz(irec) = baz_local
         this%az(irec) = az_local
+        this%inc(irec) = theta_FK
       enddo
     end if
     call sync_from_main_rank_cr_1d(this%baz, this%nrec)
     call sync_from_main_rank_cr_1d(this%az, this%nrec)
+    call sync_from_main_rank_cr_1d(this%inc, this%nrec)
     call free_fk_arrays()
   end subroutine get_baz
 
@@ -396,6 +423,7 @@ module rf_data
     call free_shm_array(this%syn_win)
     call free_shm_array(this%baz_win)
     call free_shm_array(this%az_win)
+    call free_shm_array(this%inc_win)
   end subroutine finalize
 
 end module rf_data

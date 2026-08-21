@@ -290,6 +290,50 @@ contains
   
   end subroutine rotate_ZRT_to_ZNE
 
+  ! Rotate ZNE components to LQT using back-azimuth (bazi) and incidence angle (inc), both in degrees
+  subroutine rotate_ZNE_to_LQT(vz,vn,ve,vl,vq,vt,nt,bazi,inc)
+
+    integer,                      intent(in)  :: nt
+    real(kind=dp),                intent(in)  :: bazi, inc
+
+    real(kind=dp), dimension(nt), intent(in)  :: vz, vn, ve
+    real(kind=dp), dimension(nt), intent(out) :: vl, vq, vt
+
+    real(kind=dp) :: baz, theta
+    integer :: it
+
+    baz = deg2rad * bazi
+    theta = deg2rad * inc
+
+    do it = 1, nt
+      vl(it) =  cos(theta) * vz(it) - sin(theta) * sin(baz) * vn(it) - sin(theta) * cos(baz) * ve(it)
+      vq(it) =  sin(theta) * vz(it) + cos(theta) * sin(baz) * vn(it) + cos(theta) * cos(baz) * ve(it)
+      vt(it) = -cos(baz) * vn(it) + sin(baz) * ve(it)
+    enddo
+
+  end subroutine rotate_ZNE_to_LQT
+
+  ! Rotate ZR components to LQ using incidence angle (inc) in degrees
+  subroutine rotate_ZR_to_LQ(vz,vr,vl,vq,nt,inc)
+
+    integer,                      intent(in)  :: nt
+    real(kind=dp),                intent(in)  :: inc
+
+    real(kind=dp), dimension(nt), intent(in)  :: vz, vr
+    real(kind=dp), dimension(nt), intent(out) :: vl, vq
+
+    real(kind=dp) :: theta
+    integer :: it
+
+    theta = deg2rad * inc
+
+    do it = 1, nt
+      vl(it) = vz(it) * cos(theta) - vr(it) * sin(theta)
+      vq(it) = vz(it) * sin(theta) + vr(it) * cos(theta)
+    enddo
+
+  end subroutine rotate_ZR_to_LQ
+
   subroutine mkdir(dirname)
     character(len=*), intent(in) :: dirname
     integer :: ios
