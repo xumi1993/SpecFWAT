@@ -40,6 +40,8 @@ module fwat_constants
   character(len=MAX_STRING_LEN), dimension(5), parameter :: MODEL_NAME_AZI_ANI = ['vp ', 'vs ', 'rho', 'gcp', 'gsp']
 
   real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3, RHO_SCALING_FAC = 0.33
+
+  integer, parameter :: NCOMP_SPECFEM = 3
   integer, parameter :: NUM_INV_TYPE = 3
 
   ! Preconditioner parameters

@@ -2,7 +2,8 @@ module rf_data
   use config
   use rf_misfit
   use misfit_mod
-  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
+  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir,&
+                        rotate_ZR_to_LQ
   use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
@@ -91,25 +92,21 @@ module rf_data
   subroutine rotate_to_LQ(this)
     class(RFData), intent(inout) :: this
     integer :: irec_local, irec
-    real(kind=dp), dimension(:), allocatable :: l, q
+    real(kind=dp), dimension(:, :, :), allocatable :: data_local
 
     if (this%nrec_loc > 0) then
       ! Allocate temporary arrays outside loop to avoid repeated allocation
-      l = zeros_dp(NSTEP)
-      q = zeros_dp(NSTEP)
+     data_local = zeros_dp(NSTEP, NCOMP_SPECFEM, nrec_local)
 
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         ! Reuse existing arrays instead of reallocating
-        call rotate_ZR_to_LQ(this%data_local(:, 1, irec_local), this%data_local(:, 2, irec_local), &
-                             l, q, NSTEP, this%inc(irec))
-
-        ! write L component
-        this%data_local(:, 1, irec_local) = l
-        ! write Q component
-        this%data_local(:, 2, irec_local) = q
+        call rotate_ZR_to_LQ(this%data(:, 1, irec), this%data(:, 2, irec), &
+                             data_local(:, 1, irec_local), data_local(:, 2, irec_local),&
+                             NSTEP, dble(this%inc(irec)))
       enddo
     endif
+    call this%collect_data(data_local)
   end subroutine rotate_to_LQ
 
   subroutine preprocess(this, ievt)
