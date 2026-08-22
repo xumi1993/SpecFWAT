@@ -96,7 +96,7 @@ module rf_data
 
     if (this%nrec_loc > 0) then
       ! Allocate temporary arrays outside loop to avoid repeated allocation
-     data_local = zeros_dp(NSTEP, NCOMP_SPECFEM, nrec_local)
+      data_local = zeros_dp(NSTEP, NCOMP_SPECFEM, nrec_local)
 
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
