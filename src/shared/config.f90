@@ -26,6 +26,7 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: OUTPUT_PATH = "OUTPUT_FILES"
   character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
   character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
+  character(len=MAX_STRING_LEN), parameter :: TOMO_PATH = "tomography_model.h5"
 
   !Injection types
   integer, parameter :: INJECTION_FK = 1
@@ -126,6 +127,7 @@ module config
 
   ! post
   logical :: is_joint = .false.
+  logical :: use_gll = .false.
   integer :: nkernel, parameter_type
   character(len=MAX_STRING_LEN) :: kernel_type
   character(len=MAX_STRING_LEN), dimension(:), allocatable :: kernel_names, parameter_names

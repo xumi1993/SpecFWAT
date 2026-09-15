@@ -28,7 +28,7 @@ module post_processing
     procedure :: init=>init_post_flow
     procedure :: sum_kernel, sum_precond, init_for_type,apply_precond, &
                  write_gradient_grid, pde_smooth, taper_kernel_grid, finalize, &
-                 read_sum_kernel
+                 read_sum_kernel, write_gradient_gll, taper_kernel_gll
   end type PostFlow
 contains
 
@@ -38,7 +38,7 @@ contains
 
     call get_kernel_names()
 
-    call create_grid()
+    if (.not. use_gll) call create_grid()
     local_path_backup = LOCAL_PATH
 
     if (fpar%update%MODEL_TYPE == 1) then
@@ -102,7 +102,8 @@ contains
     call synchronize_all()
 
     this%ker_data = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT, nkernel)
-    call prepare_shm_array_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel, this%ks_win)
+    if (.not. use_gll) &
+      call prepare_shm_array_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel, this%ks_win)
   end subroutine init_for_type
   
   subroutine sum_kernel(this)
@@ -203,6 +204,7 @@ contains
     real(kind=cr), dimension(:,:,:), allocatable :: gm
     character(len=MAX_STRING_LEN) :: fname
     integer :: ievt
+    real(kind=cr) :: max_loc, max_glob
 
     call log%write('This is saving preconditioned kernels...', .true.)
     if (fpar%sim%PRECOND_TYPE <= 1) then
@@ -220,9 +222,21 @@ contains
       call invert_hess(total_hess)
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_inv_kernel', total_hess)
       call smooth_sem_pde(total_hess, fpar%sim%sigma_h, fpar%sim%sigma_v, total_hess_smooth, .false.)
+      if (use_gll) then
+        max_loc = maxval(abs(total_hess_smooth))
+        call max_all_all_cr(max_loc, max_glob)
+        if (max_glob > tiny(max_glob)) total_hess_smooth = total_hess_smooth/max_glob
+        call write_kernel(this%kernel_path, HESS_PREFIX, total_hess_smooth)
+        return
+      endif
       call gll2grid(total_hess_smooth, gm)
       if (worldrank == 0) this%hess_smooth = gm/maxval(abs(gm))
     else
+      if (use_gll) then
+        call zprecond_gll(total_hess)
+        call write_kernel(this%kernel_path, HESS_PREFIX, total_hess)
+        return
+      endif
       call zprecond_grid(this%hess_smooth)
     endif
     call synchronize_all()
@@ -264,16 +278,25 @@ contains
     do iker = 1, nkernel
       if(fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) then
         call log%write('This is scaling for rhop kernels...', .true.)
-        if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
+        if (use_gll) then
+          this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,2) * RHO_SCALING_FAC
+        else
+          if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = this%ker_data_smooth(:,:,:,2) * RHO_SCALING_FAC
+        endif
       else
         call log%write('This is smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
         call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%sigma_h, fpar%sim%sigma_v, gk, .false.)
-        call gll2grid(gk, gm)
-        if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = gm
+        if (use_gll) then
+          this%ker_data(:,:,:,:,iker) = gk
+        else
+          call gll2grid(gk, gm)
+          if (worldrank == 0) this%ker_data_smooth(:,:,:,iker) = gm
+        endif
       endif
     end do
     call synchronize_all()
-    call sync_from_main_rank_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
+    if (.not. use_gll) &
+      call sync_from_main_rank_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)
   end subroutine pde_smooth
 
   subroutine write_gradient_grid(this)
@@ -330,6 +353,46 @@ contains
     call synchronize_all()
 
   end subroutine taper_kernel_grid
+
+  subroutine write_gradient_gll(this)
+    class(PostFlow), intent(in) :: this
+    integer :: iker
+
+    do iker = 1, nkernel
+      call write_kernel(this%kernel_path, trim(kernel_names(iker))//'_kernel_smooth', this%ker_data(:,:,:,:,iker))
+    enddo
+  end subroutine write_gradient_gll
+
+  subroutine taper_kernel_gll(this)
+    use specfem_par, only: ibool, xstore, ystore, zstore
+    class(PostFlow), intent(inout) :: this
+    integer :: i, j, k, ispec, iglob
+    real(kind=cr) :: weight, dx, dy, dz
+
+    ! Evaluate the boundary taper at each GLL point without an auxiliary grid.
+    do ispec = 1, NSPEC_FWAT
+      do k = 1, NGLLZ; do j = 1, NGLLY; do i = 1, NGLLX
+        iglob = ibool(i,j,k,ispec)
+        dx = min(xstore(iglob)-x_min_glob, x_max_glob-xstore(iglob))
+        dy = min(ystore(iglob)-y_min_glob, y_max_glob-ystore(iglob))
+        dz = zstore(iglob)-z_min_glob
+        weight = boundary_taper(dx, fpar%postproc%TAPER_H_SUPPRESS, fpar%postproc%TAPER_H_BUFFER) * &
+                 boundary_taper(dy, fpar%postproc%TAPER_H_SUPPRESS, fpar%postproc%TAPER_H_BUFFER) * &
+                 boundary_taper(dz, fpar%postproc%TAPER_V_SUPPRESS, fpar%postproc%TAPER_V_BUFFER)
+        this%ker_data(i,j,k,ispec,:) = this%ker_data(i,j,k,ispec,:) * weight
+      enddo; enddo; enddo
+    enddo
+  end subroutine taper_kernel_gll
+
+  pure real(kind=cr) function boundary_taper(distance, suppress, buffer) result(weight)
+    real(kind=cr), intent(in) :: distance, suppress, buffer
+    weight = 1.0_cr
+    if (distance < suppress) then
+      weight = 0.0_cr
+    elseif (buffer > 0.0_cr .and. distance < suppress + buffer) then
+      weight = 0.5_cr * (1.0_cr - cos(real(PI,cr)*(distance-suppress)/buffer))
+    endif
+  end function boundary_taper
 
   subroutine invert_hess( hess_matrix )
   ! inverts the Hessian matrix
@@ -549,7 +612,9 @@ contains
     class(PostFlow), intent(inout) :: this
     call log%write('This is finalizing post-processing of '//trim(simu_type)//'...', .true.)
     call log%write('*******************************************', .false.)
-    call free_shm_array(this%ks_win)
+    if (.not. use_gll) call free_shm_array(this%ks_win)
+    if (allocated(this%ker_data)) deallocate(this%ker_data)
+    if (allocated(this%hess_smooth)) deallocate(this%hess_smooth)
   end subroutine finalize
 
 end module post_processing

@@ -167,3 +167,19 @@ add_subdirectory(preproc)
 add_subdirectory(postproc)
 add_subdirectory(optimization)
 add_subdirectory(aux)
+
+# Unified full-waveform tomography driver.
+add_executable(specfwat fwat_full_waveform_tomography.f90 ${SOURCES_SUBS} ${HEADERS})
+set_target_properties(specfwat PROPERTIES PREFIX "x" LINKER_LANGUAGE Fortran)
+target_link_libraries(specfwat PUBLIC
+  shared_fwat_objs shared_objs specfem3D_objs opt_objs
+  postproc_objs preproc_objs specfem_api_objs
+  tele_objs adjsrc_objs cuda_objs grid_objs
+  generate_databases_objs meshfem3D_objs external_values_objs config_objs
+  hdf5_interface_objs utils_objs window_chi_objs
+  mesh_subs_objs databases_subs_objs fftpack_objs window_selector_objs tau
+  ${MPI_LIBRARIES} fortran-yaml ${YAML_CPP_LIBRARIES}
+)
+if(USE_CUDA)
+  target_link_libraries(specfwat PUBLIC cuda_kernels_objs)
+endif()

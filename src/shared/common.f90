@@ -345,4 +345,22 @@ contains
     endif
   end subroutine mkdir
 
+  ! Collective file copy: rank zero copies the file and shares the result.
+  subroutine cp(src, dst)
+    character(len=*), intent(in) :: src, dst
+    integer :: ios, cmd_status
+
+    ios = 0
+    if (worldrank == 0) then
+      call execute_command_line('cp ' // trim(src) // ' ' // trim(dst), &
+                                wait=.true., exitstat=ios, cmdstat=cmd_status)
+      if (cmd_status /= 0) ios = cmd_status
+    endif
+    call bcast_all_singlei(ios)
+    if (ios /= 0) then
+      call exit_MPI(0, 'Error copying file: ' // trim(src) // ' -> ' // trim(dst))
+    endif
+
+  end subroutine cp
+
 end module common_lib

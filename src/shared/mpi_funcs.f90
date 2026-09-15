@@ -10,6 +10,20 @@ module fwat_mpi
   integer :: my_node_mpi_comm_world
 
 contains
+  ! Single-data inversion uses one communicator and can parse --help before
+  ! opening Par_file. Its driver validates NPROC and rejects simultaneous runs.
+  subroutine init_mpi_single_group()
+    use shared_parameters, only: NUMBER_OF_SIMULTANEOUS_RUNS
+    integer :: ierr
+    call MPI_INIT(ierr)
+    if (ierr /= MPI_SUCCESS) stop 'Error initializing MPI'
+    my_status_size = MPI_STATUS_SIZE
+    my_status_source = MPI_SOURCE
+    my_status_tag = MPI_TAG
+    my_local_mpi_comm_world = MPI_COMM_WORLD
+    NUMBER_OF_SIMULTANEOUS_RUNS = 1
+  end subroutine init_mpi_single_group
+
   subroutine init_mpi_fwat()
 
     integer :: ier

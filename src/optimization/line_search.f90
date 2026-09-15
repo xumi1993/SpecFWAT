@@ -13,10 +13,11 @@ module line_search
   character(len=MAX_STRING_LEN), private :: msg
 
 contains
-  subroutine forward_for_simu_type(total_misfit, misfit_prev)
+  subroutine forward_for_simu_type(total_misfit, misfit_prev, current_misfit)
     type(PrepareFWD) :: ffwd
     logical :: is_output_backup
     real(kind=dp), intent(out) :: total_misfit, misfit_prev
+    real(kind=dp), optional, intent(in) :: current_misfit
     real(kind=dp) :: misfit_loc
     integer :: ievt
 
@@ -24,6 +25,7 @@ contains
     IS_OUTPUT_PREPROC = .false.
     total_misfit = 0.0_dp
     misfit_prev = 0.0_dp
+    if (present(current_misfit)) misfit_prev = current_misfit
 
     call get_dat_type()
 
@@ -43,8 +45,10 @@ contains
       
       ! take sum of misfit
       total_misfit = total_misfit + ffwd%obj_func
-      misfit_loc = read_evt_misfit(model_current, ievt)
-      misfit_prev = misfit_prev + misfit_loc
+      if (.not. present(current_misfit)) then
+        misfit_loc = read_evt_misfit(model_current, ievt)
+        misfit_prev = misfit_prev + misfit_loc
+      endif
 
       call synchronize_all()
     enddo

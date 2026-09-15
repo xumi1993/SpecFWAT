@@ -512,14 +512,20 @@ contains
         is_output_direction = output%get_logical('IS_OUTPUT_DIRECTION', error=io_err, default=.false.)
 
         ! model grid
-        grid => root%get_dictionary('MODEL_GRID', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        list => grid%get_list('REGULAR_GRID_SIZE', required=.true., error=io_err)
-        call read_static_int_list(list, this%grid%regular_grid_size)
-        list => grid%get_list('REGULAR_GRID_MIN_COORD', required=.true., error=io_err)
-        call read_static_real_list(list, this%grid%regular_grid_min_coord)
-        list => grid%get_list('REGULAR_GRID_INTERVAL', required=.true., error=io_err)
-        call read_static_real_list(list, this%grid%regular_grid_interval)
+        if (.not. use_gll) then
+          grid => root%get_dictionary('MODEL_GRID', required=.true., error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          list => grid%get_list('REGULAR_GRID_SIZE', required=.true., error=io_err)
+          call read_static_int_list(list, this%grid%regular_grid_size)
+          list => grid%get_list('REGULAR_GRID_MIN_COORD', required=.true., error=io_err)
+          call read_static_real_list(list, this%grid%regular_grid_min_coord)
+          list => grid%get_list('REGULAR_GRID_INTERVAL', required=.true., error=io_err)
+          call read_static_real_list(list, this%grid%regular_grid_interval)
+        else
+          this%grid%regular_grid_size = 0
+          this%grid%regular_grid_min_coord = 0.0_cr
+          this%grid%regular_grid_interval = 0.0_cr
+        endif
 
         ! POSTPROC
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
@@ -540,7 +546,13 @@ contains
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
+        ! The GLL driver only needs the HDF5 path for a fresh external model.
+        ! It validates this after reading MODEL from SPECFEM's Par_file.
+        if (use_gll) then
+          this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err, default='')
+        else
+          this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
+        endif
         if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: INIT_MODEL_PATH is not set')
         this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err, default=1)
         if (this%update%MODEL_TYPE == 2) then

@@ -177,4 +177,59 @@ contains
     enddo
 
   end subroutine parse_args_mesh_databases
+
+  ! Parse xspecfwat options, returning the first model index and iteration count.
+  ! Also sets simu_type in config; MPI must be initialized for help/error exits.
+  subroutine parse_invert_args(first, iteration_count)
+    integer, intent(out) :: first, iteration_count
+    integer :: iarg, argc, ios
+    character(len=MAX_STRING_LEN) :: arg, value
+    logical :: has_model, has_type, has_count
+    character(len=*), parameter :: usage = 'Usage: xspecfwat -m M00 -s noise|tele|leq [-n iterations]'
+    argc = command_argument_count()
+    has_model = .false.
+    has_type = .false.
+    has_count = .false.
+    iteration_count = 1
+    first = -1
+    iarg = 1
+    do while (iarg <= argc)
+      call get_command_argument(iarg, arg)
+      if (arg == '-h' .or. arg == '--help') then
+        if (worldrank == 0) print *, usage
+        call finalize_mpi()
+        stop
+      endif
+      if (iarg == argc) call exit_MPI(worldrank, 'Missing option value. '//usage)
+      call get_command_argument(iarg+1, value)
+      select case (arg)
+      case ('-m', '--model')
+        if (has_model) call exit_MPI(worldrank, 'Repeated model option')
+        has_model = .true.
+        if (len_trim(value) /= 3 .or. value(1:1) /= 'M' .or. verify(value(2:3), '0123456789') /= 0) &
+          call exit_MPI(worldrank, 'Model must have the form M00 through M98')
+        read(value(2:3), '(I2)', iostat=ios) first
+        if (ios /= 0) call exit_MPI(worldrank, 'Invalid model index')
+      case ('-s', '--simu-type')
+        if (has_type) call exit_MPI(worldrank, 'Repeated simulation type')
+        has_type = .true.
+        simu_type = value
+        if (.not. any(INV_TYPE_NAMES == simu_type)) call exit_MPI(worldrank, 'Unknown simulation type. '//usage)
+      case ('-n', '--iterations')
+        if (has_count) call exit_MPI(worldrank, 'Repeated iteration count')
+        has_count = .true.
+        if (len_trim(value) == 0 .or. verify(trim(value), '0123456789') /= 0) &
+          call exit_MPI(worldrank, 'Iteration count must be a positive integer')
+        read(value, *, iostat=ios) iteration_count
+        if (ios /= 0) call exit_MPI(worldrank, 'Invalid iteration count')
+      case default
+        call exit_MPI(worldrank, 'Unknown option: '//trim(arg)//'. '//usage)
+      end select
+      iarg = iarg+2
+    enddo
+    if (.not. has_model .or. .not. has_type) call exit_MPI(worldrank, usage)
+    if (first < 0 .or. first > 98 .or. iteration_count < 1 .or. iteration_count > 99-first) &
+      call exit_MPI(worldrank, 'Requested iterations must produce models no later than M99')
+  end subroutine parse_invert_args
+
 end module argparse

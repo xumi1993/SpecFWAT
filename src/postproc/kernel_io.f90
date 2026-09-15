@@ -39,7 +39,7 @@ contains
     call bcast_all_singlecr(distance_min_glob)
     call bcast_all_singlecr(distance_max_glob)
 
-    if (worldrank == 0) then
+    if (worldrank == 0 .and. .not. use_gll) then
       if (ext_grid%x(1) > x_min_glob) then
         write(msg, '(A,F0.6,A,F20.6)') 'Error: Min x: ',ext_grid%x(1), &
               ' value of grid larger than x_min_glob:', x_min_glob
