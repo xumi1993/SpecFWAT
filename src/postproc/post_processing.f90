@@ -77,13 +77,13 @@ contains
     write(msg, '(a,F10.1,F10.1)') 'PDE smoothing; SIGMA_H, SIGMA_V: ', fpar%sim%SIGMA_H, &
                                 fpar%sim%SIGMA_V
     call log%write(msg, .false.)
-    if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then
+    if (.not. fpar%postproc%IS_HESS_PRECOND .and. is_joint) then
       write(msg, '(a)') 'Preconditioned L-BFGS'
     else
-      write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_PRECOND
+      write(msg, '(a, L5)') 'Preconditioning: ', fpar%postproc%IS_HESS_PRECOND
     endif
     call log%write(msg, .false.)
-    if (.not. fpar%postproc%IS_PRECOND .and. is_joint) then
+    if (.not. fpar%postproc%IS_HESS_PRECOND .and. is_joint) then
       write(msg, '(a,I3)') 'Precondition type: ', tele_par%PRECOND_TYPE
     else
       write(msg, '(a,I3)') 'Precondition type: ', fpar%sim%PRECOND_TYPE

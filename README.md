@@ -26,6 +26,25 @@ done
 
 ## Single-command GLL inversion
 
+To update an already computed GLL gradient independently:
+
+```bash
+mpirun -np "$NPROC" /path/to/bin/xfwat_optimize -m M00 -g
+```
+
+Without `-g` (or `--use-gll`), the regular-grid workflow is unchanged. GLL mode
+selects the single enabled `POSTPROC.INV_TYPE` and reads the existing mesh
+databases from `LOCAL_PATH` and processed kernels from `optimize/SUM_KERNELS_M00`.
+It uses the same SD/L-BFGS optimizer, preconditioning, Vp/Vs bounds, and optional
+Armijo line search described below; `MODEL_GRID` is not required. Line search
+also requires the raw summed kernels and the current model's event misfit files.
+The mesh partition, rank count, and CPU/GPU mesh ordering must match the kernels.
+This command archives the current model in `optimize/model_M00` and writes the
+updated model to both `optimize/model_M01` and `LOCAL_PATH`. It does not remesh
+or rebuild the accepted model's solver databases after a fixed-step update.
+Set `MODEL = gll` in `DATA/Par_file` before building the next iteration's
+databases; only the initial `M00` update may use `MODEL = external`.
+
 Build the `specfwat` target, then run from the case directory:
 
 ```bash
@@ -57,7 +76,7 @@ by `-s` in `POSTPROC.INV_TYPE` (order: noise, tele, leq). For example:
 POSTPROC:
   INV_TYPE: [True, False, False]
   JOINT_WEIGHT: [1.0, 1.0, 1.0]
-  IS_PRECOND: False
+  IS_HESS_PRECOND: False
   # Existing taper settings may also be used.
 
 MODEL_UPDATE:
@@ -112,7 +131,7 @@ stay on the GLL mesh. Use positive `SIGMA_H` and `SIGMA_V` and `PRECOND_TYPE: 1`
 - `optimize/SUM_KERNELS_Mxx/proc*_alpha_kernel_smooth.bin`, `beta_kernel_smooth.bin`,
   `rhop_kernel_smooth.bin`: processed gradient history read directly by L-BFGS.
 - `optimize/SUM_KERNELS_Mxx/proc*_hess_inv.bin`: inverse diagonal preconditioner
-  when `IS_PRECOND: False`; with `True`, preconditioning is applied to the kernels.
+  when `IS_HESS_PRECOND: False`; with `True`, preconditioning is applied to the kernels.
 - `LOCAL_PATH/proc*_{vp,vs,rho}.bin`: latest accepted model, ready for the next
   database generation. Solver databases correspond to the last evaluated model.
 - `output_optimize_gll_Mxx.log`: search direction and accepted step information.

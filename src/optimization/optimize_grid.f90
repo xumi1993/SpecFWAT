@@ -49,7 +49,7 @@ contains
 
     call this%get_model_idx()
 
-    if (.not. fpar%postproc%IS_PRECOND) then
+    if (.not. fpar%postproc%IS_HESS_PRECOND) then
       call this%read_hess_inv()
     else
       this%hess = ones(ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel)

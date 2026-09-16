@@ -154,7 +154,7 @@ program fwat_full_waveform_tomography
     call post%sum_kernel()
     ! Apply preconditioning to the kernels here, or save the inverse Hessian
     ! for application when the optimizer constructs its search direction.
-    if (fpar%postproc%IS_PRECOND) then
+    if (fpar%postproc%IS_HESS_PRECOND) then
       call post%apply_precond()
     else
       call post%sum_precond()

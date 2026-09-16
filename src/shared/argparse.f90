@@ -72,12 +72,12 @@ contains
   end subroutine parse_args_fwd_meas_adj
 
   subroutine parse_args_post_process()
-    integer, parameter :: max_num_args = 4, min_num_args = 2
+    integer, parameter :: max_num_args = 5, min_num_args = 2
     character(len=MAX_STRING_LEN), dimension(max_num_args) :: argv
     integer :: i, iarg, argc
     character(len=MAX_STRING_LEN) :: usage
 
-    usage = 'Usage: fwat_post_proc -m <model> [-r 1|2] [-h]'
+    usage = 'Usage: fwat_post_proc -m <model> [-r 1|2] [-h] -g'
 
     argc = command_argument_count()
     do i = 1, argc
@@ -110,40 +110,45 @@ contains
           call exit_MPI(0, 'ERROR: run-mode not set')
         endif
         read(argv(iarg), *) run_mode
+      elseif (argv(i) == '-g' .or. argv(i) == '--use-gll') then
+        use_gll = .true.
       endif
     enddo
 
   end subroutine parse_args_post_process
 
   subroutine parse_args_optimize()
-    integer, parameter :: max_num_args = 2
-    character(len=MAX_STRING_LEN), dimension(max_num_args) :: argv
-    integer :: i, iarg, argc
-    character(len=MAX_STRING_LEN) :: usage
-
-    usage = 'Usage: fwat_optimize -m <model>'
-
+    integer :: iarg, argc
+    character(len=MAX_STRING_LEN) :: arg
+    logical :: has_model
+    character(len=*), parameter :: usage = 'Usage: fwat_optimize -m <model> [-g|--use-gll]'
     argc = command_argument_count()
-    do i = 1, argc
-      call get_command_argument(i, argv(i))
+    has_model = .false.
+    use_gll = .false.
+    iarg = 1
+    do while (iarg <= argc)
+      call get_command_argument(iarg, arg)
+      select case (arg)
+      case ('-m', '--model')
+        if (has_model) call exit_MPI(worldrank, 'Repeated model option. '//usage)
+        iarg = iarg + 1
+        if (iarg > argc) call exit_MPI(worldrank, 'Model name not set. '//usage)
+        call get_command_argument(iarg, model_name)
+        if (len_trim(model_name) == 0 .or. model_name(1:1) == '-') &
+          call exit_MPI(worldrank, 'Model name not set. '//usage)
+        has_model = .true.
+      case ('-g', '--use-gll')
+        use_gll = .true.
+      case ('-h', '--help')
+        if (worldrank == 0) print *, usage
+        call finalize_MPI()
+        stop
+      case default
+        call exit_MPI(worldrank, 'Unknown option: '//trim(arg)//'. '//usage)
+      end select
+      iarg = iarg + 1
     enddo
-
-    if (argc /= max_num_args) then
-      if (worldrank == 0) print *, trim(usage)
-      call exit_MPI(0, 'ERROR: Too more arguments')
-    endif
-
-    ! parse arguments
-    do i = 1, argc
-      if (argv(i) == '-m' .or. argv(i) == '--model') then
-        iarg = i + 1
-        if (iarg > argc) then
-          if (worldrank == 0) print *, trim(usage)
-          call exit_MPI(0, 'ERROR: Model name not set')
-        endif
-        model_name = argv(iarg)
-      endif
-    enddo
+    if (.not. has_model) call exit_MPI(worldrank, 'Model name not set. '//usage)
   end subroutine parse_args_optimize
 
   subroutine parse_args_mesh_databases()

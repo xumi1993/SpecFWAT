@@ -367,11 +367,14 @@ contains
         end if
         do
           read(unit, '(a)', iostat=ier) line
+          if (ier < 0) exit
+          if (ier > 0) call exit_MPI(worldrank, 'Error reading misfit file: '//trim(chifile))
+          if (len_trim(line) == 0) cycle
           line_sp = split_by_spaces(trim(line))
           read(line_sp(8), *) misfit
-          if (ier /= 0) exit
           total_misfit = total_misfit + misfit
         end do
+        close(unit)
       end do
     endif
     call synchronize_all()

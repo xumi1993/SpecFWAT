@@ -55,7 +55,7 @@ module input_params
     real(kind=cr), dimension(NUM_INV_TYPE) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
     integer :: NORM_TYPE
-    logical :: IS_PRECOND
+    logical :: IS_HESS_PRECOND
   end type postproc_params
 
   type update_params
@@ -541,7 +541,7 @@ contains
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err, default=0.0_cr)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err, default=0.0_cr)
         this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err, default=0.0_cr)
-        this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
+        this%postproc%IS_HESS_PRECOND = post%get_logical('IS_HESS_PRECOND', error=io_err)
 
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
@@ -769,7 +769,7 @@ contains
     call bcast_all_singlecr(this%postproc%TAPER_V_SUPPRESS)
     call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
     call bcast_all_singlecr(this%postproc%TAPER_V_BUFFER)
-    call bcast_all_singlel(this%postproc%IS_PRECOND)
+    call bcast_all_singlel(this%postproc%IS_HESS_PRECOND)
     call bcast_all_l_array(this%postproc%INV_TYPE, NUM_INV_TYPE)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, NUM_INV_TYPE)
     call bcast_all_singlel(is_joint)

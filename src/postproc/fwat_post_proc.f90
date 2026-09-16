@@ -32,7 +32,7 @@ program fwat_post_proc
         call fpp%read_sum_kernel()
       endif
       
-      if (fpar%postproc%IS_PRECOND) then
+      if (fpar%postproc%IS_HESS_PRECOND) then
         call fpp%apply_precond()
       else
         if ((.not. (is_joint .and. (itype == 1 .or. itype == 3))) .and. &
@@ -40,10 +40,14 @@ program fwat_post_proc
       endif
 
       call fpp%pde_smooth()
-
-      call fpp%taper_kernel_grid()
-
-      call fpp%write_gradient_grid()
+      
+      if (use_gll) then
+        call fpp%taper_kernel_gll()
+        call fpp%write_gradient_gll()
+      else
+        call fpp%taper_kernel_grid()
+        call fpp%write_gradient_grid()
+      endif
 
       ! remove event kernels
       call remove_ekernel()

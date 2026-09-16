@@ -143,7 +143,7 @@ contains
     if (allocated(this%hess)) deallocate(this%hess, this%weights)
     allocate(this%hess(NGLLX,NGLLY,NGLLZ,NSPEC_AB), this%weights(NGLLX,NGLLY,NGLLZ,NSPEC_AB))
     this%hess = 1.0_cr
-    if (.not. fpar%postproc%IS_PRECOND) then
+    if (.not. fpar%postproc%IS_HESS_PRECOND) then
       call read_gll_vector(path, [HESS_PREFIX], h, NSPEC_AB)
       this%hess = h(:,:,:,:,1)
     endif
