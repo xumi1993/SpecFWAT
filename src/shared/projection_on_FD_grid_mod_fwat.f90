@@ -210,6 +210,8 @@ end subroutine read_fd_grid_parameters_for_projection
     integer                                                :: nb_fd_point_loc, ier
     integer, dimension(:,:,:), allocatable                 :: point_already_found
     double precision, dimension(:,:,:), allocatable        :: xi_in_fd, eta_in_fd, gamma_in_fd
+    double precision, dimension(:,:,:), allocatable        :: dist_in_fd, dist_best
+    double precision                                       :: dist_squared
    !  character(len=MAX_STRING_LEN)                          :: fname
 
     ! read fd grid parameters !!
@@ -232,8 +234,15 @@ end subroutine read_fd_grid_parameters_for_projection
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 146')
     allocate(gamma_in_fd(nx_fd_proj, ny_fd_proj, nz_fd_proj),stat=ier)
     if (ier /= 0) call exit_MPI_without_rank('error allocating array 147')
+    !! squared distance between the fd point and the point actually picked up
+    !! in the element it was assigned to; used to keep the best candidate
+    allocate(dist_in_fd(nx_fd_proj, ny_fd_proj, nz_fd_proj),stat=ier)
+    if (ier /= 0) call exit_MPI_without_rank('error allocating array 147b')
+    allocate(dist_best(nx_fd_proj, ny_fd_proj, nz_fd_proj),stat=ier)
+    if (ier /= 0) call exit_MPI_without_rank('error allocating array 147c')
 
     point_already_found(:,:,:)=0
+    dist_in_fd(:,:,:)=HUGEVAL
 
     !! loop over elements
     do ispec = 1, NSPEC_AB
@@ -263,12 +272,20 @@ end subroutine read_fd_grid_parameters_for_projection
           enddo
        enddo
 
-       kmin =  1+ (zmin  - oz_fd_proj) / hz_fd_proj
-       kmax =  1+ (zmax  - oz_fd_proj) / hz_fd_proj
-       jmin =  1+ (ymin  - oy_fd_proj) / hy_fd_proj
-       jmax =  1+ (ymax  - oy_fd_proj) / hy_fd_proj
-       imin =  1+ (xmin  - ox_fd_proj) / hx_fd_proj
-       imax =  1+ (xmax  - ox_fd_proj) / hx_fd_proj
+       !! index range of the fd points inside the bounding box of the element.
+       !! floor() keeps the lower bound right for points left of the origin,
+       !! where an implicit conversion would truncate towards zero instead, and
+       !! the clamp keeps an element sticking out of the fd box from indexing
+       !! outside the arrays below
+       kmin =  max(1,          1 + floor((zmin - oz_fd_proj) / hz_fd_proj))
+       kmax =  min(nz_fd_proj, 1 + floor((zmax - oz_fd_proj) / hz_fd_proj))
+       jmin =  max(1,          1 + floor((ymin - oy_fd_proj) / hy_fd_proj))
+       jmax =  min(ny_fd_proj, 1 + floor((ymax - oy_fd_proj) / hy_fd_proj))
+       imin =  max(1,          1 + floor((xmin - ox_fd_proj) / hx_fd_proj))
+       imax =  min(nx_fd_proj, 1 + floor((xmax - ox_fd_proj) / hx_fd_proj))
+
+       !! element is outside the fd grid
+       if (imin > imax .or. jmin > jmax .or. kmin > kmax) cycle
 
         if (DEBUG_MODE) then
           write(*,*) ' projection SEM2FD : boundary element'
@@ -311,17 +328,51 @@ end subroutine read_fd_grid_parameters_for_projection
 !!$                   write(IIDD,*)  point_already_found(ifd, jfd, kfd)
 !!$                endif
 
-                if (abs(xi_loc) < 1.05d0 .and. abs(eta_loc) < 1.05d0 .and. abs(gamma_loc) < 1.05d0) then
-                   if (point_already_found(ifd, jfd, kfd) == 0) then
-                      point_already_found(ifd, jfd, kfd)=ispec_selected
-                      xi_in_fd(ifd, jfd, kfd)=xi_loc
-                      eta_in_fd(ifd, jfd, kfd)=eta_loc
-                      gamma_in_fd(ifd, jfd, kfd)=gamma_loc
-                      nb_fd_point_loc = nb_fd_point_loc + 1
-                   endif
+                !! locate_point_in_element clamps xi/eta/gamma into [-1,1], so
+                !! it always reports a point on or inside this element and a
+                !! test on |xi| cannot tell whether the target really lies in
+                !! it. Keep instead the element whose returned point is closest
+                !! to the target: that is the one actually containing it
+                !! (distance ~ 0) rather than whichever element came first in
+                !! the loop. Elements are strongly non-cuboid around a doubling
+                !! layer, so their bounding boxes overlap and first-come wins
+                !! would hand many points to a neighbour, extrapolating their
+                !! value onto that neighbour's face.
+                dist_squared = (x_found - x_to_locate)**2 &
+                             + (y_found - y_to_locate)**2 &
+                             + (z_found - z_to_locate)**2
+
+                if (point_already_found(ifd, jfd, kfd) == 0) then
+                   nb_fd_point_loc = nb_fd_point_loc + 1
+                else if (dist_squared >= dist_in_fd(ifd, jfd, kfd)) then
+                   cycle
                 endif
+                point_already_found(ifd, jfd, kfd)=ispec_selected
+                dist_in_fd(ifd, jfd, kfd)=dist_squared
+                xi_in_fd(ifd, jfd, kfd)=xi_loc
+                eta_in_fd(ifd, jfd, kfd)=eta_loc
+                gamma_in_fd(ifd, jfd, kfd)=gamma_loc
 
              enddo
+          enddo
+       enddo
+    enddo
+
+    !! Every rank whose element bounding boxes cover a given fd point claims it,
+    !! including ranks that only reach it by clamping onto a face. Keep the
+    !! claim only where it is as good as the best one found anywhere, otherwise
+    !! Project_model_SEM2FD_grid averages a correctly interpolated value with an
+    !! extrapolated one coming from a neighbouring partition.
+    call min_all_all_1Darray_dp(dist_in_fd, dist_best, nx_fd_proj*ny_fd_proj*nz_fd_proj)
+    do kfd = 1, nz_fd_proj
+       do jfd = 1, ny_fd_proj
+          do ifd = 1, nx_fd_proj
+             if (point_already_found(ifd, jfd, kfd) == 0) cycle
+             if (dist_in_fd(ifd, jfd, kfd) > dist_best(ifd, jfd, kfd) &
+                                             + (1.d-3*dble(elemsize_min_glob))**2) then
+                point_already_found(ifd, jfd, kfd) = 0
+                nb_fd_point_loc = nb_fd_point_loc - 1
+             endif
           enddo
        enddo
     enddo
@@ -500,6 +551,7 @@ end subroutine read_fd_grid_parameters_for_projection
 
     deallocate(point_already_found)
     deallocate( xi_in_fd, eta_in_fd, gamma_in_fd)
+    deallocate( dist_in_fd, dist_best)
 
     if (DEBUG_MODE) write(*,*) ' END  compute_interpolation_coeff_FD_SEM'
 

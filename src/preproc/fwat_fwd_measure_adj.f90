@@ -5,9 +5,10 @@ use common_lib, only: get_dat_type
 use input_params, only: fpar => fwat_par_global
 use preproc_fwd
 use argparse, only: parse_args_fwd_meas_adj
+use param_check, only: check_model_name, check_preproc_params, check_nevents
 
 implicit none
-integer :: nsim
+integer :: nsim, iter
 integer, parameter :: max_num_args = 4
 type(PrepareFWD) :: ffwd
 logical :: BROADCAST_AFTER_READ = .true.
@@ -25,10 +26,15 @@ local_path_backup = trim(LOCAL_PATH)
 ! select simu_type
 call fpar%select_simu_type()
 
+! Reject an inconsistent setup before running any simulation.
+call check_model_name(iter)
+call check_preproc_params(iter)
+
 call get_dat_type()
 
 ! read src_rec for this data type
 call fpar%acqui%read()
+call check_nevents()
 
 ! initialize fwd
 call ffwd%init()

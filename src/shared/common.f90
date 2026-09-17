@@ -71,6 +71,14 @@ contains
     endif
   end subroutine get_kernel_names
 
+  subroutine get_kernel_name_rtm()
+    use input_params, fpar => fwat_par_global
+
+    nkernel = 1
+    kernel_names = ["mu"]
+    parameter_names = ["mu"]
+  end subroutine
+
   integer function find_string(string_list, search_str)
     character(len=MAX_STRING_LEN) :: search_str
     character(len=MAX_STRING_LEN), dimension(:) :: string_list

@@ -4,11 +4,12 @@ program fwat_post_proc
   use post_processing
   use input_params, fpar => fwat_par_global
   use argparse, only: parse_args_post_process
+  use param_check, only: check_model_name, check_postproc_params, check_nevents
 
   implicit none
 
   type(PostFlow) :: fpp
-  integer :: itype
+  integer :: itype, iter
 
   call init_mpi()
   call init_mpi_fwat()
@@ -18,13 +19,20 @@ program fwat_post_proc
   call fpar%read(FWAT_PAR_FILE)
   call read_parameter_file(.true.)
 
+  call check_model_name(iter)
+
   call fpp%init()
   do itype = 1, NUM_INV_TYPE
     if (fpar%postproc%INV_TYPE(itype)) then
 
       ! generate kernels for this type
       call fpp%init_for_type(itype)
-    
+
+      ! init_for_type selected the data type and read its source list, so the
+      ! smoothing and tapering parameters of this type can be checked here.
+      call check_postproc_params(iter)
+      call check_nevents()
+
       ! sum kernels for this type
       if (run_mode == 1) then
         call fpp%sum_kernel()

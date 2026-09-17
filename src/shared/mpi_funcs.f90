@@ -81,6 +81,19 @@ contains
   end subroutine sum_all_1Darray_cr
 
 
+  subroutine min_all_all_1Darray_dp(sendbuf, recvbuf, nx)
+
+  integer :: nx
+  double precision, dimension(nx) :: sendbuf, recvbuf
+  integer :: ier
+
+  if (nx == 0) return
+
+  call MPI_ALLREDUCE(sendbuf,recvbuf,nx,MPI_DOUBLE_PRECISION,MPI_MIN,my_local_mpi_comm_world,ier)
+
+  end subroutine min_all_all_1Darray_dp
+
+
   subroutine send_ch_array(sendbuf, sendcount, nlen, dest, sendtag)
     integer :: dest,sendtag,nlen
     integer :: sendcount

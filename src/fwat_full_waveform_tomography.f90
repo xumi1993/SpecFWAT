@@ -12,11 +12,11 @@ program fwat_full_waveform_tomography
   use post_processing, only: PostFlow, remove_ekernel
   use optimize_gll, only: OptGLLFlow, write_gll_vector
   use shared_parameters, only: LOCAL_PATH, MODEL, IMODEL, ANISOTROPY, ANISOTROPIC_KL, &
-    SIMULATION_TYPE, SAVE_FORWARD, SAVE_MESH_FILES, NPROC, ATTENUATION, ADIOS_ENABLED, HDF5_ENABLED, &
-    COUPLE_WITH_INJECTION_TECHNIQUE, INJECTION_TECHNIQUE_TYPE, MESH_A_CHUNK_OF_THE_EARTH, &
-    NUMBER_OF_SIMULTANEOUS_RUNS, HDF5_IO_NODES, TOMOGRAPHY_PATH
-  use specfem_par, only: OUTPUT_FILES, ELASTIC_SIMULATION, ACOUSTIC_SIMULATION, POROELASTIC_SIMULATION
+    SIMULATION_TYPE, SAVE_FORWARD, SAVE_MESH_FILES, ATTENUATION, TOMOGRAPHY_PATH, &
+    COUPLE_WITH_INJECTION_TECHNIQUE, INJECTION_TECHNIQUE_TYPE
+  use specfem_par, only: OUTPUT_FILES
   use logger, only: log
+  use param_check, only: check_inversion_params, check_nevents, check_elastic_mesh
   implicit none
 
   type(PrepareFWD) :: fwd
@@ -37,70 +37,33 @@ program fwat_full_waveform_tomography
   call read_parameter_file(.true.)
   attenuation_model = ATTENUATION
 
-  ! Validate the selected data type, elastic parameterization, optimizer,
-  ! and MPI/database layout before writing model or solver files.
-  if (count(fpar%postproc%INV_TYPE) /= 1) &
-    call exit_MPI(worldrank, 'xspecfwat requires exactly one POSTPROC.INV_TYPE')
-  itype = 0
-  do i = 1, NUM_INV_TYPE
-    if (INV_TYPE_NAMES(i) == simu_type) itype = i
-  enddo
-  if (.not. fpar%postproc%INV_TYPE(itype)) &
-    call exit_MPI(worldrank, '-s must match the enabled POSTPROC.INV_TYPE')
-  if (fpar%update%MODEL_TYPE /= 1) call exit_MPI(worldrank, 'GLL inversion currently supports MODEL_TYPE: 1 (vp/vs/rho)')
-  if (fpar%update%OPT_METHOD /= 1 .and. fpar%update%OPT_METHOD /= 2) &
-    call exit_MPI(worldrank, 'GLL inversion supports OPT_METHOD: 1 (SD) or 2 (L-BFGS)')
-  if (fpar%update%ITER_START < 0 .or. first < fpar%update%ITER_START) &
-    call exit_MPI(worldrank, 'Starting model must be at or after non-negative ITER_START')
-  if (fpar%update%LBFGS_M_STORE < 1 .or. fpar%update%MAX_SLEN <= 0.0_cr) &
-    call exit_MPI(worldrank, 'LBFGS_M_STORE and MAX_SLEN must be positive')
-  if (fpar%update%VPVS_RATIO_RANGE(1) <= sqrt(4.0_cr/3.0_cr) .or. &
-      fpar%update%VPVS_RATIO_RANGE(2) < fpar%update%VPVS_RATIO_RANGE(1)) &
-    call exit_MPI(worldrank, 'Invalid VPVS_RATIO_RANGE for an elastic GLL model')
-  if (fpar%update%DO_LS) then
-    if (fpar%update%MAX_SUB_ITER < 1 .or. fpar%update%MAX_SHRINK <= 0.0_cr .or. &
-        fpar%update%MAX_SHRINK >= 1.0_cr .or. fpar%update%C1 <= 0.0_cr .or. fpar%update%C1 >= 1.0_cr) &
-      call exit_MPI(worldrank, 'Invalid GLL line-search parameters')
-  endif
-  if (NPROC /= worldsize .or. NUMBER_OF_SIMULTANEOUS_RUNS /= 1 .or. HDF5_IO_NODES /= 0) &
-    call exit_MPI(worldrank, 'GLL inversion requires one MPI group with exactly NPROC ranks and no separate I/O ranks')
-  if (ADIOS_ENABLED .or. HDF5_ENABLED .or. MESH_A_CHUNK_OF_THE_EARTH) &
-    call exit_MPI(worldrank, 'GLL inversion requires binary databases and the standard internal mesher')
-
   ! Event simulations change the global paths; retain the base directories
   ! so later stages and iterations can restore them.
   database_path = LOCAL_PATH
   solver_output_path = OUTPUT_FILES
   local_path_backup = database_path
   call fpar%select_simu_type()
-  if (fpar%sim%SIGMA_H <= 0.0_cr .or. fpar%sim%SIGMA_V <= 0.0_cr) &
-    call exit_MPI(worldrank, 'GLL PDE smoothing requires positive SIGMA_H and SIGMA_V')
-  if (min(fpar%postproc%TAPER_H_SUPPRESS, fpar%postproc%TAPER_H_BUFFER, &
-          fpar%postproc%TAPER_V_SUPPRESS, fpar%postproc%TAPER_V_BUFFER) < 0.0_cr) &
-    call exit_MPI(worldrank, 'Taper distances must be non-negative')
-  if (fpar%sim%PRECOND_TYPE < 1 .or. fpar%sim%PRECOND_TYPE > 3) &
-    call exit_MPI(worldrank, 'GLL inversion requires PRECOND_TYPE: 1, 2 or 3')
+  ! Resuming rebuilds the model from the GLL binaries of the previous
+  ! iteration, whatever initial model the Par_file asks for, and vp/vs/rho
+  ! updates always run on isotropic databases.
+  if (first > 0) then
+    MODEL = 'gll'
+    IMODEL = IMODEL_GLL
+  endif
+  ANISOTROPY = .false.
+  ANISOTROPIC_KL = .false.
+  ! One driver process runs every step, so validate all of them before
+  ! writing any model, database or solver file.
+  call check_inversion_params(first, iteration_count, itype)
   call get_kernel_names()
 
   call mkdir(database_path)
   call mkdir(solver_output_path)
   call synchronize_all()
 
-  ! Generate the mesh once. Keeping its partition and element order fixed
-  ! lets every L-BFGS history vector refer to the same GLL points.
-  if (first == 0) then
-    if (IMODEL /= IMODEL_USER_EXTERNAL .and. IMODEL /= IMODEL_GLL) &
-      call exit_MPI(worldrank, 'Initial MODEL in Par_file must be external or gll')
-    if (IMODEL == IMODEL_USER_EXTERNAL .and. len_trim(fpar%update%INIT_MODEL_PATH) == 0) &
-      call exit_MPI(worldrank, 'INIT_MODEL_PATH is required for an external initial model')
-    if (IMODEL == IMODEL_USER_EXTERNAL) &
-      call cp(fpar%update%INIT_MODEL_PATH, trim(TOMOGRAPHY_PATH) // '/tomography_model.h5')
-  else
-    MODEL = 'gll'
-    IMODEL = IMODEL_GLL
-  endif
-  ANISOTROPY = .false.
-  ANISOTROPIC_KL = .false.
+  ! Stage the external starting model where generate_databases expects it.
+  if (first == 0 .and. IMODEL == IMODEL_USER_EXTERNAL) &
+    call cp(fpar%update%INIT_MODEL_PATH, trim(TOMOGRAPHY_PATH) // '/tomography_model.h5')
   if (simu_type == SIMU_TYPE_TELE) then
     COUPLE_WITH_INJECTION_TECHNIQUE = .true.
     INJECTION_TECHNIQUE_TYPE = 3
@@ -108,6 +71,8 @@ program fwat_full_waveform_tomography
   SIMULATION_TYPE = 1
   SAVE_FORWARD = .true.
   SAVE_MESH_FILES = .false.
+  ! Generate the mesh once. Keeping its partition and element order fixed
+  ! lets every L-BFGS history vector refer to the same GLL points.
   call meshfem3D_fwat(fpar%sim%mesh_par_file)
 
   do iter = first, first+iteration_count-1
@@ -126,10 +91,9 @@ program fwat_full_waveform_tomography
     run_mode = FORWARD_ADJOINT
     call get_dat_type()
     call fpar%acqui%read()
-    if (fpar%acqui%nevents < 1) call exit_MPI(worldrank, 'No events in the selected source list')
+    call check_nevents()
     call fwd%init()
-    if (.not. ELASTIC_SIMULATION .or. ACOUSTIC_SIMULATION .or. POROELASTIC_SIMULATION) &
-      call exit_MPI(worldrank, 'GLL inversion currently requires a purely elastic mesh')
+    call check_elastic_mesh()
     ! Keep the objective in double precision for line search; reading the
     ! text misfit files would introduce rounding into its acceptance test.
     current_misfit = 0.0_dp
@@ -141,6 +105,9 @@ program fwat_full_waveform_tomography
     enddo
     call fwd%destroy()
     call fpar%acqui%finalize()
+    call log%write('*******************************************', .false.)
+    call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
+    call log%write('*******************************************', .false.)
     call log%finalize()
 
     ! 3. Sum event kernels, smooth and taper on GLL points, then save the
@@ -165,6 +132,10 @@ program fwat_full_waveform_tomography
     call remove_ekernel()
     call fpar%acqui%finalize()
     call post%finalize()
+
+    call log%write('*******************************************', .false.)
+    call log%write('********** POST-PROCESSING DONE ***********', .false.)
+    call log%write('*******************************************', .false.)
     call log%finalize()
 
     ! 4. Archive this iteration's GLL model when optimization starts,
@@ -199,6 +170,9 @@ program fwat_full_waveform_tomography
       'Accepted step ', step_len, '; M', iter+1, ' saved to '//trim(database_path)
     call log%write(msg, .true.)
     if (worldrank == 0) print *, trim(msg)
+    call log%write('*******************************************', .false.)
+    call log%write('*********** OPTIMIZATION DONE *************', .false.)
+    call log%write('*******************************************', .false.)
     ! Release optimization arrays before allocating the next wave simulation.
     call opt%finalize()
     call log%finalize()
