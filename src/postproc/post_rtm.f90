@@ -87,10 +87,14 @@ contains
   subroutine write_rtm_kernel(this)
     class(PostRTM), intent(inout) :: this
     if (use_gll) then
+      call log%write('Writing RTM kernel to GLL...', .true.)
       call write_kernel(this%kernel_path, kernel_names(1), this%ker_data)
     else
-      call write_grid(trim(this%kernel_path)//'/'//trim(kernel_names(1))//'.h5', &
-                      kernel_names(1), this%ker_data_grid)
+      if (worldrank == 0) then
+        call log%write('Writing RTM kernel to grid...', .true.)
+        call write_grid(trim(this%kernel_path)//'/'//trim(kernel_names(1))//'.h5', &
+                        kernel_names(1), this%ker_data_grid)
+      endif
     endif
   end subroutine write_rtm_kernel
 
