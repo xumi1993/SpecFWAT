@@ -219,7 +219,7 @@ extern "C" int fk_cuda_compute(int nl,int np,int nf,int local_rank,
     std::vector<double> host(size_t(batch)*6*ns);
     Plan plan;
     fftcheck(cufftPlan1d(&plan.h,nf,CUFFT_Z2Z,batch*5));
-    std::fprintf(stdout,"FK CUDA: device=%d, batch=%d, points=%d, FFT=%d\n",selected,batch,np,nf);
+    // std::fprintf(stdout,"FK CUDA: device=%d, batch=%d, points=%d, FFT=%d\n",selected,batch,np,nf);
     for(int first=0;first<np;first+=batch) {
       int count=std::min(batch,np-first);
       // Clear padding for the last partial batch; reuse the same FFT plan.

@@ -133,8 +133,8 @@ contains
     ipt_table = 0
     Veloc_FK = 0
     Tract_FK = 0
-    if (myrank == 0) write(*,'(a,i0,a,i0,a,i0)') &
-      'FK: rank-0 boundary points=',npt, ', FFT length=',NF_FOR_FFT, ', resampling=',NP_RESAMP
+    ! if (myrank == 0) write(*,'(a,i0,a,i0,a,i0)') &
+    !   'FK: rank-0 boundary points=',npt, ', FFT length=',NF_FOR_FFT, ', resampling=',NP_RESAMP
     if (npt > 0) then
       if (GPU_MODE) then
 #ifdef USE_CUDA
