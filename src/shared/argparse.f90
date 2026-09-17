@@ -5,6 +5,41 @@ module argparse
   implicit none
 
 contains
+  ! FK inherits simulation settings from FWAT; only the optional source-list index is selected here.
+  subroutine parse_args_fk()
+    integer :: iarg, argc, ios
+    character(len=MAX_STRING_LEN) :: arg, value
+    character(len=*), parameter :: usage = 'Usage: xfwat_fk [-e|--event <event_index>]'
+
+    event_index = 0
+    single_run = .false.
+    argc = command_argument_count()
+    iarg = 1
+    do while (iarg <= argc)
+      call get_command_argument(iarg, arg)
+      select case (arg)
+      case ('-h', '--help')
+        if (worldrank == 0) print *, usage
+        call finalize_mpi()
+        stop
+      case ('-e', '--event')
+        if (single_run) call exit_MPI(worldrank, 'Repeated event option. '//usage)
+        iarg = iarg + 1
+        if (iarg > argc) call exit_MPI(worldrank, 'Missing event index. '//usage)
+        call get_command_argument(iarg, value)
+        if (len_trim(value) == 0 .or. verify(trim(value), '0123456789') /= 0) &
+          call exit_MPI(worldrank, 'Event index must be a positive integer. '//usage)
+        read(value, *, iostat=ios) event_index
+        if (ios /= 0) call exit_MPI(worldrank, 'Invalid event index. '//usage)
+        if (event_index < 1) call exit_MPI(worldrank, 'Event index must be positive. '//usage)
+        single_run = .true.
+      case default
+        call exit_MPI(worldrank, 'Unknown option: '//trim(arg)//'. '//usage)
+      end select
+      iarg = iarg + 1
+    enddo
+  end subroutine parse_args_fk
+
   subroutine parse_args_fwd_meas_adj(ievt)
     integer, parameter :: max_num_args = 8
     character(len=MAX_STRING_LEN), dimension(max_num_args) :: argv

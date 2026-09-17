@@ -34,7 +34,7 @@
   use specfem_par_poroelastic
   use specfem_par_movie
   use fk_coupling, only: read_fk_coupling_file, check_fk_files, &
-                        couple_with_injection_prepare_boundary_fwat
+                        compute_fk_wavefield
   use input_params, only: fpar => fwat_par_global
   use logger, only: log
 
@@ -106,12 +106,8 @@
       call log%write('Read FK wavefield for event '//trim(fpar%acqui%evtid_names(ievt)), .true.)
       call read_fk_coupling_file(fpar%acqui%evtid_names(ievt))
     else
-      call log%write('Calculating FK wavefield for event '//trim(fpar%acqui%evtid_names(ievt)), .true.)
-      if (.not. fpar%sim%SAVE_FK) then
-        call couple_with_injection_prepare_boundary()
-      else
-        call couple_with_injection_prepare_boundary_fwat(fpar%acqui%evtid_names(ievt))
-      endif
+      ! GPU_MODE selects the backend; SAVE_FK only controls writing the computed cache.
+      call compute_fk_wavefield(fpar%acqui%evtid_names(ievt))
     endif
     call log%write('Finished FK wavefield preparation', .true.)
   endif

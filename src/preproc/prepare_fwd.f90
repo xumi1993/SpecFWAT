@@ -10,7 +10,6 @@ module preproc_fwd
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
   use input_params, fpar => fwat_par_global
-  use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files, read_fk_model
   use axisem_coupling, only: setup_axisem_coupling
   use logger, only: log
   use tele_data, only: TeleData

@@ -167,6 +167,7 @@ add_subdirectory(preproc)
 add_subdirectory(postproc)
 add_subdirectory(optimization)
 add_subdirectory(aux)
+add_subdirectory(fk)
 
 # Unified full-waveform tomography driver.
 add_executable(specfwat fwat_full_waveform_tomography.f90 ${SOURCES_SUBS} ${HEADERS})

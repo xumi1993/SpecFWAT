@@ -4,9 +4,18 @@ module fk_coupling
   use config, only: worldrank, local_path_backup, compress_level
   use fwat_constants, only: cr, FKMODEL_PREFIX, SRC_REC_DIR, DEG2RAD
   use common_lib, only: mkdir
+  use logger, only: log
+#ifdef USE_CUDA
+  use fk_gpu_backend, only: compute_fk_gpu
+#endif
 
   implicit none
   integer, private :: ierr
+#ifdef USE_CUDA
+  logical, parameter :: fk_gpu_available = .true.
+#else
+  logical, parameter :: fk_gpu_available = .false.
+#endif
 contains
 
   subroutine read_fk_model(evtid)
@@ -68,233 +77,98 @@ contains
   end subroutine free_fk_arrays
 
 
-  subroutine couple_with_injection_prepare_boundary_fwat(evtid)
+  subroutine compute_fk_wavefield(evtid)
+    ! Shared by standalone FK and preproc; leave wavefield arrays available for SEM injection.
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    use input_params, only: fpar => fwat_par_global
+    use hdf5, only: h5open_f
     character(len=*), intent(in) :: evtid
-    character(len=MAX_STRING_LEN)  :: out_dir, fkprname
-    ! logical :: findfile
-    integer :: ier
-
-    !! for FK point for intialization injected wavefield
-    ! real(kind=cr) :: Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box
-    real(kind=cr) :: ray_p,Tg,DF_FK
-
-    real(kind=cr), parameter :: TOL_ZERO_TAKEOFF = 1.e-14
-    
-    out_dir = trim(local_path_backup)//'/FK_wavefield_'//trim(evtid)//'/'
-    ! call system('mkdir -p '//trim(out_dir))
-    call mkdir(out_dir)
-    write(fkprname,'(a,i6.6,a)') trim(out_dir)//'proc', worldrank, '_fk_wavefield.bin'
-
+    real(kind=CUSTOM_REAL) :: p, tg, df
+    integer :: status, layer, shift, saved_compression
+    if (GPU_MODE .and. .not. fk_gpu_available) &
+      call exit_MPI(myrank, 'GPU_MODE requires a USE_CUDA build for FK')
+    call log%write('Computing FK wavefield for event '//trim(evtid), .true.)
     call read_fk_model(evtid)
-    ! checks if anything to do
-    ! for forward simulation only
-    ! user output
-    ! if (myrank == 0) then
-    !   write(IMAIN,*) "preparing injection boundary"
-    !   call flush_IMAIN()
-    ! endif
-
-    ! FK boundary
-    ! initial setup for future FK3D calculations
-    ! get MPI starting time for FK
-    ! tstart = wtime()
-
-    ! user output
-    ! if (myrank == 0) then
-    !   write(IMAIN,*) "  using FK injection technique"
-    !   call flush_IMAIN()
-    ! endif
-
-    ! call FindBoundaryBox(Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box)
-    ! call ReadFKModelInput(Xmin_box, Xmax_box, Ymin_box, Ymax_box, Zmin_box, Zmax_box)
-
-    ! send FK parameters to others MPI slices
-    ! call bcast_all_singlei(type_kpsv_fk)
-    ! call bcast_all_singlei(nlayer)
-    
-    ! if (myrank > 0) then
-    !   allocate(alpha_FK(nlayer), &
-    !             beta_FK(nlayer), &
-    !             rho_FK(nlayer), &
-    !             mu_FK(nlayer), &
-    !             h_FK(nlayer),stat=ier)
-    !   if (ier /= 0) call exit_MPI_without_rank('error allocating arrays 2206')
-    !   alpha_FK(:) = 0._cr; beta_FK(:) = 0._cr; rho_FK(:) = 0._cr
-    !   mu_FK(:) = 0._cr; h_FK(:) = 0._cr
-    ! endif
-
-    ! call bcast_all_cr(alpha_FK, nlayer)
-    ! call bcast_all_cr(beta_FK, nlayer)
-    ! call bcast_all_cr(rho_FK, nlayer)
-    ! call bcast_all_cr(mu_FK, nlayer)
-    ! call bcast_all_cr(h_FK, nlayer)
-
-    ! call bcast_all_singlecr(phi_FK)
-    ! call bcast_all_singlecr(theta_FK)
-
-    ! call bcast_all_singlecr(ff0)
-    ! call bcast_all_singlecr(freq_sampling_fk)
-    ! call bcast_all_singlecr(amplitude_fk)
-
-    ! call bcast_all_singlecr(xx0)
-    ! call bcast_all_singlecr(yy0)
-    ! call bcast_all_singlecr(zz0)
-    ! call bcast_all_singlecr(Z_REF_for_FK)
-
-    ! call bcast_all_singlecr(tt0)
-    ! call bcast_all_singlecr(tmax_fk)
-
-    ! converts origin point Z to reference framework depth for FK,
-    ! where top of lower half-space has to be at z==0
+    if (ff0 <= 0 .or. freq_sampling_fk <= 0 .or. tmax_fk <= 0) &
+      call exit_MPI(myrank, 'FK frequencies and time window must be positive')
+    if (any(alpha_FK <= 0) .or. any(beta_FK < 0) .or. any(rho_FK <= 0)) &
+      call exit_MPI(myrank, 'Invalid FK layer properties')
+    if (beta_FK(nlayer) <= 0) call exit_MPI(myrank, 'FK requires an elastic bottom half-space')
     zz0 = zz0 - Z_REF_for_FK
-
-    ! converts to rad
-    phi_FK   = phi_FK * PI/180.d0    ! azimuth
-    theta_FK = theta_FK * PI/180.d0  ! take-off
-
-    ! ray parameter p (according to Snell's law: sin(theta1)/v1 == sin(theta2)/v2)
+    phi_FK = phi_FK * PI/180.d0
+    theta_FK = theta_FK * PI/180.d0
     if (type_kpsv_fk == 1) then
-      ! P-wave
-      ray_p = sin(theta_FK)/alpha_FK(nlayer)    ! for vp (i.e., alpha)
-    else if (type_kpsv_fk == 2) then
-      ! SV-wave
-      ray_p = sin(theta_FK)/beta_FK(nlayer)     ! for vs (i.e., beta)
-    endif
-
-    ! note: vertical incident (theta==0 -> p==0) is not handled.
-    !       here, it limits ray parameter p to a very small value to handle the calculations
-    if (abs(ray_p) < TOL_ZERO_TAKEOFF) ray_p = sign(TOL_ZERO_TAKEOFF,ray_p)
-
-    ! maximum period
-    Tg  = 1.d0 / ff0
-
-    ! counts total number of (local) GLL points on absorbing boundary
-    call count_num_boundary_points(num_abs_boundary_faces,abs_boundary_ispec,npt)
-
-    !! compute the bottom midle point of the domain
-
-    !! VM VM dealocate in case of severals runs occurs in inverse_problem program
-    if (allocated(ipt_table)) deallocate(ipt_table)
-    if (allocated(Veloc_FK))  deallocate(Veloc_FK)
-    if (allocated(Tract_FK))  deallocate(Tract_FK)
-
-    !! allocate memory for FK solution
-    if (npt > 0) then
-      allocate(ipt_table(NGLLSQUARE,num_abs_boundary_faces), stat=ier)
-      if (ier /= 0) call exit_MPI_without_rank('error allocating array 2202')
+      p = sin(theta_FK)/alpha_FK(nlayer)
     else
-      ! dummy
-      allocate(ipt_table(1,1),stat=ier)
-      if (ier /= 0) call exit_MPI_without_rank('error allocating array 2204')
+      p = sin(theta_FK)/beta_FK(nlayer)
     endif
-    ipt_table(:,:) = 0
-
-    deltat = real(DT, cr)
+    if (abs(p) < 1.e-14_CUSTOM_REAL) p = sign(1.e-14_CUSTOM_REAL,p)
+    ! The legacy FK takes real square roots; do not silently generate NaNs.
+    if (any(1._CUSTOM_REAL/alpha_FK**2 - p**2 <= 0)) &
+      call exit_MPI(myrank, 'Critical/evanescent P slowness is unsupported by the reference FK')
+    do layer=1,nlayer
+      if (beta_FK(layer) <= 0) cycle
+      if (1._CUSTOM_REAL/beta_FK(layer)**2-p**2 <= 0) &
+        call exit_MPI(myrank, 'Critical/evanescent S slowness is unsupported by the reference FK')
+    enddo
+    tg = 1.d0/ff0
+    deltat = real(DT,CUSTOM_REAL)
+    call count_num_boundary_points(num_abs_boundary_faces, abs_boundary_ispec, npt)
     call find_size_of_working_arrays(deltat, freq_sampling_fk, tmax_fk, NF_FOR_STORING, &
-                                      NF_FOR_FFT, NPOW_FOR_INTERP, NP_RESAMP, DF_FK)
-
-    ! user output
-    if (myrank == 0) then
-      write(IMAIN,*) '  computed FK parameters:'
-      write(IMAIN,*) '    frequency sampling rate        = ', freq_sampling_fk,"(Hz)"
-      write(IMAIN,*) '    number of frequencies to store = ', NF_FOR_STORING
-      write(IMAIN,*) '    number of frequencies for FFT  = ', NF_FOR_FFT
-      write(IMAIN,*) '    power of 2 for FFT             = ', NPOW_FOR_INTERP
-      write(IMAIN,*)
-      write(IMAIN,*) '    simulation time step           = ', deltat,"(s)"
-      write(IMAIN,*) '    total simulation length        = ', NSTEP*deltat,"(s)"
-      write(IMAIN,*)
-      write(IMAIN,*) '    FK time resampling rate        = ', NP_RESAMP
-      write(IMAIN,*) '    new time step for F-K          = ', NP_RESAMP * deltat,"(s)"
-      write(IMAIN,*) '    new time window length         = ', tmax_fk,"(s)"
-      write(IMAIN,*)
-      write(IMAIN,*) '    frequency step for F-K         = ', DF_FK,"(Hz)"
-      write(IMAIN,*)
-      write(IMAIN,*) '  total number of points on boundary = ',npt
-      call flush_IMAIN()
-    endif
-
-    ! safety check with number of simulation time steps
-    if (NSTEP/NP_RESAMP > NF_FOR_STORING + NP_RESAMP) then
-      if (myrank == 0) then
-        print *,'Error: FK time window length ',tmax_fk,' and NF_for_storing ',NF_FOR_STORING
-        print *,'       are too small for chosen simulation length with NSTEP = ',NSTEP
-        print *
-        print *,'       you could use a smaller NSTEP <= ',NF_FOR_STORING*NP_RESAMP
-        print *,'       or'
-        print *,'       increase FK window length larger than ',(NSTEP/NP_RESAMP - NP_RESAMP) * NP_RESAMP * deltat
-        print *,'       to have a NF for storing  larger than ',(NSTEP/NP_RESAMP - NP_RESAMP)
-      endif
-      stop 'Invalid FK setting'
-    endif
-
-    ! safety check
-    if (NP_RESAMP == 0) then
-      if (myrank == 0) then
-        print *,'Error: FK resampling rate ',NP_RESAMP,' is invalid for frequency sampling rate ',freq_sampling_fk
-        print *,'       and the chosen simulation DT = ',DT
-        print *
-        print *,'       you could use a higher frequency sampling rate>',1./(deltat)
-        print *,'       (or increase the time stepping size DT if possible)'
-      endif
-      stop 'Invalid FK setting'
-    endif
-
-    ! limits resampling sizes
-    if (NP_RESAMP > 10000) then
-      if (myrank == 0) then
-        print *,'Error: FK resampling rate ',NP_RESAMP,' is too high for frequency sampling rate ',freq_sampling_fk
-        print *,'       and the chosen simulation DT = ',deltat
-        print *
-        print *,'       you could use a higher frequency sampling rate>',1./(10000*deltat)
-        print *,'       (or increase the time stepping size DT if possible)'
-      endif
-      stop 'Invalid FK setting'
-    endif
-
+      NF_FOR_FFT, NPOW_FOR_INTERP, NP_RESAMP, df)
+    if (NP_RESAMP < 1 .or. NP_RESAMP > 10000) call exit_MPI(myrank, 'Invalid FK resampling rate')
+    shift=int(-tt0/deltat)
+    if (tt0 > 0 .or. shift > min(NSTEP,NF_FOR_FFT)) &
+      call exit_MPI(myrank, 'ORIGIN_TIME must be zero or negative, with shift <= min(NSTEP, FFT length)')
+    if (NSTEP/NP_RESAMP > NF_FOR_STORING + NP_RESAMP) &
+      call exit_MPI(myrank, 'FK time window is too short for NSTEP')
+    ! Consecutive preproc events may leave either computed or cached wavefield arrays allocated.
+    if (allocated(ipt_table)) deallocate(ipt_table)
+    if (allocated(Veloc_FK)) deallocate(Veloc_FK)
+    if (allocated(Tract_FK)) deallocate(Tract_FK)
+    allocate(ipt_table(NGLLSQUARE,num_abs_boundary_faces), &
+      Veloc_FK(NDIM,npt,-NP_RESAMP:NF_FOR_STORING+NP_RESAMP), &
+      Tract_FK(NDIM,npt,-NP_RESAMP:NF_FOR_STORING+NP_RESAMP), stat=status)
+    if (status /= 0) call exit_MPI(myrank, 'Cannot allocate FK arrays')
+    ipt_table = 0
+    Veloc_FK = 0
+    Tract_FK = 0
+    if (myrank == 0) write(*,'(a,i0,a,i0,a,i0)') &
+      'FK: rank-0 boundary points=',npt, ', FFT length=',NF_FOR_FFT, ', resampling=',NP_RESAMP
     if (npt > 0) then
-      !! arrays for storing FK solution --------------------------------------------
-      allocate(Veloc_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
-      if (ier /= 0) call exit_MPI_without_rank('error allocating array 2210')
-      if (ier /= 0) stop 'error while allocating Veloc_FK'
-      Veloc_FK(:,:,:) = 0._CUSTOM_REAL
-
-      allocate(Tract_FK(NDIM, npt, -NP_RESAMP:NF_FOR_STORING+NP_RESAMP),stat=ier)
-      if (ier /= 0) call exit_MPI_without_rank('error allocating array 2210')
-      if (ier /= 0) stop 'error while allocating Veloc_FK'
-      Tract_FK(:,:,:) = 0._CUSTOM_REAL
-
-      call FK3D(type_kpsv_fk, nlayer, NSTEP, npt, &
-                ray_p, phi_FK, xx0, yy0, zz0, Tg, &
-                tt0, alpha_FK, beta_FK, rho_FK, h_FK, &
-                NF_FOR_STORING, NPOW_FOR_FFT, NP_RESAMP, DF_FK)
+      if (GPU_MODE) then
+#ifdef USE_CUDA
+        call compute_fk_gpu(p, tg, df)
+#else
+        call exit_MPI(myrank, 'GPU_MODE requires a USE_CUDA build for FK')
+#endif
+      else
+        ! Retain the reference kernel and all its numerical conventions.
+        call FK3D_fwat(type_kpsv_fk, nlayer, NSTEP, npt, p, phi_FK, xx0, yy0, zz0, tg, &
+          tt0, alpha_FK, beta_FK, rho_FK, h_FK, NF_FOR_STORING, NPOW_FOR_FFT, NP_RESAMP, df)
+      endif
     endif
-
-    ! MX: write FK solution to file
-    ! open(FID, file=fkprname, form='unformatted', status='unknown', action='write', iostat=ier)
-    ! if (ier /= 0) call exit_MPI(worldrank, 'error opening file 2205')
-    ! write(FID) Veloc_FK, Tract_FK
-    ! close(FID)
-
-    call write_fk_coupling_file(evtid)
-
-    call synchronize_all()
-
-    ! get MPI ending time for FK
-    ! tCPU = wtime() - tstart
-
-    ! ! user output
-    ! if (myrank == 0) then
-    !     write(IMAIN,'(a35,1x, f20.2, a7)')  " Elapsed time for FK computation : ",  tCPU, " sec. "
-    !   write(IMAIN,*)
-    !   call flush_IMAIN()
-    ! endif
-
+    if (.not. all(ieee_is_finite(Veloc_FK)) .or. .not. all(ieee_is_finite(Tract_FK))) &
+      call exit_MPI(myrank, 'Non-finite FK output; nothing will be saved')
     call free_fk_arrays()
+    call synchronize_all()
+    call log%write('Finished FK wavefield computation', .true.)
 
-    ! * end of initial setup for future FK3D calculations *
-
-  end subroutine couple_with_injection_prepare_boundary_fwat
+    ! Keep the original cache writer and format; SAVE_FK controls saving, independently of GPU_MODE.
+    if (fpar%sim%SAVE_FK) then
+      call log%write('Saving FK wavefield', .true.)
+      call h5open_f(status)
+      if (status /= 0) call exit_MPI(myrank, 'Cannot initialize HDF5')
+      ! The writer's fixed chunks require at least 16 points and 128 time samples.
+      saved_compression = compress_level
+      if (size(Veloc_FK,2) < 16 .or. size(Veloc_FK,3) < 128) compress_level = 0
+      call write_fk_coupling_file(evtid)
+      compress_level = saved_compression
+      call log%write('Saved '//trim(local_path_backup)//'/FK_wavefield_'//trim(evtid), .true.)
+    else
+      call log%write('TELE.SAVE_FK is false; wavefield was computed without saving', .true.)
+    endif
+  end subroutine compute_fk_wavefield
 
   subroutine initialize_ipt_table()
     use specfem_par_elastic, only: ispec_is_elastic
