@@ -13,7 +13,6 @@ module post_rtm
   use model_grid_data, only: create_grid, write_grid, gll2grid
 
   implicit none
-  character(len=MAX_STRING_LEN), private :: msg
 
   type :: PostRTM
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker_data
