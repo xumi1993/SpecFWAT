@@ -107,7 +107,7 @@ contains
     if (any(this%model(:,:,:,:,1)/this%model(:,:,:,:,2) < fpar%update%VPVS_RATIO_RANGE(1)) .or. &
         any(this%model(:,:,:,:,1)/this%model(:,:,:,:,2) > fpar%update%VPVS_RATIO_RANGE(2))) &
       call exit_MPI(worldrank, 'Current GLL Vp/Vs is outside VPVS_RATIO_RANGE')
-    call write_gll_vector(gll_model_path(iter), parameter_names, this%model)
+    if (iter == 0) call write_gll_vector(gll_model_path(iter), parameter_names, this%model)
     if (IMODEL == IMODEL_USER_EXTERNAL) &
       call write_gll_vector(local_path_fwat, parameter_names, this%model)
 
@@ -323,6 +323,7 @@ contains
     call generate_databases_fwat()
     call exit_MPI(worldrank, 'GLL line search failed; current model restored. Reduce MAX_SLEN or reset ITER_START.')
   end subroutine run_linesearch
+
   subroutine finalize(this)
     class(OptGLLFlow), intent(inout) :: this
     if (allocated(this%model)) deallocate(this%model)

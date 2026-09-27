@@ -10,7 +10,7 @@ program fwat_full_waveform_tomography
   use generate_databases_subs, only: generate_databases_fwat
   use preproc_fwd, only: PrepareFWD
   use post_processing, only: PostFlow, remove_ekernel
-  use optimize_gll, only: OptGLLFlow, write_gll_vector
+  use optimize_gll, only: OptGLLFlow, write_gll_vector, gll_model_path
   use shared_parameters, only: LOCAL_PATH, MODEL, IMODEL, ANISOTROPY, ANISOTROPIC_KL, &
     SIMULATION_TYPE, SAVE_FORWARD, SAVE_MESH_FILES, ATTENUATION, TOMOGRAPHY_PATH, &
     COUPLE_WITH_INJECTION_TECHNIQUE, INJECTION_TECHNIQUE_TYPE
@@ -166,6 +166,7 @@ program fwat_full_waveform_tomography
     ! Install the update for the next database build. Its history copy is
     ! written only when the next iteration reaches optimizer initialization.
     call write_gll_vector(database_path, parameter_names, opt%trial)
+    call write_gll_vector(gll_model_path(iter+1), parameter_names, opt%trial)
     write(msg, '(A,ES12.4,A,I2.2,A)') &
       'Accepted step ', step_len, '; M', iter+1, ' saved to '//trim(database_path)
     call log%write(msg, .true.)

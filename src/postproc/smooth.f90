@@ -98,7 +98,8 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
 
   !! determine ch, cv, ntstep
   !cmax = distance_min_glob ** 2 / 6.0
-  cmax = distance_min_glob ** 2 / 18.0
+  ! cmax = distance_min_glob ** 2 / 18.0
+  cmax = distance_min_glob ** 2 / 36.0
   if (sigma_v >= sigma_h) then
     cv = cmax
     ch = cv * (sigma_h ** 2) / (sigma_v ** 2)
