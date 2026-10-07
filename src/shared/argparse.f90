@@ -125,6 +125,7 @@ contains
     endif
 
     run_mode = 1  ! default run mode
+    model_name = ''
     ! parse arguments
     do i = 1, argc
       if (argv(i) == '-m' .or. argv(i) == '--model') then
@@ -149,6 +150,11 @@ contains
         use_gll = .true.
       endif
     enddo
+
+    if (len_trim(model_name) == 0) then
+      if (worldrank == 0) print *, trim(usage)
+      call exit_MPI(0, 'ERROR: Model name not set')
+    endif
 
   end subroutine parse_args_post_process
 

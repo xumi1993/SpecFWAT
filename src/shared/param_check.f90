@@ -31,19 +31,15 @@ contains
 !===============================================================================
 
   !> Forward, measurement and adjoint step (xfwat_fwd_measure_adj).
-  subroutine check_preproc_params(iter)
-    integer, intent(in) :: iter
-
-    call check_common_params(iter)
+  subroutine check_preproc_params()
+    call check_common_params()
     call check_data_type()
     call check_waveform_params()
   end subroutine check_preproc_params
 
   !> Kernel summation, smoothing and tapering step (xfwat_post_proc).
-  subroutine check_postproc_params(iter)
-    integer, intent(in) :: iter
-
-    call check_common_params(iter)
+  subroutine check_postproc_params()
+    call check_common_params()
     call check_data_type()
     call check_kernel_postproc()
     if (.not. use_gll) call check_model_grid()
@@ -53,7 +49,8 @@ contains
   subroutine check_optimize_params(iter)
     integer, intent(in) :: iter
 
-    call check_common_params(iter)
+    call check_common_params()
+    call check_iteration_bounds(iter, iter)
     call check_iteration_start(iter)
     call check_optimizer()
     if (use_gll) then
@@ -71,8 +68,8 @@ contains
     integer, intent(in) :: first, iteration_count
     integer, intent(out) :: itype
 
-    call check_preproc_params(first)
-    call check_postproc_params(first)
+    call check_preproc_params()
+    call check_postproc_params()
     call check_optimize_params(first)
     ! Models are written up to M<first+iteration_count-1>.
     call check_iteration_bounds(first, first+iteration_count-1)
@@ -86,18 +83,16 @@ contains
 ! Parameter checks
 !===============================================================================
 
-  !> What every step depends on: a usable Mxx label, the data types the
-  !! inversion combines, and the parameterization of the model.
-  subroutine check_common_params(iter)
-    integer, intent(in) :: iter
-
-    call check_iteration_bounds(iter, iter)
+  !> What every step depends on: the data types the inversion combines, and
+  !! the parameterization of the model.
+  subroutine check_common_params()
     call check_inv_type()
     call check_model_space()
   end subroutine check_common_params
 
-  !> Accept only the Mxx model names the model, gradient and history files are
-  !! keyed on, and return the iteration index they encode.
+  !> The optimizer needs an Mxx model name: it reads the gradient history by
+  !! iteration index and writes the update as M<iter+1>. Forward, measurement
+  !! and post-processing steps accept any model name.
   subroutine check_model_name(iter)
     integer, intent(out) :: iter
     integer :: ios

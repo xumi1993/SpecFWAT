@@ -94,26 +94,26 @@ contains
     character(len=MAX_STRING_LEN) :: kernel_path
     integer :: itype, iker
 
-    ! calculate norm scale
+    ! Weight each data type as sum_joint_kernel_grid does, so the objective
+    ! sum_i w_i*f_i/n_i matches the joint gradient sum_i w_i*g_i/n_i.
     if (is_joint) then
       norm_val = 0.0_cr
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
         if (fpar%postproc%NORM_TYPE == 2) then
           call calc_misfit0_weight(itype, norm_val(itype))
-        else
+        elseif (worldrank == 0) then
+          ! The reference gradient is read on the main rank only.
           call calc_kernel0_weight_grid(itype, linf_val, std_val)
-          if (worldrank == 0) then
-            if (fpar%postproc%NORM_TYPE == 1) then
-              norm_val(itype) = linf_val
-            else
-              norm_val(itype) = std_val
-            endif
+          if (fpar%postproc%NORM_TYPE == 1) then
+            norm_val(itype) = linf_val
+          else
+            norm_val(itype) = std_val
           endif
         endif
-        norm_val(itype) = fpar%postproc%JOINT_WEIGHT(itype) / norm_val(itype)
       enddo
       call bcast_all_cr(norm_val, NUM_INV_TYPE)
+      where (fpar%postproc%INV_TYPE) norm_val = fpar%postproc%JOINT_WEIGHT / norm_val
       norm_val = norm_val / maxval(norm_val)
     else
       norm_val = 1.0_cr
@@ -123,17 +123,23 @@ contains
     f0 = 0.0_dp
     f1 = 0.0_dp
     qt = 0.0_dp
-    kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_current)
     do itype = 1, NUM_INV_TYPE
       if (.not. fpar%postproc%INV_TYPE(itype)) cycle
+      ! Each data type has its own mesh, on which its kernels were written.
+      if (is_joint) then
+        simu_type = INV_TYPE_NAMES(itype)
+        LOCAL_PATH = local_path_backup
+        call fpar%select_simu_type()
+        LOCAL_PATH = local_path_fwat
+        kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_current)//'_'//trim(simu_type)
+      else
+        kernel_path = trim(OPT_DIR)//'/SUM_KERNELS_'//trim(model_current)
+      endif
       call read_mesh_databases_for_init()
       f0 = f0 + misfit_prev(itype) * norm_val(itype)
       f1 = f1 + misfit_ls(itype) * norm_val(itype)
-  
+
       ! read gradient and project to regular grid
-      if (is_joint) then
-        kernel_path = trim(kernel_path)//'_'//trim(INV_TYPE_NAMES(itype))
-      endif
       do iker = 1, nkernel
         ! read kernel
         call read_kernel(trim(kernel_path), trim(kernel_names(iker))//'_kernel', ker)
@@ -144,7 +150,7 @@ contains
         call grid2gll(direc_grid, direc_gll)
         ! compute inner product
         call Parallel_ComputeInnerProduct(direc_gll, ker, qp)
-        qt = qt + qp * sqrt(norm_val(itype))
+        qt = qt + qp * norm_val(itype)
         call synchronize_all()
       enddo
     enddo
