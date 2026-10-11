@@ -36,7 +36,7 @@ Without `-g` (or `--use-gll`), the regular-grid workflow is unchanged. GLL mode
 selects the single enabled `POSTPROC.INV_TYPE` and reads the existing mesh
 databases from `LOCAL_PATH` and processed kernels from `optimize/SUM_KERNELS_M00`.
 It uses the same SD/L-BFGS optimizer, preconditioning, Vp/Vs bounds, and optional
-Armijo line search described below; `MODEL_GRID` is not required. Line search
+weak Wolfe line search described below; `MODEL_GRID` is not required. Line search
 also requires the raw summed kernels and the current model's event misfit files.
 The mesh partition, rank count, and CPU/GPU mesh ordering must match the kernels.
 This command archives the current model in `optimize/model_M00` and writes the
@@ -90,6 +90,7 @@ MODEL_UPDATE:
   MAX_SHRINK: 0.618
   MAX_SUB_ITER: 10
   C1: 0.01
+  C2: 0.9
   VPVS_RATIO_RANGE: [1.3, 2.5]
 ```
 
@@ -134,13 +135,37 @@ stay on the GLL mesh. Use positive `SIGMA_H` and `SIGMA_V` and `PRECOND_TYPE: 1`
   when `IS_HESS_PRECOND: False`; with `True`, preconditioning is applied to the kernels.
 - `LOCAL_PATH/proc*_{vp,vs,rho}.bin`: latest accepted model, ready for the next
   database generation. Solver databases correspond to the last evaluated model.
+- `optimize/step_len.h5`: accepted step length of each iteration; the next line
+  search starts from it.
+- `solver/Mxx_lsNN.*`, `misfits/Mxx_lsNN.*`: outputs of line-search trial `NN`.
+  Solver outputs of rejected trials are deleted; the accepted trial is renamed to
+  the next model with a `FROM_LINE_SEARCH` marker (see below).
 - `output_optimize_gll_Mxx.log`: search direction and accepted step information.
 
 L-BFGS uses log-model differences and MPI sums of GLL quadrature integrals
 (including element Jacobians). Invalid curvature pairs are skipped and a
-non-descent direction falls back to preconditioned SD. `DO_LS: true` enables
-Armijo backtracking with forward evaluations; a failed search restores the
-current model and database and exits with an error.
+non-descent direction falls back to preconditioned SD. With `DO_LS: false` the
+model is updated with a fixed step of `MAX_SLEN`.
+
+`DO_LS: true` enables a weak Wolfe line search. It starts from the step accepted
+in the previous iteration (at most `MAX_SLEN`), and each trial runs the forward
+and adjoint simulations, giving the misfit `f(a)` and the directional derivative
+`g(a)` from the trial's raw kernels. A trial step `a` is accepted when
+
+- `f(a) <= f(0) + C1*a*g(0)` (Armijo, sufficient decrease), and
+- `g(a) >= C2*g(0)` (curvature, `0 < C1 < C2 < 1`).
+
+A step failing Armijo is shrunk by `MAX_SHRINK`; a step meeting Armijo but not
+the curvature condition is expanded by `1/MAX_SHRINK` up to `MAX_SLEN`. Once both
+bounds exist, the next step bisects them. `MAX_SUB_ITER` limits the number of
+trials; when it is used up, the largest step meeting Armijo is accepted, and the
+search fails only if no trial met it, restoring the current model and database.
+
+The accepted trial already holds the next model's misfits and event kernels, so
+its outputs are renamed to the next model instead of being recomputed: `xspecfwat`
+skips the next iteration's forward and adjoint simulations, and
+`xfwat_fwd_measure_adj -r 3` exits early when `solver/<model>.<data type>` holds
+the `FROM_LINE_SEARCH` marker. Delete the marker to recompute that model.
 
 To continue after `M10` has been produced:
 
@@ -157,4 +182,5 @@ Keep the mesh, element ordering,
 CPU/GPU mesh-coloring configuration, rank count, data selection, processing
 settings, and optimization history consistent when resuming. Set `ITER_START`
 to the restart index to reset L-BFGS history after changing processing settings.
-Model indices are `M00`–`M99`.
+The optimizer and `xspecfwat` require model names `M00`–`M98`; forward and
+post-processing steps accept any model name.
