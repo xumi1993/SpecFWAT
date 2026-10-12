@@ -23,10 +23,7 @@ contains
     integer :: n_input
 
     n_input = size(x)
-    if (n_input > nft) then
-      write(*,*) 'Error: fft_dp input size greater than nft'
-      error stop
-    end if
+    if (n_input > nft) call exit_MPI_without_rank('Error: fft_dp input size greater than nft')
 
     fpx = (0.0_dp, 0.0_dp)
     fpx(1:n_input) = cmplx(x, 0.0_dp, kind=dp)
@@ -41,10 +38,7 @@ contains
     integer :: n_input
     
     n_input = size(x)
-    if (n_input > nft) then
-      write(*,*) 'Error: fft input size greater than nft'
-      error stop
-    end if
+    if (n_input > nft) call exit_MPI_without_rank('Error: fft input size greater than nft')
     
     fpx = 0.0
     fpx(1:n_input) = cmplx(real(x), 0.0)

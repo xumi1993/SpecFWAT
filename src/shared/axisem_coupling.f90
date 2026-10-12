@@ -36,7 +36,7 @@ contains
     if (ier /= 0) then
       print *,'Error: could not open file ',trim(prname_trac) // 'sol_axisem'
       print *,'Please check if traction file exists for coupling with AxiSEM...'
-      stop 'Error opening tractions file proc****_sol_axisem'
+      call exit_MPI(myrank, 'Error opening tractions file proc****_sol_axisem')
     endif
   end subroutine setup_axisem_coupling
 end module axisem_coupling

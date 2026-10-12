@@ -307,10 +307,7 @@ contains
               trim(this%evtname)//'_'//trim(this%band_name)//&
               '_window_chi'
     open(newunit=unit, file=chifile, status='unknown', iostat=ier)
-    if (ier /= 0) then
-      write(*,*) 'Error opening file: ', trim(chifile)
-      error stop
-    end if
+    if (ier /= 0) call exit_MPI(worldrank, 'Error opening file: '//trim(chifile))
 
     do irec = 1, this%nrec
       do icomp = 1, this%rec_misfits(irec)%ncomp

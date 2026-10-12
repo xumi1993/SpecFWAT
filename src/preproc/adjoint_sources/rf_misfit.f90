@@ -76,7 +76,7 @@ contains
 
     ! trim for measurement
     nstart = int((tp - shift_loc)/ dt) + 1
-    if (nstart < 1) error stop 'Error: Not enough samples for the beginning of the window'
+    if (nstart < 1) call exit_MPI(worldrank, 'Error: Not enough samples for the beginning of the window')
     allocate(z_rev(nlen), r_rev(nlen))
     z_rev = 0.0_dp
     r_rev = 0.0_dp

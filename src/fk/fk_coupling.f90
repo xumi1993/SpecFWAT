@@ -346,10 +346,7 @@ contains
     h(ilayer+1:nlayer) = h_FK(ilayer+1:nlayer)
     h(ilayer) = z1 - sum(h_FK(ilayer+1:nlayer))
     h(nlayer) = 0 - z0
-    if (h(ilayer) < 0) then
-      print *, 'Error setting layer thickness'
-      stop
-    end if
+    if (h(ilayer) < 0) call exit_MPI(worldrank, 'Error setting layer thickness in fktime')
     do j = nlayer, ilayer, -1
       eta = sqrt(1 / v_fk_input(j)**2 - p**2)
       tdelay = tdelay + eta * h(j)
