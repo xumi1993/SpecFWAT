@@ -10,6 +10,20 @@ module common_lib
       import :: c_int, c_char
       character(kind=c_char), dimension(*), intent(in) :: oldpath, newpath
     end function c_rename
+
+    ! mkdir() and access() of the C library, used to create directories
+    ! without spawning a shell from MPI processes.
+    integer(c_int) function c_mkdir(path, mode) bind(C, name='mkdir')
+      import :: c_int, c_char
+      character(kind=c_char), dimension(*), intent(in) :: path
+      integer(c_int), value :: mode
+    end function c_mkdir
+
+    integer(c_int) function c_access(path, amode) bind(C, name='access')
+      import :: c_int, c_char
+      character(kind=c_char), dimension(*), intent(in) :: path
+      integer(c_int), value :: amode
+    end function c_access
   end interface
 
 contains
@@ -351,16 +365,35 @@ contains
 
   end subroutine rotate_ZR_to_LQ
 
+  ! Collective directory creation: one rank on every node creates it. Other
+  ! nodes then see it even when the path is on node-local storage, and on NFS
+  ! the mkdir() refreshes a node's cache of a path it looked up before the
+  ! directory existed, which would otherwise fail its next file creation.
   subroutine mkdir(dirname)
     character(len=*), intent(in) :: dirname
-    integer :: ios
+    logical :: failed, any_failed
 
-    if (worldrank == 0) call execute_command_line('mkdir -p ' // trim(dirname), wait=.true., exitstat=ios)
-    call bcast_all_singlei(ios)
-    if (ios /= 0) then
-      call exit_MPI(0, 'Error creating directory')
-    endif
+    failed = .false.
+    if (noderank == 0) failed = .not. make_dir_tree(trim(dirname))
+    call any_all_l(failed, any_failed)
+    if (any_failed) call exit_MPI(worldrank, 'Error creating directory: '//trim(dirname))
   end subroutine mkdir
+
+  ! Local "mkdir -p": create every parent of path in turn, ignoring those
+  ! that already exist, and report whether path exists afterwards.
+  logical function make_dir_tree(path) result(ok)
+    character(len=*), intent(in) :: path
+    integer(c_int), parameter :: DIR_MODE = int(o'755', c_int), F_OK = 0_c_int
+    integer(c_int) :: ier
+    integer :: i, n
+
+    n = len_trim(path)
+    do i = 2, n
+      if (path(i:i) == '/') ier = c_mkdir(path(1:i-1)//c_null_char, DIR_MODE)
+    enddo
+    ier = c_mkdir(path(1:n)//c_null_char, DIR_MODE)
+    ok = n > 0 .and. c_access(path(1:n)//c_null_char, F_OK) == 0
+  end function make_dir_tree
 
   ! Collective file copy: rank zero copies the file and shares the result.
   subroutine cp(src, dst)
