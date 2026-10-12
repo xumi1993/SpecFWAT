@@ -38,7 +38,8 @@
       USE_EXTERNAL_SOURCE_FILE, &
       USE_TRICK_FOR_BETTER_PRESSURE,COUPLE_WITH_INJECTION_TECHNIQUE, &
       myrank,NSPEC_AB,NGLOB_AB,ibool,xstore,ystore,zstore,DT, &
-      NSOURCES,HAS_FINITE_FAULT_SOURCE,LTS_MODE
+      NSOURCES,HAS_FINITE_FAULT_SOURCE,LTS_MODE, &
+      CMT_CONVENTION_FORMAT
 
   ! sources arrays
   use specfem_par, only: Mxx,Myy,Mzz,Mxy,Mxz,Myz,hdur, &
@@ -52,6 +53,9 @@
 
   ! LTS
   use specfem_par_lts, only: p_elem,ispec_p_refine,p_lookup,num_p_level
+
+  ! CMT + FORCE
+  use specfem_par, only: USE_CMT_AND_FORCE_SOURCE,is_POINTFORCE
 
   implicit none
 
@@ -71,6 +75,7 @@
 
   double precision :: force_N,total_force_N
   double precision :: M0,Mw,total_M0,total_Mw
+  double precision :: Mrr,Mtt,Mpp,Mrt,Mrp,Mtp
 
   double precision, external :: get_cmt_scalar_moment
   double precision, external :: get_cmt_moment_magnitude
@@ -130,6 +135,15 @@
     ! number to output about ~50 steps, rounds to the next multiple of 500
     num_output_info = max(500,int(ceiling(ceiling(NSOURCES/50.0)/500.0)*500))
   endif
+
+  ! combined CMT + FORCE sources (CMTSOLUTION + FORCESOLUTION or SOLUTION.bin) are not supported by FWAT
+  if (USE_CMT_AND_FORCE_SOURCE) &
+    call exit_MPI(myrank,'USE_CMT_AND_FORCE_SOURCE is not supported in SpecFWAT, please set it to .false. in Par_file')
+
+  ! allocate is_pointforce flag
+  allocate(is_POINTFORCE(NSOURCES),stat=ier)
+  if (ier /= 0) call exit_MPI(myrank,'Error allocating is_POINTFORCE arrays')
+  is_POINTFORCE(:) = USE_FORCE_POINT_SOURCE
 
   ! allocates temporary arrays
   allocate(moment_tensor(6,NSOURCES), &
@@ -204,7 +218,127 @@
   !debug
   !print *,'source elevations:',elevation
 
-  ! reference frame convertion:
+  ! SPECFEM3D assumes that CMTs are given in the Harvard convention Up-South-East ('USE').
+  ! Here, we will convert them from other conventions to Harvard, which is internally needed to then determine
+  ! the X-Y-Z framework components.
+  !
+  ! USGS finite-fault solutions are given by a CMTSOLUTION file with multiple CMTs.
+  ! They use the Aki & Richards (North-East-Down 'NED') convention, see issue:
+  !   https://github.com/orgs/SPECFEM/discussions/1875
+  ! This can be seen by their use of the obspy mopad MomentTensor calls:
+  !   https://code.usgs.gov/ghsc/neic/algorithms/neic-finitefault/-/blob/main/src/ffm/eventpage_downloads.py?ref_type=heads#L206
+  !
+  ! Here we convert from Aki & Richards (or Stein & Wysession) to Harvard format.
+  !
+  ! This follows the conversion script given in
+  ! utils/scripts/CMTs/convert_MT_convert_moment_tensor_convention_from_any_of_the_5_classical_conventions_to_any_other.m
+  !
+  select case (CMT_CONVENTION_FORMAT)
+  case ('USE','HARVARD')
+    ! Up-South-East (Harvard) convention
+    !
+    ! nothing to do, already in Harvard format
+    continue
+
+  case ('NED','AKI','AKI&RICHARDS')
+    ! North-East-Down (Aki & Richards)
+    !
+    ! user output
+    if (myrank == 0) then
+      ! only if there are CMTs
+      if ((.not. USE_FORCE_POINT_SOURCE) .or. USE_CMT_AND_FORCE_SOURCE) then
+        write(IMAIN,*) 'CMTs given in North-East-Down (Aki & Richards) format'
+        write(IMAIN,*)
+        call flush_IMAIN()
+      endif
+    endif
+    ! Aki & Richards convention assumes input:
+    !   moment_tensor(1,:) = Mnn
+    !   moment_tensor(2,:) = Mee
+    !   moment_tensor(3,:) = Mdd
+    !   moment_tensor(4,:) = Mne
+    !   moment_tensor(5,:) = Mnd
+    !   moment_tensor(6,:) = Med
+    !
+    ! conversion to Harvard ('USE')
+    !   Mrr =  Mdd = moment_tensor(3,:)
+    !   Mtt =  Mnn = moment_tensor(1,:)
+    !   Mpp =  Mdd = moment_tensor(2,:)
+    !   Mrt =  Mnd = moment_tensor(5,:)
+    !   Mrp = -Med = - moment_tensor(6,:)
+    !   Mtp = -Mne = - moment_tensor(4,:)
+    !
+    do isource = 1,NSOURCES
+      ! converts moment tensor from Aki&Richards to Harvard
+      Mrr =  moment_tensor(3,isource) ! Mdd
+      Mtt =  moment_tensor(1,isource) ! Mnn
+      Mpp =  moment_tensor(2,isource) ! Mdd
+      Mrt =  moment_tensor(5,isource) ! Mnd
+      Mrp = -moment_tensor(6,isource) ! -Med
+      Mtp = -moment_tensor(4,isource) ! -Mne
+      ! stores in Harvard format
+      moment_tensor(1,isource) = Mrr
+      moment_tensor(2,isource) = Mtt
+      moment_tensor(3,isource) = Mpp
+      moment_tensor(4,isource) = Mrt
+      moment_tensor(5,isource) = Mrp
+      moment_tensor(6,isource) = Mtp
+    enddo
+
+  case ('NWU','STEIN','STEIN&WYSESSION')
+    ! North-West-Up (Stein & Wysession)
+    !
+    ! user output
+    if (myrank == 0) then
+      ! only if there are CMTs
+      if ((.not. USE_FORCE_POINT_SOURCE) .or. USE_CMT_AND_FORCE_SOURCE) then
+        write(IMAIN,*) 'CMTs given in North-West-Up (Stein & Wysession) format'
+        write(IMAIN,*)
+        call flush_IMAIN()
+      endif
+    endif
+    ! Stein & Wysession convention assumes input:
+    !   moment_tensor(1,:) = Mnn
+    !   moment_tensor(2,:) = Mww
+    !   moment_tensor(3,:) = Muu
+    !   moment_tensor(4,:) = Mnw
+    !   moment_tensor(5,:) = Mnu
+    !   moment_tensor(6,:) = Mwu
+    !
+    ! conversion to Harvard ('USE')
+    !   Mrr =  Muu =  moment_tensor(3,:)
+    !   Mtt =  Mnn =  moment_tensor(1,:)
+    !   Mpp =  Mww =  moment_tensor(2,:)
+    !   Mrt = -Mnu = -moment_tensor(5,:)
+    !   Mrp = -Mwu = -moment_tensor(6,:)
+    !   Mtp =  Mnw =  moment_tensor(4,:)
+    do isource = 1,NSOURCES
+      ! converts moment tensor from Stein&Wysession to Harvard
+      Mrr =  moment_tensor(3,isource) ! Muu
+      Mtt =  moment_tensor(1,isource) ! Mnn
+      Mpp =  moment_tensor(2,isource) ! Mww
+      Mrt = -moment_tensor(5,isource) ! -Mnu
+      Mrp = -moment_tensor(6,isource) ! -Mwu
+      Mtp =  moment_tensor(4,isource) ! Mnw
+      ! stores in Harvard format
+      moment_tensor(1,isource) = Mrr
+      moment_tensor(2,isource) = Mtt
+      moment_tensor(3,isource) = Mpp
+      moment_tensor(4,isource) = Mrt
+      moment_tensor(5,isource) = Mrp
+      moment_tensor(6,isource) = Mtp
+    enddo
+
+  case default
+    print *,"Error: parameter CMT_CONVENTION_FORMAT '",CMT_CONVENTION_FORMAT,"' not recognized."
+    print *
+    print *,"By default, we assume a CMT format 'USE' (Up-South-East, i.e., Harvard)."
+    print *,"Please use 'NED' (North-East-Down, Aki & Richards) or 'NWU' (North-West-Up, Stein & Wysession) otherwise."
+    print *
+    call exit_MPI(myrank,'Invalid CMT_CONVENTION_FORMAT parameter')
+  end select
+
+  ! reference frame conversion:
   !   Harvard CMT convention: r is up, t is south, and p is east
   !                           (x = South, y = East, z = Up)
   !
@@ -451,7 +585,7 @@
         endif
 
         ! source location (reference element)
-        if (USE_FORCE_POINT_SOURCE) then
+        if (is_POINTFORCE(isource)) then
           ! single point force
           write(IMAIN,*) '  using force point source: '
           write(IMAIN,*) '    xi coordinate of source in that element: ',xi_source(isource)
@@ -485,7 +619,7 @@
           write(IMAIN,*)
         else
           ! STF details
-          if (USE_FORCE_POINT_SOURCE) then
+          if (is_POINTFORCE(isource)) then
             ! force sources
             ! single point force
             ! prints frequency content for point forces
@@ -592,7 +726,7 @@
 !         write(IMAIN,*)
 ! #else
         write(IMAIN,*) '  magnitude of the source:'
-        if (USE_FORCE_POINT_SOURCE) then
+        if (is_POINTFORCE(isource)) then
           ! single point force
           ! force in Newton
           force_N = factor_force_source(isource)
@@ -670,7 +804,7 @@
       endif  ! end of detailed output to locate source
 
       ! checks CMTSOLUTION format for acoustic case
-      if (idomain(isource) == IDOMAIN_ACOUSTIC .and. .not. USE_FORCE_POINT_SOURCE) then
+      if (idomain(isource) == IDOMAIN_ACOUSTIC .and. .not. is_POINTFORCE(isource)) then
         if (Mxx(isource) /= Myy(isource) .or. Myy(isource) /= Mzz(isource) .or. &
            Mxy(isource) > TINYVAL .or. Mxz(isource) > TINYVAL .or. Myz(isource) > TINYVAL) then
           write(IMAIN,*)
@@ -723,7 +857,7 @@
       total_force_N = 0.d0
 
       do isource = 1,NSOURCES
-        if (USE_FORCE_POINT_SOURCE) then
+        if (is_POINTFORCE(isource)) then
           ! single point force
           ! factor_force_source in FORCESOLUTION file is by default in Newton
           ! 1 Newton is 1 kg * 1 m / (1 second)^2

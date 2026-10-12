@@ -3,7 +3,7 @@ function(initialize_submodule DIRECTORY)
     if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
     # Update submodules as needed
         message(STATUS "Submodule update ${PROJECT_SOURCE_DIR}/external_libs/${DIRECTORY}")
-        execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init
+        execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init external_libs/${DIRECTORY}
                         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                         RESULT_VARIABLE GIT_SUBMOD_RESULT)
         if(NOT GIT_SUBMOD_RESULT EQUAL "0")

@@ -226,7 +226,9 @@ contains
       if (kpsv == 1) then
         vec(2)=coeff(1,ii); vec(3)=C_3; vec(4)=coeff(2,ii)
       else
-        vec(1)=C_1; vec(3)=coeff(1,ii); vec(4)=coeff(2,ii)
+        ! incident SV: reflected SV-down amplitude goes to the down-going SV mode (column 2),
+        ! same as SPECFEM3D's FK3D fix (SPECFEM/specfem3d#1881)
+        vec(1)=C_1; vec(2)=coeff(1,ii); vec(4)=coeff(2,ii)
       endif
       bottom(:,ii)=vec
       N_mat=E_mat
