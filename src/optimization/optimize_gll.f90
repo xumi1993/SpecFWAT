@@ -274,54 +274,84 @@ contains
       call exit_MPI(worldrank, 'Invalid updated GLL model')
   end subroutine update_trial
 
-  subroutine run_linesearch(this, current_misfit)
+  subroutine run_linesearch(this, current_misfit, accepted_misfit)
+    ! Weak Wolfe line search. Each trial runs the forward and adjoint
+    ! simulations, so the accepted trial also provides the kernels and the
+    ! misfit (accepted_misfit) of the next model.
     use generate_databases_subs, only: generate_databases_fwat
-    use line_search, only: forward_for_simu_type
-    use specfem_par, only: LOCAL_PATH, OUTPUT_FILES, SIMULATION_TYPE, SAVE_FORWARD
+    use line_search, only: forward_for_simu_type, trial_name, wolfe_init, wolfe_step, &
+                           wolfe_fallback, adopt_trial
+    use post_processing, only: sum_event_kernels
+    use common_lib, only: get_dat_type
+    use specfem_par, only: LOCAL_PATH, OUTPUT_FILES, SIMULATION_TYPE, SAVE_FORWARD, ATTENUATION
     class(OptGLLFlow), intent(inout) :: this
-    real(kind=cr), allocatable :: raw(:,:,:,:,:), displacement(:,:,:,:,:)
+    real(kind=cr), allocatable :: raw(:,:,:,:,:), raw_trial(:,:,:,:,:), displacement(:,:,:,:,:)
     real(kind=dp), intent(in) :: current_misfit
-    real(kind=dp) :: f1, f0, slope
-    integer :: isub
-    character(len=MAX_STRING_LEN) :: msg, base_name, base_output
+    real(kind=dp), intent(out), optional :: accepted_misfit
+    real(kind=dp) :: f1, f0, g0, g1
+    real(kind=dp), allocatable :: trial_misfit(:)
+    integer :: isub, accepted
+    logical :: attenuation0
+    character(len=MAX_STRING_LEN) :: msg, base_name, base_output, next_name
 
     base_name = model_name
     base_output = OUTPUT_FILES
     model_current = base_name
+    ! Adjoint simulations switch attenuation off; build every trial database
+    ! with the model's setting.
+    attenuation0 = ATTENUATION
     call read_gll_vector(trim(OPT_DIR)//'/SUM_KERNELS_'//trim(base_name), trim_names('_kernel'), raw, size(this%model,4))
-    model_name = trim(base_name)//'_ls'
-    run_mode = FORWARD_MEASADJ
+    allocate(raw_trial, mold=raw)
+    allocate(trial_misfit(fpar%update%MAX_SUB_ITER))
+    run_mode = FORWARD_ADJOINT
+    call wolfe_init()
+    accepted = 0
     do isub = 1, fpar%update%MAX_SUB_ITER
       call this%update_trial()
+      ! Derivatives are taken along the actual (Vp/Vs-limited) log-model update.
       displacement = log(this%trial/this%model)
-      slope = this%dot(raw,displacement)
-      if (.not. ieee_is_finite(slope) .or. slope >= 0.0_dp) exit
+      g0 = this%dot(raw,displacement)/step_len
+      if (.not. ieee_is_finite(g0) .or. g0 >= 0.0_dp) exit
+      model_name = trial_name(isub)
       call write_gll_vector(local_path_fwat, parameter_names, this%trial)
       LOCAL_PATH = local_path_fwat
       OUTPUT_FILES = base_output
       SIMULATION_TYPE = 1
       SAVE_FORWARD = .true.
+      ATTENUATION = attenuation0
       call generate_databases_fwat()
       call forward_for_simu_type(f1, f0, current_misfit)
+      trial_misfit(isub) = f1
       write(msg, '(A,I0,A,ES12.4,A,ES18.8,A,ES18.8)') &
         'GLL line search ', isub, ': step=', step_len, ', misfit=', f1, ', previous=', f0
       call runlog%write(msg, .true.)
-      if (ieee_is_finite(f1) .and. f1 <= f0 + fpar%update%C1*slope) then
-        model_name = base_name
-        LOCAL_PATH = local_path_fwat
-        OUTPUT_FILES = base_output
-        return
-      endif
-      step_len = step_len*fpar%update%MAX_SHRINK
+      ! Kernels of the trial model give the derivative at the trial step.
+      call get_dat_type()
+      call fpar%acqui%read()
+      call sum_event_kernels(raw_trial)
+      call fpar%acqui%finalize()
+      g1 = this%dot(raw_trial,displacement)/step_len
+      call wolfe_step(isub, f0, f1, g0, g1, accepted)
+      if (accepted > 0) exit
     enddo
-    ! Restore the accepted model and its solver database on search failure.
-    call write_gll_vector(local_path_fwat, parameter_names, this%model)
+    if (accepted == 0) call wolfe_fallback(accepted)
+    model_name = base_name
     LOCAL_PATH = local_path_fwat
     OUTPUT_FILES = base_output
     SIMULATION_TYPE = 1
     SAVE_FORWARD = .true.
-    call generate_databases_fwat()
-    call exit_MPI(worldrank, 'GLL line search failed; current model restored. Reduce MAX_SLEN or reset ITER_START.')
+    ATTENUATION = attenuation0
+    if (accepted == 0) then
+      ! Restore the accepted model and its solver database on search failure.
+      call write_gll_vector(local_path_fwat, parameter_names, this%model)
+      call generate_databases_fwat()
+      call exit_MPI(worldrank, 'GLL line search failed; current model restored. Reduce MAX_SLEN or reset ITER_START.')
+    endif
+    ! The caller installs this%trial at the accepted step.
+    call this%update_trial()
+    if (present(accepted_misfit)) accepted_misfit = trial_misfit(accepted)
+    write(next_name, '(A,I2.2)') 'M', this%iter+1
+    call adopt_trial(accepted, next_name)
   end subroutine run_linesearch
 
   subroutine finalize(this)

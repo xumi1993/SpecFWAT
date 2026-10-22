@@ -31,19 +31,15 @@ contains
 !===============================================================================
 
   !> Forward, measurement and adjoint step (xfwat_fwd_measure_adj).
-  subroutine check_preproc_params(iter)
-    integer, intent(in) :: iter
-
-    call check_common_params(iter)
+  subroutine check_preproc_params()
+    call check_common_params()
     call check_data_type()
     call check_waveform_params()
   end subroutine check_preproc_params
 
   !> Kernel summation, smoothing and tapering step (xfwat_post_proc).
-  subroutine check_postproc_params(iter)
-    integer, intent(in) :: iter
-
-    call check_common_params(iter)
+  subroutine check_postproc_params()
+    call check_common_params()
     call check_data_type()
     call check_kernel_postproc()
     if (.not. use_gll) call check_model_grid()
@@ -53,7 +49,8 @@ contains
   subroutine check_optimize_params(iter)
     integer, intent(in) :: iter
 
-    call check_common_params(iter)
+    call check_common_params()
+    call check_iteration_bounds(iter, iter)
     call check_iteration_start(iter)
     call check_optimizer()
     if (use_gll) then
@@ -71,8 +68,8 @@ contains
     integer, intent(in) :: first, iteration_count
     integer, intent(out) :: itype
 
-    call check_preproc_params(first)
-    call check_postproc_params(first)
+    call check_preproc_params()
+    call check_postproc_params()
     call check_optimize_params(first)
     ! Models are written up to M<first+iteration_count-1>.
     call check_iteration_bounds(first, first+iteration_count-1)
@@ -86,18 +83,16 @@ contains
 ! Parameter checks
 !===============================================================================
 
-  !> What every step depends on: a usable Mxx label, the data types the
-  !! inversion combines, and the parameterization of the model.
-  subroutine check_common_params(iter)
-    integer, intent(in) :: iter
-
-    call check_iteration_bounds(iter, iter)
+  !> What every step depends on: the data types the inversion combines, and
+  !! the parameterization of the model.
+  subroutine check_common_params()
     call check_inv_type()
     call check_model_space()
   end subroutine check_common_params
 
-  !> Accept only the Mxx model names the model, gradient and history files are
-  !! keyed on, and return the iteration index they encode.
+  !> The optimizer needs an Mxx model name: it reads the gradient history by
+  !! iteration index and writes the update as M<iter+1>. Forward, measurement
+  !! and post-processing steps accept any model name.
   subroutine check_model_name(iter)
     integer, intent(out) :: iter
     integer :: ios
@@ -219,8 +214,9 @@ contains
     if (min(fpar%postproc%TAPER_H_SUPPRESS, fpar%postproc%TAPER_H_BUFFER, &
             fpar%postproc%TAPER_V_SUPPRESS, fpar%postproc%TAPER_V_BUFFER) < 0.0_cr) &
       call abort_check('Taper distances must be non-negative')
-    if (fpar%sim%PRECOND_TYPE < DEFAULT_PRECOND .or. fpar%sim%PRECOND_TYPE > Z_SQRT_PRECOND) &
-      call abort_check('PRECOND_TYPE must be 1 (default), 2 (depth) or 3 (sqrt of depth)')
+    if (fpar%sim%PRECOND_TYPE /= NO_PRECOND .and. &
+        (fpar%sim%PRECOND_TYPE < DEFAULT_PRECOND .or. fpar%sim%PRECOND_TYPE > Z_SQRT_PRECOND)) &
+      call abort_check('PRECOND_TYPE must be -1 (none), 1 (default), 2 (depth) or 3 (sqrt of depth)')
     if (fpar%postproc%NORM_TYPE < 1 .or. fpar%postproc%NORM_TYPE > 3) &
       call abort_check('NORM_TYPE must be 1, 2 or 3')
   end subroutine check_kernel_postproc
@@ -242,8 +238,8 @@ contains
     if (fpar%update%DO_LS) then
       if (fpar%update%MAX_SUB_ITER < 1 .or. fpar%update%MAX_SHRINK <= 0.0_cr .or. &
           fpar%update%MAX_SHRINK >= 1.0_cr .or. fpar%update%C1 <= 0.0_cr .or. &
-          fpar%update%C1 >= 1.0_cr) &
-        call abort_check('Line search needs MAX_SUB_ITER >= 1 and MAX_SHRINK, C1 inside (0,1)')
+          fpar%update%C2 <= fpar%update%C1 .or. fpar%update%C2 >= 1.0_cr) &
+        call abort_check('Line search needs MAX_SUB_ITER >= 1, MAX_SHRINK inside (0,1) and 0 < C1 < C2 < 1')
     endif
   end subroutine check_optimizer
 

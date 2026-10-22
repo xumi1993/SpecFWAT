@@ -92,8 +92,9 @@ contains
     endif
 
     allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT),stat=ier)
-    read(IIN) data
+    read(IIN, iostat=ier) data
     close(IIN)
+    if (ier /= 0) call exit_mpi(worldrank, 'Error reading database file: '//trim(fprname)//trim(dataname)//'.bin')
 
   end subroutine read_event_kernel
 
@@ -193,8 +194,9 @@ contains
     endif
 
     allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT),stat=ier)
-    read(IIN) data
+    read(IIN, iostat=ier) data
     close(IIN)
+    if (ier /= 0) call exit_mpi(worldrank, 'Error reading database file: '//trim(fprname)//trim(dataname)//'.bin')
 
   end subroutine read_kernel
 
@@ -211,8 +213,9 @@ contains
       call exit_mpi(myrank,'Error opening database file')
     endif
 
-    write(IOUT) data
+    write(IOUT, iostat=ier) data
     close(IOUT)
+    if (ier /= 0) call exit_mpi(worldrank, 'Error writing database file: '//trim(fprname)//trim(dataname)//'.bin')
 
   end subroutine write_kernel
 

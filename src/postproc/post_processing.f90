@@ -4,7 +4,7 @@ module post_processing
   use fwat_constants
   use logger, only: log
   use input_params, fpar => fwat_par_global
-  use utils, only: zeros
+  use utils, only: zeros, ones
   use kernel_io
   use taper3d
   use common_lib, only: get_dat_type, get_kernel_names, mkdir
@@ -106,20 +106,20 @@ contains
       call prepare_shm_array_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel, this%ks_win)
   end subroutine init_for_type
   
-  subroutine sum_kernel(this)
-    class(PostFlow), intent(inout) :: this
+  subroutine sum_event_kernels(ker_sum)
+    ! Sum the event kernels of the source list that fpar%acqui currently holds.
+    real(kind=cr), dimension(:,:,:,:,:), intent(out) :: ker_sum
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
     real(kind=cr), dimension(:,:,:,:,:), allocatable :: ker_aniso
     integer :: iker, ievt
-    real(kind=cr) :: max_loc, min_loc, max_glob, min_glob
 
-    call log%write('This is taking sum of kernels...', .true.)
+    ker_sum = 0.0_cr
     if (ANISOTROPIC_KL) then
       ! take sum of anisotropic kernels
       if (fpar%update%MODEL_TYPE == 2) then
         do ievt = 1, fpar%acqui%nevents
           call kernel_cijkl2hti(ievt, ker_aniso)
-          this%ker_data = this%ker_data + ker_aniso
+          ker_sum = ker_sum + ker_aniso
         enddo
       endif
     else
@@ -127,10 +127,19 @@ contains
         if(fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
         do ievt = 1, fpar%acqui%nevents
           call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
-          this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
+          ker_sum(:,:,:,:,iker) = ker_sum(:,:,:,:,iker) + ker
         enddo
       enddo
     endif
+  end subroutine sum_event_kernels
+
+  subroutine sum_kernel(this)
+    class(PostFlow), intent(inout) :: this
+    integer :: iker
+    real(kind=cr) :: max_loc, min_loc, max_glob, min_glob
+
+    call log%write('This is taking sum of kernels...', .true.)
+    call sum_event_kernels(this%ker_data)
     if (is_output_sum_kernel .or. fpar%update%DO_LS) then
       call log%write('This is writing sum of kernels...', .true.)
       do iker = 1, nkernel
@@ -166,6 +175,11 @@ contains
     class(PostFlow), intent(inout) :: this
     integer :: iker,  ievt
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
+
+    if (fpar%sim%PRECOND_TYPE == NO_PRECOND) then
+      call log%write('No preconditioning of kernels (PRECOND_TYPE = -1)', .true.)
+      return
+    endif
 
     call log%write('This is applying preconditioned kernels...', .true.)
 
@@ -207,7 +221,14 @@ contains
     real(kind=cr) :: max_loc, max_glob
 
     call log%write('This is saving preconditioned kernels...', .true.)
-    if (fpar%sim%PRECOND_TYPE <= 1) then
+    if (fpar%sim%PRECOND_TYPE == NO_PRECOND) then
+      ! identity preconditioner, read by the optimizer like the others
+      if (use_gll) then
+        call write_kernel(this%kernel_path, HESS_PREFIX, ones(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT))
+        return
+      endif
+      if (worldrank == 0) this%hess_smooth = ones(ext_grid%nx, ext_grid%ny, ext_grid%nz)
+    elseif (fpar%sim%PRECOND_TYPE <= DEFAULT_PRECOND) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)

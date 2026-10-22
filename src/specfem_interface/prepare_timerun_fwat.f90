@@ -38,9 +38,8 @@
   use input_params, only: fpar => fwat_par_global
   use logger, only: log
 
-  !! solving wavefield discontinuity problem with non-split-node scheme
-  use wavefield_discontinuity_solver, only: &
-               prepare_timerun_wavefield_discontinuity
+  ! solving wavefield discontinuity problem with non-split-node scheme
+  use wavefield_discontinuity_solver, only: prepare_timerun_wavefield_discontinuity
 
   implicit none
 
@@ -62,7 +61,7 @@
   call prepare_timerun_user_output()
 
   ! sets up mass matrices
-  call prepare_timerun_mass_matrices()
+  call prepare_mass_matrices()
 
   ! sets up time increments
   call prepare_timerun_constants()
@@ -79,9 +78,13 @@
   ! prepares gravity arrays
   call prepare_gravity()
 
-  ! ZN I do not use if (USE_LDDRK) call prepare_timerun_lddrk()
-  ! ZN in order to avoid the error of using unallocated arrays later on in the code,
-  ! ZN since R_**_lddrk are arguments in subroutine compute_forces_viscoelastic
+  ! prepares rotation
+  call prepare_rotation()
+
+  ! prepares LDDRK time scheme
+  ! note: do not use if (USE_LDDRK) call prepare_timerun_lddrk()
+  !       in order to avoid the error of using unallocated arrays later on in the code,
+  !       since R_**_lddrk are arguments in subroutine compute_forces_viscoelastic
   call prepare_timerun_lddrk()
 
   ! prepares C-PML arrays

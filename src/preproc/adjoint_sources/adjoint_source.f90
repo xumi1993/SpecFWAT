@@ -32,13 +32,13 @@ contains
         ! Use calc_adjoint_source_conv subroutine instead
         write(*,*) 'Warning: WAVEFORM_CONV misfit requires radial/vertical components'
         write(*,*) 'Use calc_adjoint_source_conv subroutine instead'
-        error stop
+        call exit_MPI(worldrank, 'WAVEFORM_CONV misfit is not supported by calculate_adjoint_source')
         
       case (IMEAS_RF) ! Receiver function
         ! Note: This requires additional parameters for RF calculation
         write(*,*) 'Warning: RF misfit requires additional parameters'
         write(*,*) 'Use calc_adjoint_source_rf subroutine instead'
-        error stop
+        call exit_MPI(worldrank, 'RF misfit is not supported by calculate_adjoint_source')
         
       case (IMEAS_EXP_PHASE) ! Exponentiated phase
         allocate(ExponentiatedPhaseMisfit :: misfit_out)
@@ -80,7 +80,7 @@ contains
         write(*,*) ' 12 (IMEAS_CC_DLNA): Cross-correlation amplitude'
         write(*,*) ' 13 (IMEAS_CC_TT_MT): Multitaper traveltime'
         write(*,*) ' 14 (IMEAS_CC_DLNA_MT): Multitaper amplitude'
-        error stop
+        call exit_MPI(worldrank, 'Unknown measurement type')
     end select
 
     call filter_adj(misfit_out%adj_src, dt, windows)

@@ -11,6 +11,8 @@ program fwat_full_waveform_tomography
   use preproc_fwd, only: PrepareFWD
   use post_processing, only: PostFlow, remove_ekernel
   use optimize_gll, only: OptGLLFlow, write_gll_vector, gll_model_path
+  use line_search, only: init_step_len
+  use opt_io, only: write_step_len
   use shared_parameters, only: LOCAL_PATH, MODEL, IMODEL, ANISOTROPY, ANISOTROPIC_KL, &
     SIMULATION_TYPE, SAVE_FORWARD, SAVE_MESH_FILES, ATTENUATION, TOMOGRAPHY_PATH, &
     COUPLE_WITH_INJECTION_TECHNIQUE, INJECTION_TECHNIQUE_TYPE
@@ -24,8 +26,8 @@ program fwat_full_waveform_tomography
   type(OptGLLFlow) :: opt
   integer :: first, iteration_count, iter, itype, i
   character(len=MAX_STRING_LEN) :: database_path, solver_output_path, msg
-  real(kind=dp) :: current_misfit
-  logical :: attenuation_model
+  real(kind=dp) :: current_misfit, next_misfit
+  logical :: attenuation_model, reuse_trial
 
   ! Initialize one MPI group before parsing, so --help needs no input files.
   call init_mpi_single_group()
@@ -75,6 +77,7 @@ program fwat_full_waveform_tomography
   ! lets every L-BFGS history vector refer to the same GLL points.
   call meshfem3D_fwat(fpar%sim%mesh_par_file)
 
+  reuse_trial = .false.
   do iter = first, first+iteration_count-1
     write(model_name, '(A,I2.2)') 'M', iter
     ! 1. Build from the chosen external/GLL initial model, then from the
@@ -87,28 +90,34 @@ program fwat_full_waveform_tomography
     SAVE_FORWARD = .true.
     call generate_databases_fwat()
 
-    ! 2. Run forward/measurement/adjoint simulations for every selected event.
-    run_mode = FORWARD_ADJOINT
-    call get_dat_type()
-    call fpar%acqui%read()
-    call check_nevents()
-    call fwd%init()
-    call check_elastic_mesh()
-    ! Keep the objective in double precision for line search; reading the
-    ! text misfit files would introduce rounding into its acceptance test.
-    current_misfit = 0.0_dp
-    do i = 1, fpar%acqui%nevents
-      fwd%ievt = i
-      call fwd%prepare_for_event()
-      call fwd%simulation()
-      current_misfit = current_misfit + fwd%obj_func
-    enddo
-    call fwd%destroy()
-    call fpar%acqui%finalize()
-    call log%write('*******************************************', .false.)
-    call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
-    call log%write('*******************************************', .false.)
-    call log%finalize()
+    ! 2. Run forward/measurement/adjoint simulations for every selected event,
+    ! unless the accepted line-search trial already ran them for this model.
+    if (reuse_trial) then
+      current_misfit = next_misfit
+      if (worldrank == 0) print *, 'Reusing the line-search simulations of ', trim(model_name)
+    else
+      run_mode = FORWARD_ADJOINT
+      call get_dat_type()
+      call fpar%acqui%read()
+      call check_nevents()
+      call fwd%init()
+      call check_elastic_mesh()
+      ! Keep the objective in double precision for line search; reading the
+      ! text misfit files would introduce rounding into its acceptance test.
+      current_misfit = 0.0_dp
+      do i = 1, fpar%acqui%nevents
+        fwd%ievt = i
+        call fwd%prepare_for_event()
+        call fwd%simulation()
+        current_misfit = current_misfit + fwd%obj_func
+      enddo
+      call fwd%destroy()
+      call fpar%acqui%finalize()
+      call log%write('*******************************************', .false.)
+      call log%write('*********** PRE-PROCESSING DONE ***********', .false.)
+      call log%write('*******************************************', .false.)
+      call log%finalize()
+    endif
 
     ! 3. Sum event kernels, smooth and taper on GLL points, then save the
     ! processed gradient used by the optimizer and its future history pairs.
@@ -140,7 +149,7 @@ program fwat_full_waveform_tomography
 
     ! 4. Archive this iteration's GLL model when optimization starts,
     ! read the history, construct an SD/L-BFGS direction, and choose
-    ! either a fixed step or an Armijo step using new forward evaluations.
+    ! either a fixed step or a weak Wolfe step using new forward/adjoint runs.
     call log%init('output_optimize_gll_'//trim(model_name)//'.log')
     ! Adjoint simulations temporarily disable attenuation; retain the model
     ! setting when saving quality factors and building later GLL databases.
@@ -157,16 +166,18 @@ program fwat_full_waveform_tomography
     endif
     if (is_output_direction) &
       call write_gll_vector(trim(OPT_DIR)//'/DIRECTION_'//trim(model_name), parameter_names, opt%direction)
-    step_len = fpar%update%MAX_SLEN
+    call init_step_len(iter)
     if (fpar%update%DO_LS) then
-      call opt%run_linesearch(current_misfit)
+      call opt%run_linesearch(current_misfit, next_misfit)
     else
       call opt%update_trial()
     endif
+    reuse_trial = fpar%update%DO_LS
     ! Install the update for the next database build. Its history copy is
     ! written only when the next iteration reaches optimizer initialization.
     call write_gll_vector(database_path, parameter_names, opt%trial)
     call write_gll_vector(gll_model_path(iter+1), parameter_names, opt%trial)
+    call write_step_len(iter, step_len)
     write(msg, '(A,ES12.4,A,I2.2,A)') &
       'Accepted step ', step_len, '; M', iter+1, ' saved to '//trim(database_path)
     call log%write(msg, .true.)

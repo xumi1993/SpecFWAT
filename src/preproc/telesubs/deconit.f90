@@ -27,6 +27,53 @@ contains
 
   end subroutine deconvolve
 
+  subroutine deconvolve_batch(utr, wtr, dt, tshift, f0, &
+                              maxit, minderr, ipart, rfi, use_gpu)
+    ! -----------------------------------------
+    ! Iterative deconvolution of several traces at once:
+    ! rfi(:, i) = deconvolve(utr(:, i), wtr(:, i)). On the GPU all traces
+    ! are processed together (deconit_cuda_batch).
+    ! -------------------------------------------
+    implicit none
+    double precision, dimension(:,:), intent(in)                :: utr, wtr
+    real, intent(in)                                            :: dt, tshift, f0, minderr
+    integer, intent(in)                                         :: ipart, maxit
+    double precision, dimension(:,:), allocatable, intent(out)  :: rfi
+    logical, intent(in)                                         :: use_gpu
+    double precision, dimension(:), allocatable                 :: rf1
+    integer                                                     :: nt, nb, nft, ib
+
+    interface
+      subroutine deconit_cuda_batch(utr, wtr, nt, nft, nb, dt, tshift, f0, &
+                                    maxit, minderr, ipart, rfi) bind(C, name="deconit_cuda_batch")
+        use iso_c_binding
+        real(c_double), dimension(*), intent(in) :: utr, wtr
+        integer(c_int), value :: nt, nft, nb
+        real(c_float), value :: dt, tshift, f0
+        integer(c_int), value :: maxit
+        real(c_float), value :: minderr
+        integer(c_int), value :: ipart
+        real(c_double), dimension(*), intent(out) :: rfi
+      end subroutine deconit_cuda_batch
+    end interface
+
+    nt = size(utr, 1)
+    nb = size(utr, 2)
+    allocate(rfi(nt, nb))
+    if (nb == 0) return
+    if (use_gpu) then
+      nft = nt
+      call npow2(nft)
+      call deconit_cuda_batch(utr, wtr, nt, nft, nb, dt, tshift, f0, maxit, minderr, ipart, rfi)
+    else
+      do ib = 1, nb
+        call deconit(utr(:, ib), wtr(:, ib), dt, tshift, f0, maxit, minderr, ipart, rf1)
+        rfi(:, ib) = rf1
+      enddo
+    endif
+
+  end subroutine deconvolve_batch
+
   subroutine deconit_gpu(utr, wtr, dt, tshift, f0, &
                      maxit, minderr, ipart, rfi)
     implicit none

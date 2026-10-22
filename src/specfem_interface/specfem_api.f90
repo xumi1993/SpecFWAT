@@ -57,6 +57,8 @@ contains
     if(allocated(utm_x_source)) deallocate(utm_x_source)
     if(allocated(utm_y_source)) deallocate(utm_y_source)
     if(allocated(nu_source)) deallocate(nu_source)
+    if(allocated(isource_glob2loc)) deallocate(isource_glob2loc)
+    if(allocated(is_POINTFORCE)) deallocate(is_POINTFORCE)
 
     if(allocated(force_stf)) deallocate(force_stf)
     if(allocated(factor_force_source)) deallocate(factor_force_source)
@@ -369,9 +371,12 @@ contains
   end subroutine FinalizeSpecfem
 
   subroutine backup_rmass()
-    use config, only: rmass_acoustic_copy, rmass_copy, rmassx_copy, rmassy_copy, rmassz_copy
+    use config, only: rmass_acoustic_copy, rmass_copy
     integer :: ier
     !! backup rmass arrays
+    ! note: the database only stores the raw mass matrices (rmassz for elastic domains);
+    !       absorbing boundary and rotation contributions are added and the matrices are
+    !       inverted in place by prepare_mass_matrices() for every simulation
     if (ACOUSTIC_SIMULATION) then
       allocate(rmass_acoustic_copy(NGLOB_AB),stat=ier)
       if (ier /= 0) stop 'Error allocating array rmass_acoustic_copy'
@@ -379,19 +384,13 @@ contains
     endif
     if (ELASTIC_SIMULATION) then
       allocate(rmass_copy(NGLOB_AB),stat=ier)
-      allocate(rmassx_copy(NGLOB_AB),stat=ier)
-      allocate(rmassy_copy(NGLOB_AB),stat=ier)
-      allocate(rmassz_copy(NGLOB_AB),stat=ier)
       if (ier /= 0) stop 'Error allocating array rmass_copy'
-      rmass_copy=rmass
-      rmassx_copy=rmassx
-      rmassy_copy=rmassy
-      rmassz_copy=rmassz
+      rmass_copy=rmassz
     endif
   end subroutine backup_rmass
 
   subroutine restore_rmass()
-    use config, only: rmass_acoustic_copy, rmass_copy, rmassx_copy, rmassy_copy, rmassz_copy
+    use config, only: rmass_acoustic_copy, rmass_copy
 
     !! restore rmass arrays
     if (ACOUSTIC_SIMULATION) then
@@ -399,14 +398,11 @@ contains
       rmass_acoustic=rmass_acoustic_copy
     endif
     if (ELASTIC_SIMULATION) then
-      if( .not. allocated(rmass)) allocate(rmass(NGLOB_AB))
       if( .not. allocated(rmassx)) allocate(rmassx(NGLOB_AB))
       if( .not. allocated(rmassy)) allocate(rmassy(NGLOB_AB))
       if( .not. allocated(rmassz)) allocate(rmassz(NGLOB_AB))
-      rmass(:)=rmass_copy(:)
-      rmassx(:)=rmassx_copy(:)
-      rmassy(:)=rmassy_copy(:)
-      rmassz(:)=rmassz_copy(:)
+      ! rmassx and rmassy are set from rmassz in prepare_mass_matrices()
+      rmassz(:)=rmass_copy(:)
     endif
   end subroutine restore_rmass
 

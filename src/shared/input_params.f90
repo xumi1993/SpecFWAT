@@ -60,7 +60,7 @@ module input_params
 
   type update_params
     integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER, CURRENT_INV_TYPE
-    real(kind=cr) :: MAX_SLEN, MAX_SHRINK, C1
+    real(kind=cr) :: MAX_SLEN, MAX_SHRINK, C1, C2
     logical :: DO_LS, ALT_INV
     real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
     character(len=MAX_STRING_LEN) :: INIT_MODEL_PATH
@@ -574,6 +574,7 @@ contains
         list => update%get_list('VPVS_RATIO_RANGE', required=.true., error=io_err)
         call read_static_real_list(list, this%update%VPVS_RATIO_RANGE)
         this%update%C1 = update%get_real('C1', error=io_err, default=0.01_cr)
+        this%update%C2 = update%get_real('C2', error=io_err, default=0.9_cr)
 
       end select
       call root%finalize()
@@ -784,6 +785,7 @@ contains
     call bcast_all_singlecr(this%update%MAX_SLEN)
     call bcast_all_singlecr(this%update%MAX_SHRINK)
     call bcast_all_singlecr(this%update%C1)
+    call bcast_all_singlecr(this%update%C2)
     call bcast_all_singlei(this%update%MAX_SUB_ITER)
     call bcast_all_singlel(this%update%DO_LS)
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)

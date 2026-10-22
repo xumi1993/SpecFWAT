@@ -7,6 +7,8 @@ program fwat_optimize
   use argparse, only: parse_args_optimize
   use model_grid_data, only: write_grid_model
   use logger, only: log
+  use line_search, only: init_step_len
+  use opt_io, only: write_step_len
   use param_check, only: check_model_name, check_inv_type, check_optimize_params, &
                         check_nevents, check_elastic_mesh, check_misfit
 
@@ -67,6 +69,7 @@ contains
     call fop%model_update()
     call write_grid_model(fop%model_fname, fop%model)
     call write_grid_model(fop%output_model_path, fop%model)
+    call write_step_len(fop%iter_current, step_len)
   end subroutine update_grid_model
 
   subroutine update_gll_model()
@@ -104,7 +107,7 @@ contains
     if (is_output_direction) &
       call write_gll_vector(trim(OPT_DIR)//'/DIRECTION_'//trim(model_name), parameter_names, opt%direction)
 
-    step_len = fpar%update%MAX_SLEN
+    call init_step_len(iter)
     MODEL = 'gll'
     IMODEL = IMODEL_GLL
     if (fpar%update%DO_LS) then
@@ -124,6 +127,7 @@ contains
 
     call write_gll_vector(gll_model_path(iter+1), parameter_names, opt%trial)
     call write_gll_vector(database_path, parameter_names, opt%trial)
+    call write_step_len(iter, step_len)
     write(msg, '(A,ES12.4,A,I2.2,A)') &
       'Accepted step ', step_len, '; M', iter+1, ' saved to '//trim(database_path)
     call log%write(msg, .true.)

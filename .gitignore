@@ -71,6 +71,8 @@ tomography_model.h5
 
 tests/*/*kernel*.h5
 tests/*/*test.ipynb
+tests/rf_pol*/
+tests/rtm*/
 
 *.ipynb
 combine_ker.sh

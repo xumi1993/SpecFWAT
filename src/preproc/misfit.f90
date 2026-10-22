@@ -307,15 +307,12 @@ contains
               trim(this%evtname)//'_'//trim(this%band_name)//&
               '_window_chi'
     open(newunit=unit, file=chifile, status='unknown', iostat=ier)
-    if (ier /= 0) then
-      write(*,*) 'Error opening file: ', trim(chifile)
-      error stop
-    end if
+    if (ier /= 0) call exit_MPI(worldrank, 'Error opening file: '//trim(chifile))
 
     do irec = 1, this%nrec
       do icomp = 1, this%rec_misfits(irec)%ncomp
         do iwin = 1, this%rec_misfits(irec)%trm(icomp)%nwin
-          write(unit, '(a,1x,a,1x,a,1x,i4,1x,f8.3,1x,f8.3,1x,f12.6,1x,f12.6)') &
+          write(unit, '(a,1x,a,1x,a,1x,i4,1x,f8.3,1x,f8.3,1x,f12.6,1x,es14.6)') &
                        trim(this%rec_misfits(irec)%net), &
                        trim(this%rec_misfits(irec)%sta), &
                        trim(this%rec_misfits(irec)%chan(icomp)), &
@@ -331,55 +328,103 @@ contains
 
   end subroutine write
 
-  function read_evt_misfit(model_name_in, ievt) result(total_misfit)
+  function band_names() result(names)
+    ! Band names of the misfit files of one event of the current data type.
     use input_params, only: fpar => fwat_par_global
     use common_lib, only: get_band_name
-    use utils, only: split_by_spaces
-
-    character(len=*), intent(in) :: model_name_in
-    integer, intent(in) :: ievt
-    character(len=MAX_STRING_LEN) :: chifile, band_name, line
-    character(len=MAX_STRING_LEN), dimension(:), allocatable :: line_sp
-    real(kind=dp) :: total_misfit
-    real(kind=dp) :: misfit
-    integer :: unit, ier, iflt, nflt
+    character(len=MAX_STRING_LEN), allocatable :: names(:)
+    integer :: iflt
 
     if (dat_type == 'rf') then
-      nflt = fpar%sim%rf%NGAUSS
+      allocate(names(fpar%sim%rf%NGAUSS))
     else
-      nflt = fpar%sim%NUM_FILTER
+      allocate(names(fpar%sim%NUM_FILTER))
     end if
+    do iflt = 1, size(names)
+      if (dat_type == 'rf') then
+        write(names(iflt), '("F",F3.1)') fpar%sim%rf%f0(iflt)
+      else
+        call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), names(iflt))
+      end if
+    end do
+  end function band_names
+
+  function read_evt_misfit(model_name_in, ievt) result(total_misfit)
+    character(len=*), intent(in) :: model_name_in
+    integer, intent(in) :: ievt
+    character(len=MAX_STRING_LEN) :: chifile
+    character(len=MAX_STRING_LEN), allocatable :: bands(:)
+    real(kind=dp) :: total_misfit
+    real(kind=dp) :: misfit
+    integer :: iflt
+    logical :: found
 
     total_misfit = 0.0_dp
     if (worldrank == 0) then
-      do iflt = 1, nflt
-        if (dat_type == 'rf') then
-          write(band_name, '("F",F3.1)') fpar%sim%rf%f0(iflt)
-        else
-          call get_band_name(fpar%sim%SHORT_P(iflt), fpar%sim%LONG_P(iflt), band_name)
-        end if
-        chifile = trim(MISFITS_DIR)//'/'//trim(model_name_in)//'.'//&
-                  trim(fpar%acqui%evtid_names(ievt))//'_'//trim(band_name)//'_window_chi'
-        open(newunit=unit, file=chifile, status='old', iostat=ier)
-        if (ier /= 0) then
-          write(*,*) 'Error opening file: ', trim(chifile)
-          error stop
-        end if
-        do
-          read(unit, '(a)', iostat=ier) line
-          if (ier < 0) exit
-          if (ier > 0) call exit_MPI(worldrank, 'Error reading misfit file: '//trim(chifile))
-          if (len_trim(line) == 0) cycle
-          line_sp = split_by_spaces(trim(line))
-          read(line_sp(8), *) misfit
-          total_misfit = total_misfit + misfit
-        end do
-        close(unit)
+      bands = band_names()
+      do iflt = 1, size(bands)
+        chifile = chi_file_name(model_name_in, ievt, bands(iflt))
+        call read_window_chi(chifile, misfit, found)
+        if (.not. found) call exit_MPI(worldrank, 'Error opening misfit file: '//trim(chifile))
+        total_misfit = total_misfit + misfit
       end do
     endif
     call synchronize_all()
     call bcast_all_singledp(total_misfit)
 
   end function read_evt_misfit
+
+  subroutine rename_evt_misfits(old_model, new_model, ievt)
+    ! Rename the misfit files of event ievt that read_evt_misfit reads, from
+    ! old_model to new_model. Not collective: each rank may take other events.
+    use common_lib, only: rename_path
+    character(len=*), intent(in) :: old_model, new_model
+    integer, intent(in) :: ievt
+    character(len=MAX_STRING_LEN), allocatable :: bands(:)
+    integer :: iflt
+
+    bands = band_names()
+    do iflt = 1, size(bands)
+      call rename_path(chi_file_name(old_model, ievt, bands(iflt)), chi_file_name(new_model, ievt, bands(iflt)))
+    end do
+  end subroutine rename_evt_misfits
+
+  function chi_file_name(model_name_in, ievt, band_name) result(chifile)
+    use input_params, only: fpar => fwat_par_global
+    character(len=*), intent(in) :: model_name_in, band_name
+    integer, intent(in) :: ievt
+    character(len=MAX_STRING_LEN) :: chifile
+
+    chifile = trim(MISFITS_DIR)//'/'//trim(model_name_in)//'.'//&
+              trim(fpar%acqui%evtid_names(ievt))//'_'//trim(band_name)//'_window_chi'
+  end function chi_file_name
+
+  subroutine read_window_chi(chifile, total_misfit, found)
+    ! Sum of the misfits of all windows in a window chi file; found is false
+    ! when the file does not exist.
+    use utils, only: split_by_spaces
+    character(len=*), intent(in) :: chifile
+    real(kind=dp), intent(out) :: total_misfit
+    logical, intent(out) :: found
+    character(len=MAX_STRING_LEN) :: line
+    character(len=MAX_STRING_LEN), dimension(:), allocatable :: line_sp
+    real(kind=dp) :: misfit
+    integer :: unit, ier
+
+    total_misfit = 0.0_dp
+    open(newunit=unit, file=chifile, status='old', iostat=ier)
+    found = ier == 0
+    if (.not. found) return
+    do
+      read(unit, '(a)', iostat=ier) line
+      if (ier < 0) exit
+      if (ier > 0) call exit_MPI(worldrank, 'Error reading misfit file: '//trim(chifile))
+      if (len_trim(line) == 0) cycle
+      line_sp = split_by_spaces(trim(line))
+      read(line_sp(8), *) misfit
+      total_misfit = total_misfit + misfit
+    end do
+    close(unit)
+  end subroutine read_window_chi
 
 end module misfit_mod

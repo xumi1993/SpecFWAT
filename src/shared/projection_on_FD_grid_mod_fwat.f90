@@ -167,8 +167,7 @@ subroutine read_fd_grid_parameters_for_projection(fname)
   open(676,file=fname,iostat=ier)
 
   if (ier /= 0) then
-    print *,'Error opening file "fd_proj_grid.txt", that defines properties of the regular grid'
-    stop
+    call exit_MPI(worldrank, 'Error opening file "fd_proj_grid.txt", that defines properties of the regular grid')
   endif
 
   ! read fd grid parameters !!

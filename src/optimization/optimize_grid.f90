@@ -45,9 +45,9 @@ contains
 
     ! Initialize optimization parameters
     call get_kernel_names()
-    step_len = fpar%update%MAX_SLEN
 
     call this%get_model_idx()
+    call init_step_len(this%iter_current)
 
     if (.not. fpar%postproc%IS_HESS_PRECOND) then
       call this%read_hess_inv()
@@ -408,23 +408,42 @@ contains
   end subroutine alpha_scaling
 
   subroutine run_linesearch(this)
+    ! Weak Wolfe line search. Each trial runs the forward and adjoint
+    ! simulations of every data type, so the accepted trial also provides
+    ! the kernels of the next model.
     use meshfem3D_subs
     use generate_databases_subs
     class(OptGridFlow), intent(inout) :: this
     real(kind=dp), dimension(NUM_INV_TYPE) :: total_misfit, misfit_prev
-    integer :: itype, isub
-    logical :: break_flag
+    real(kind=cr) :: norm_val(NUM_INV_TYPE)
+    real(kind=dp) :: f0, f1, g0, g1
+    integer :: itype, isub, accepted, simulation_type0
+    logical :: save_forward0, attenuation0
 
-    run_mode = FORWARD_MEASADJ
+    ! Adjoint simulations change these; every trial database is built as the
+    ! current model's was.
+    simulation_type0 = SIMULATION_TYPE
+    save_forward0 = SAVE_FORWARD
+    attenuation0 = ATTENUATION
     local_path_backup = trim(LOCAL_PATH)
+    call joint_norm_weights(norm_val)
+    g0 = grid_slope(this%direction, norm_val, .false.)
+    write(msg, '(a,ES14.6)') 'Directional derivative at the current model: ', g0
+    call log%write(msg, .true.)
+    if (g0 >= 0.0_dp) call exit_MPI(0, 'ERROR: search direction is not a descent direction')
+
+    run_mode = FORWARD_ADJOINT
+    call wolfe_init()
+    accepted = 0
     do isub = 1, fpar%update%MAX_SUB_ITER
-      total_misfit = 0.0_dp
-      misfit_prev = 0.0_dp
+      model_name = trial_name(isub)
       write(msg, '("Starting ",I0,"th sub-iteration with step_length: ",F10.8)') isub, step_len
       call log%write(msg, .true.)
       call this%model_update_tmp()
       call write_grid_model(this%model_fname, this%model_tmp)
       call synchronize_all()
+      total_misfit = 0.0_dp
+      misfit_prev = 0.0_dp
       do itype = 1, NUM_INV_TYPE
         if (.not. fpar%postproc%INV_TYPE(itype)) cycle
         ! setup simulation type
@@ -432,26 +451,36 @@ contains
         call fpar%select_simu_type()
 
         ! generate mesh and database for this simu_type
+        SIMULATION_TYPE = simulation_type0
+        SAVE_FORWARD = save_forward0
+        ATTENUATION = attenuation0
         call meshfem3D_fwat(fpar%sim%Mesh_Par_file)
         call generate_databases_fwat()
-        
-        ! Forward simulation and measure misfits
+
+        ! Forward and adjoint simulations, and misfits
         call forward_for_simu_type(total_misfit(itype), misfit_prev(itype))
         write(msg, '(A,F20.6)') 'Total misfit for '//trim(simu_type)//': ', total_misfit(itype)
         call log%write(msg, .true.)
       enddo
       call synchronize_all()
 
-      call backtracking(this%direction, total_misfit, misfit_prev, break_flag)
-
-      if (break_flag) exit      
-      
+      f0 = sum(misfit_prev*norm_val)
+      f1 = sum(total_misfit*norm_val)
+      g1 = grid_slope(this%direction, norm_val, .true.)
+      call wolfe_step(isub, f0, f1, g0, g1, accepted)
+      if (accepted > 0) exit
     enddo
-    if (isub > fpar%update%MAX_SUB_ITER) then
-      call log%write('ERROR: Reached maximum number of line search iterations', .true.)
+    if (accepted == 0) call wolfe_fallback(accepted)
+    SIMULATION_TYPE = simulation_type0
+    SAVE_FORWARD = save_forward0
+    ATTENUATION = attenuation0
+    model_name = trim(model_current)//'_ls'
+    if (accepted == 0) then
+      call log%write('ERROR: No step length satisfied the Armijo condition', .true.)
       call log%write('Please try to use more sub-iterations or reset the L-BFGS', .true.)
       call exit_MPI(0, 'ERROR: Reached maximum number of line search iterations')
     endif
+    call adopt_trial(accepted, model_next)
 
   end subroutine run_linesearch
 end module optimize_grid
