@@ -268,14 +268,15 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
               gammazl = gammazstore(i,j,k,ispec_irreg)
               jacobianl = jacobianstore(i,j,k,ispec_irreg)
             else
+              ! regular (axis-aligned cube) element: diagonal Jacobian matrix
               xixl = xix_regular
-              xiyl = xix_regular
-              xizl = xix_regular
-              etaxl = xix_regular
+              xiyl = 0.0
+              xizl = 0.0
+              etaxl = 0.0
               etayl = xix_regular
-              etazl = xix_regular
-              gammaxl = xix_regular
-              gammayl = xix_regular
+              etazl = 0.0
+              gammaxl = 0.0
+              gammayl = 0.0
               gammazl = xix_regular
               jacobianl = jacobian_regular
             endif
@@ -678,12 +679,10 @@ subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
             hp3 = hprime_zzT(l,k)
             temp3l = temp3l + s(i,j,l) * hp3
           enddo
-          dx_elem(i,j,k)=temp1l*xix+&
-                  temp2l*xix+temp3l*xix
-          dy_elem(i,j,k)=temp1l*xix+&
-                  temp2l*xix+temp3l*xix
-          dz_elem(i,j,k)=temp1l*xix+&
-                  temp2l*xix+temp3l*xix
+          ! regular (axis-aligned cube) element: xix = etay = gammaz, off-diagonal terms are zero
+          dx_elem(i,j,k)=temp1l*xix
+          dy_elem(i,j,k)=temp2l*xix
+          dz_elem(i,j,k)=temp3l*xix
         enddo
       enddo
     enddo
