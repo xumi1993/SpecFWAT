@@ -46,6 +46,7 @@ module fwat_constants
   integer, parameter :: NUM_INV_TYPE = 3
 
   ! Preconditioner parameters
+  integer, parameter :: NO_PRECOND = -1
   integer, parameter :: DEFAULT_PRECOND = 1
   integer, parameter :: Z_PRECOND = 2
   integer, parameter :: Z_SQRT_PRECOND = 3

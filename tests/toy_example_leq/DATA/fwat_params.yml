@@ -9,7 +9,7 @@ LEQ:
   # LONG_P: [10, 12, 20] # Long period of filters
   SHORT_P: [6] # Short period of filters
   LONG_P: [30] # Long period of filters
-  PRECOND_TYPE: 1 # 1: inner product of acceleration
+  PRECOND_TYPE: 1 # -1: none; 1: inner product of acceleration
   SIGMA_H: 8000 # Horizontal smoothing radius
   SIGMA_V: 4000 # Vertical smoothing radius
   USE_RHO_SCALING: True # Whether to use density scaling in adjoint source normalization

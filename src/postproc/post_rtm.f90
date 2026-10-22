@@ -69,6 +69,10 @@ contains
     class(PostRTM), intent(inout) :: this
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess
 
+    if (fpar%sim%PRECOND_TYPE == NO_PRECOND) then
+      call log%write('No preconditioning of kernels (PRECOND_TYPE = -1)', .true.)
+      return
+    endif
     call log%write('This is Z-preconditioning kernels...', .true.)
     call zprecond_gll(total_hess) 
     call synchronize_all()

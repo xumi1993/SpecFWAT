@@ -219,8 +219,9 @@ contains
     if (min(fpar%postproc%TAPER_H_SUPPRESS, fpar%postproc%TAPER_H_BUFFER, &
             fpar%postproc%TAPER_V_SUPPRESS, fpar%postproc%TAPER_V_BUFFER) < 0.0_cr) &
       call abort_check('Taper distances must be non-negative')
-    if (fpar%sim%PRECOND_TYPE < DEFAULT_PRECOND .or. fpar%sim%PRECOND_TYPE > Z_SQRT_PRECOND) &
-      call abort_check('PRECOND_TYPE must be 1 (default), 2 (depth) or 3 (sqrt of depth)')
+    if (fpar%sim%PRECOND_TYPE /= NO_PRECOND .and. &
+        (fpar%sim%PRECOND_TYPE < DEFAULT_PRECOND .or. fpar%sim%PRECOND_TYPE > Z_SQRT_PRECOND)) &
+      call abort_check('PRECOND_TYPE must be -1 (none), 1 (default), 2 (depth) or 3 (sqrt of depth)')
     if (fpar%postproc%NORM_TYPE < 1 .or. fpar%postproc%NORM_TYPE > 3) &
       call abort_check('NORM_TYPE must be 1, 2 or 3')
   end subroutine check_kernel_postproc

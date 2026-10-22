@@ -4,7 +4,7 @@ module post_processing
   use fwat_constants
   use logger, only: log
   use input_params, fpar => fwat_par_global
-  use utils, only: zeros
+  use utils, only: zeros, ones
   use kernel_io
   use taper3d
   use common_lib, only: get_dat_type, get_kernel_names, mkdir
@@ -167,6 +167,11 @@ contains
     integer :: iker,  ievt
     real(kind=cr), dimension(:,:,:,:), allocatable :: total_hess, ker
 
+    if (fpar%sim%PRECOND_TYPE == NO_PRECOND) then
+      call log%write('No preconditioning of kernels (PRECOND_TYPE = -1)', .true.)
+      return
+    endif
+
     call log%write('This is applying preconditioned kernels...', .true.)
 
     if (fpar%sim%PRECOND_TYPE <= DEFAULT_PRECOND) then
@@ -207,7 +212,14 @@ contains
     real(kind=cr) :: max_loc, max_glob
 
     call log%write('This is saving preconditioned kernels...', .true.)
-    if (fpar%sim%PRECOND_TYPE <= 1) then
+    if (fpar%sim%PRECOND_TYPE == NO_PRECOND) then
+      ! identity preconditioner, read by the optimizer like the others
+      if (use_gll) then
+        call write_kernel(this%kernel_path, HESS_PREFIX, ones(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT))
+        return
+      endif
+      if (worldrank == 0) this%hess_smooth = ones(ext_grid%nx, ext_grid%ny, ext_grid%nz)
+    elseif (fpar%sim%PRECOND_TYPE <= DEFAULT_PRECOND) then
       total_hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
       do ievt = 1, fpar%acqui%nevents
         call read_event_kernel(ievt, trim(hess_name)//'_kernel', ker)

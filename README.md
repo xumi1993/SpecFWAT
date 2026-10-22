@@ -123,7 +123,7 @@ initialization requires these files in `LOCAL_PATH`. They are archived in
 
 `MODEL_GRID` is unused and may be omitted for `xspecfwat`; optimization vectors
 stay on the GLL mesh. Use positive `SIGMA_H` and `SIGMA_V` and `PRECOND_TYPE: 1`,
-`2`, or `3` in the selected data section.
+`2`, or `3` (or `-1` for no preconditioning) in the selected data section.
 
 ### Files and restart
 
