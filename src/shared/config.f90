@@ -26,6 +26,8 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: OUTPUT_PATH = "OUTPUT_FILES"
   character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
   character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
+  ! Marks solver outputs that a line search already computed for a model.
+  character(len=MAX_STRING_LEN), parameter :: LS_KERNEL_FLAG = "FROM_LINE_SEARCH"
   character(len=MAX_STRING_LEN), parameter :: TOMO_PATH = "tomography_model.h5"
 
   !Injection types

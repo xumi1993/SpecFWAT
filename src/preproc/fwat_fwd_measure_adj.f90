@@ -12,6 +12,7 @@ integer :: nsim
 integer, parameter :: max_num_args = 4
 type(PrepareFWD) :: ffwd
 logical :: BROADCAST_AFTER_READ = .true.
+logical :: reuse_trial = .false.
 
 call init_mpi()
 call init_mpi_fwat()
@@ -30,6 +31,20 @@ call fpar%select_simu_type()
 call check_preproc_params()
 
 call get_dat_type()
+
+! The accepted line-search trial of the previous iteration already ran the
+! forward and adjoint simulations of this model.
+if (run_mode == FORWARD_ADJOINT) then
+  if (worldrank == 0) inquire(file=trim(SOLVER_DIR)//'/'//trim(model_name)//'.'//trim(dat_type)//'/'// &
+                              trim(LS_KERNEL_FLAG), exist=reuse_trial)
+  call bcast_all_singlel(reuse_trial)
+  if (reuse_trial) then
+    if (worldrank == 0) print *, 'Kernels of '//trim(model_name)//' come from the line search; '// &
+                                 'remove '//trim(LS_KERNEL_FLAG)//' to recompute them'
+    call finalize_mpi()
+    stop
+  endif
+endif
 
 ! read src_rec for this data type
 call fpar%acqui%read()

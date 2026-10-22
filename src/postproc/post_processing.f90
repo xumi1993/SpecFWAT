@@ -106,20 +106,20 @@ contains
       call prepare_shm_array_cr_4d(this%ker_data_smooth, ext_grid%nx, ext_grid%ny, ext_grid%nz, nkernel, this%ks_win)
   end subroutine init_for_type
   
-  subroutine sum_kernel(this)
-    class(PostFlow), intent(inout) :: this
+  subroutine sum_event_kernels(ker_sum)
+    ! Sum the event kernels of the source list that fpar%acqui currently holds.
+    real(kind=cr), dimension(:,:,:,:,:), intent(out) :: ker_sum
     real(kind=cr), dimension(:,:,:,:), allocatable :: ker
     real(kind=cr), dimension(:,:,:,:,:), allocatable :: ker_aniso
     integer :: iker, ievt
-    real(kind=cr) :: max_loc, min_loc, max_glob, min_glob
 
-    call log%write('This is taking sum of kernels...', .true.)
+    ker_sum = 0.0_cr
     if (ANISOTROPIC_KL) then
       ! take sum of anisotropic kernels
       if (fpar%update%MODEL_TYPE == 2) then
         do ievt = 1, fpar%acqui%nevents
           call kernel_cijkl2hti(ievt, ker_aniso)
-          this%ker_data = this%ker_data + ker_aniso
+          ker_sum = ker_sum + ker_aniso
         enddo
       endif
     else
@@ -127,10 +127,19 @@ contains
         if(fpar%sim%USE_RHO_SCALING .and. (kernel_names(iker) == 'rhop')) cycle
         do ievt = 1, fpar%acqui%nevents
           call read_event_kernel(ievt, trim(kernel_names(iker))//'_kernel', ker)
-          this%ker_data(:,:,:,:,iker) = this%ker_data(:,:,:,:,iker) + ker
+          ker_sum(:,:,:,:,iker) = ker_sum(:,:,:,:,iker) + ker
         enddo
       enddo
     endif
+  end subroutine sum_event_kernels
+
+  subroutine sum_kernel(this)
+    class(PostFlow), intent(inout) :: this
+    integer :: iker
+    real(kind=cr) :: max_loc, min_loc, max_glob, min_glob
+
+    call log%write('This is taking sum of kernels...', .true.)
+    call sum_event_kernels(this%ker_data)
     if (is_output_sum_kernel .or. fpar%update%DO_LS) then
       call log%write('This is writing sum of kernels...', .true.)
       do iker = 1, nkernel

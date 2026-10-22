@@ -1,7 +1,16 @@
 module common_lib
   use config
   use fwat_constants
+  use, intrinsic :: iso_c_binding, only: c_int, c_char, c_null_char
   implicit none
+
+  interface
+    ! rename() of the C library, which also renames directories.
+    integer(c_int) function c_rename(oldpath, newpath) bind(C, name='rename')
+      import :: c_int, c_char
+      character(kind=c_char), dimension(*), intent(in) :: oldpath, newpath
+    end function c_rename
+  end interface
 
 contains
   subroutine get_simu_type()
@@ -370,5 +379,27 @@ contains
     endif
 
   end subroutine cp
+
+  ! Local (not collective) rename of a file or directory.
+  subroutine rename_path(src, dst)
+    character(len=*), intent(in) :: src, dst
+
+    if (c_rename(trim(src)//c_null_char, trim(dst)//c_null_char) /= 0) &
+      call exit_MPI(worldrank, 'Error renaming: '//trim(src)//' -> '//trim(dst))
+  end subroutine rename_path
+
+  ! Collective shell command: rank zero runs it and every rank waits for it.
+  subroutine run_shell(cmd)
+    character(len=*), intent(in) :: cmd
+    integer :: ios, cmd_status
+
+    ios = 0
+    if (worldrank == 0) then
+      call execute_command_line(trim(cmd), wait=.true., exitstat=ios, cmdstat=cmd_status)
+      if (cmd_status /= 0) ios = cmd_status
+    endif
+    call bcast_all_singlei(ios)
+    if (ios /= 0) call exit_MPI(0, 'Error running: ' // trim(cmd))
+  end subroutine run_shell
 
 end module common_lib

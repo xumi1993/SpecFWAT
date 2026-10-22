@@ -238,8 +238,8 @@ contains
     if (fpar%update%DO_LS) then
       if (fpar%update%MAX_SUB_ITER < 1 .or. fpar%update%MAX_SHRINK <= 0.0_cr .or. &
           fpar%update%MAX_SHRINK >= 1.0_cr .or. fpar%update%C1 <= 0.0_cr .or. &
-          fpar%update%C1 >= 1.0_cr) &
-        call abort_check('Line search needs MAX_SUB_ITER >= 1 and MAX_SHRINK, C1 inside (0,1)')
+          fpar%update%C2 <= fpar%update%C1 .or. fpar%update%C2 >= 1.0_cr) &
+        call abort_check('Line search needs MAX_SUB_ITER >= 1, MAX_SHRINK inside (0,1) and 0 < C1 < C2 < 1')
     endif
   end subroutine check_optimizer
 
