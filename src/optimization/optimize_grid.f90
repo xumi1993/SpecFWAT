@@ -45,9 +45,9 @@ contains
 
     ! Initialize optimization parameters
     call get_kernel_names()
-    step_len = fpar%update%MAX_SLEN
 
     call this%get_model_idx()
+    call init_step_len(this%iter_current)
 
     if (.not. fpar%postproc%IS_HESS_PRECOND) then
       call this%read_hess_inv()

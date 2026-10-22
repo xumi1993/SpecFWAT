@@ -13,6 +13,23 @@ module line_search
   character(len=MAX_STRING_LEN), private :: msg
 
 contains
+  subroutine init_step_len(iter)
+    ! The line search starts from the step length accepted in the previous
+    ! iteration (key M<iter-1> of optimize/step_len.h5), not larger than MAX_SLEN.
+    integer, intent(in) :: iter
+    real(kind=cr) :: slen_prev
+    logical :: found
+
+    step_len = fpar%update%MAX_SLEN
+    if (.not. fpar%update%DO_LS .or. iter <= 0) return
+    call read_step_len(iter - 1, slen_prev, found)
+    if (found .and. slen_prev > 0.0_cr) then
+      step_len = min(slen_prev, fpar%update%MAX_SLEN)
+      write(msg, '(a,F10.8)') 'Line search starts from the step length accepted in the previous iteration: ', step_len
+      call log%write(msg, .true.)
+    endif
+  end subroutine init_step_len
+
   subroutine forward_for_simu_type(total_misfit, misfit_prev, current_misfit)
     type(PrepareFWD) :: ffwd
     logical :: is_output_backup
