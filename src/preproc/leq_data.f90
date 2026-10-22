@@ -155,9 +155,10 @@ contains
                 recm(irec_local)%trm(icomp)%imeas(iwin) = misfit_out%imeas(iwin)
                 recm(irec_local)%trm(icomp)%tstart(iwin) = windows(iwin, 1)
                 recm(irec_local)%trm(icomp)%tend(iwin) = windows(iwin, 2)
-                recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit &
-                                                * fpar%acqui%src_weight(this%ievt)
               end do
+              ! misfit_out%total_misfit already sums all windows of this component
+              recm(irec_local)%total_misfit = recm(irec_local)%total_misfit + misfit_out%total_misfit &
+                                              * fpar%acqui%src_weight(this%ievt)
             end if ! if (nwin > 0)
             recm(irec_local)%chan(icomp) = trim(fpar%sim%CH_CODE)//trim(fpar%sim%RCOMPS(icomp))
             if (IS_OUTPUT_ADJ_SRC) call this%write_adj_src_sac(adj_src(:, icomp, irec_local, iflt), irec, icomp)

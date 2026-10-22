@@ -119,7 +119,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   call define_derivation_matrices(xigll,yigll,zigll,wxgll,wygll,wzgll, &
                                   hprime_xx,hprime_yy,hprime_zz, &
                                   hprimewgll_xx,hprimewgll_yy,hprimewgll_zz, &
-                                  wgllwgll_xy,wgllwgll_xz,wgllwgll_yz)
+                                  wgllwgll_xy,wgllwgll_xz,wgllwgll_yz,wgll_cube)
   ! define transpose of derivation matrix
   do j = 1,NGLLY
     do i = 1,NGLLX
