@@ -4,7 +4,7 @@ module smooth_mod
 implicit none
 
 contains
-subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
+subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph, clf_level)
   use constants
   use config, only : distance_min_glob
   use specfem_par
@@ -23,6 +23,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   real(kind=CUSTOM_REAL), intent(in) :: sigma_h, sigma_v
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(out) :: dat
   logical, intent(in) :: is_sph
+  integer, intent(in) :: clf_level
   real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: dat_bak
   real(kind=CUSTOM_REAL), dimension(:,:,:,:,:),allocatable :: rotate_r
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: &
@@ -97,9 +98,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   ! deallocate(ispec_is_acoustic, ispec_is_elastic, ispec_is_poroelastic)
 
   !! determine ch, cv, ntstep
-  !cmax = distance_min_glob ** 2 / 6.0
-  ! cmax = distance_min_glob ** 2 / 18.0
-  cmax = distance_min_glob ** 2 / 36.0
+  cmax = distance_min_glob ** 2 / (9.0 * real(clf_level,kind=CUSTOM_REAL))
   if (sigma_v >= sigma_h) then
     cv = cmax
     ch = cv * (sigma_h ** 2) / (sigma_v ** 2)
@@ -680,9 +679,12 @@ subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
             temp3l = temp3l + s(i,j,l) * hp3
           enddo
           ! regular (axis-aligned cube) element: xix = etay = gammaz, off-diagonal terms are zero
-          dx_elem(i,j,k)=temp1l*xix
-          dy_elem(i,j,k)=temp2l*xix
-          dz_elem(i,j,k)=temp3l*xix
+          dx_elem(i,j,k)=temp1l*xix+&
+                  temp2l*xix+temp3l*xix
+          dy_elem(i,j,k)=temp1l*xix+&
+                  temp2l*xix+temp3l*xix
+          dz_elem(i,j,k)=temp1l*xix+&
+                  temp2l*xix+temp3l*xix
         enddo
       enddo
     enddo

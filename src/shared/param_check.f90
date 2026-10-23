@@ -219,6 +219,8 @@ contains
       call abort_check('PRECOND_TYPE must be -1 (none), 1 (default), 2 (depth) or 3 (sqrt of depth)')
     if (fpar%postproc%NORM_TYPE < 1 .or. fpar%postproc%NORM_TYPE > 3) &
       call abort_check('NORM_TYPE must be 1, 2 or 3')
+    if (fpar%postproc%PDE_CLF_LEVEL < 1 .or. fpar%postproc%PDE_CLF_LEVEL > 4) &
+      call abort_check('PDE_CLF_LEVEL must be a 1, 2, 3 or 4, with 1 the largest mesh and 4 the smallest mesh')
   end subroutine check_kernel_postproc
 
   !> Search direction, step length and the bounds the update is clipped to.

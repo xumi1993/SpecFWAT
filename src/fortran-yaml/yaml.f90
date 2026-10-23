@@ -34,9 +34,9 @@ module yaml
   interface
     subroutine LoadFile_c(filename, ptr, error) bind(C, name="LoadFile_c")
       use, intrinsic :: iso_c_binding
-      character(len=1, kind = c_char), intent(in) :: filename
+      character(kind = c_char), dimension(*), intent(in) :: filename
       type(c_ptr), intent(out) :: ptr
-      character(len=1, kind = c_char), intent(in) :: error
+      character(kind = c_char), dimension(*), intent(inout) :: error
     end subroutine
     
     subroutine DestroyNode(root) bind(C, name="DestroyNode")
@@ -49,7 +49,7 @@ contains
   
   function LoadFile(filename, error) result(root)
     character(len=*), intent(in) :: filename
-    character(len=string_length, kind=c_char), intent(inout) :: error
+    character(len=error_length, kind=c_char), intent(inout) :: error
     type(c_ptr) :: root
     character(len=:, kind=c_char), allocatable :: filename_copy
     filename_copy = filename//char(0)
@@ -117,7 +117,7 @@ contains
   
   function parse(path, error) result(root)
     character(len=*), intent(in) :: path
-    character(len=string_length), intent(out) :: error
+    character(len=error_length), intent(out) :: error
     class (type_node), pointer :: root
     type(c_ptr) :: root_c
     

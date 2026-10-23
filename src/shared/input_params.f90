@@ -54,7 +54,7 @@ module input_params
     logical, dimension(NUM_INV_TYPE) :: INV_TYPE = .false.
     real(kind=cr), dimension(NUM_INV_TYPE) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
-    integer :: NORM_TYPE
+    integer :: NORM_TYPE, PDE_CLF_LEVEL
     logical :: IS_HESS_PRECOND
   end type postproc_params
 
@@ -532,6 +532,7 @@ contains
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => post%get_list('INV_TYPE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%postproc%PDE_CLF_LEVEL = post%get_integer('PDE_CLF_LEVEL', error=io_err, default=1)
         call read_static_logi_list(list, this%postproc%INV_TYPE)
         if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
@@ -775,6 +776,7 @@ contains
     call bcast_all_r(this%postproc%JOINT_WEIGHT, NUM_INV_TYPE)
     call bcast_all_singlel(is_joint)
     call bcast_all_singlei(this%postproc%NORM_TYPE)
+    call bcast_all_singlei(this%postproc%PDE_CLF_LEVEL)
 
     ! Model UPDATE
     call bcast_all_ch_array(this%update%INIT_MODEL_PATH, 1, MAX_STRING_LEN)

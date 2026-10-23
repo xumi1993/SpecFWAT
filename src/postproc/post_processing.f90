@@ -242,7 +242,8 @@ contains
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_kernel', total_hess)
       call invert_hess(total_hess)
       if (is_output_sum_kernel) call write_kernel(this%kernel_path, trim(hess_name)//'_inv_kernel', total_hess)
-      call smooth_sem_pde(total_hess, fpar%sim%sigma_h, fpar%sim%sigma_v, total_hess_smooth, .false.)
+      call smooth_sem_pde(total_hess, fpar%sim%sigma_h, fpar%sim%sigma_v, total_hess_smooth, &
+                          .false., fpar%postproc%PDE_CLF_LEVEL)
       if (use_gll) then
         max_loc = maxval(abs(total_hess_smooth))
         call max_all_all_cr(max_loc, max_glob)
@@ -306,7 +307,8 @@ contains
         endif
       else
         call log%write('This is smoothing of '//trim(kernel_names(iker))//' kernels...', .true.)
-        call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%sigma_h, fpar%sim%sigma_v, gk, .false.)
+        call smooth_sem_pde(this%ker_data(:,:,:,:,iker), fpar%sim%sigma_h, fpar%sim%sigma_v, gk, &
+                            .false., fpar%postproc%PDE_CLF_LEVEL)
         if (use_gll) then
           this%ker_data(:,:,:,:,iker) = gk
         else
