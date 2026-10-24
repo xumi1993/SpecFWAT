@@ -13,6 +13,7 @@ target_link_libraries(postproc_objs PRIVATE shared_objs shared_fwat_objs ${MPI_L
 # executables
 set(APP_SOURCES
 "${PROJECT_SOURCE_DIR}/src/postproc/fwat_post_proc.f90"
+"${PROJECT_SOURCE_DIR}/src/postproc/fwat_rtm.f90"
 )
 foreach(execsourcefile ${APP_SOURCES})
   get_filename_component(EXEC_NAME ${execsourcefile} NAME_WE)

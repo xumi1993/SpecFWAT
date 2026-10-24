@@ -124,8 +124,11 @@ contains
     logical :: is_hdf5
 
     !> Initialize FORTRAN interface.
+    ! Errors abort every MPI rank: a plain stop on the one rank doing serial
+    ! HDF5 I/O would leave the others waiting forever at the next collective.
+    ierr = 0
     if(.not.self%is_init) call h5open_f(ierr)
-    if (ierr /= 0 ) error stop 'Error: HDF5 library initialize Failed!'
+    if (ierr /= 0 ) call exit_MPI_without_rank('Error: HDF5 library initialize Failed!')
     self%is_init = .TRUE.
 
     self%filename = filename
@@ -149,18 +152,14 @@ contains
               call h5fcreate_f(filename, H5F_ACC_TRUNC_F,self%lid,ierr)
             endif
           case default
-            write(*,*)'Error: Unsupported action ->'// laction
-            error stop 
+            call exit_MPI_without_rank('Error: Unsupported HDF5 action -> '//laction)
           endselect
+        if (ierr /= 0) call exit_MPI_without_rank('Error: Unable to open HDF5 file: '//filename)
       case('new','replace')
         call h5fcreate_f(filename,H5F_ACC_TRUNC_F,self%lid,ierr)
-        if (ierr /= 0) then
-          write(*,*)'Error: Unable to create HDF5 file: '//filename
-          error stop 
-        endif
+        if (ierr /= 0) call exit_MPI_without_rank('Error: Unable to create HDF5 file: '//filename)
       case default
-        write(*,*)'Error: Unsupported status ->'// lstatus
-        error stop 
+        call exit_MPI_without_rank('Error: Unsupported HDF5 status -> '//lstatus)
     endselect
 
   end subroutine hdf_open_file
@@ -174,17 +173,11 @@ contains
     !> close hdf5 file
     ! print *, self%lid
     call h5fclose_f(self%lid, ierr)
-    if(ierr /=0) then
-      write(*,*) "Unable to close HDF5 file: "//self%filename
-      error stop 
-    endif
+    if(ierr /=0) call exit_MPI_without_rank('Unable to close HDF5 file: '//trim(self%filename))
 
     !>  Close FORTRAN interface.
     if(present(finalize) .and. finalize) call h5close_f(ierr)
-    if(ierr /=0) then
-      write(*,*) "Unable to close HDF5 fortran interface!"
-      error stop
-    endif
+    if(ierr /=0) call exit_MPI_without_rank('Unable to close HDF5 fortran interface!')
     ! self%is_init = .FALSE.
 
   end subroutine hdf_close_file

@@ -2,12 +2,13 @@ module rf_data
   use config
   use rf_misfit
   use misfit_mod
-  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir
+  use common_lib, only: get_band_name, rotate_R_to_NE_dp, dwascii, mkdir,&
+                        rotate_ZR_to_LQ
   use signal, only: bandpass_dp, detrend, demean, interpolate_func_dp
   use syn_data, only: SynData, average_amp_scale
   use obs_data, only: ObsData
   use input_params, fpar => fwat_par_global
-  use decon_mod, only: deconvolve
+  use decon_mod, only: deconvolve_batch
   use fk_coupling
   use fwat_mpi
   use utils, only: zeros_dp, zeros
@@ -20,12 +21,12 @@ module rf_data
 
   integer :: ier
   type, extends(SynData) :: RFData
-    real(kind=cr), dimension(:), pointer :: ttp, baz, az
+    real(kind=cr), dimension(:), pointer :: ttp, baz, az, inc
     real(kind=dp), dimension(:, :, :), pointer :: rf_dat, rf_syn
-    integer :: ttp_win, rf_win, syn_win, baz_win, az_win
+    integer, private :: ttp_win, rf_win, syn_win, baz_win, az_win, inc_win
     contains
     procedure :: semd2sac, preprocess, finalize
-    procedure, private :: calc_times, calc_rf, interp_data, measure_adj, get_baz
+    procedure, private :: calc_times, calc_rf, interp_data, measure_adj, get_baz, rotate_to_LQ
   end type RFData
 
   contains
@@ -33,7 +34,8 @@ module rf_data
   subroutine semd2sac(this, ievt)
     class(RFData), intent(inout) :: this
     integer, intent(in) :: ievt
-    real(kind=dp), dimension(:), allocatable :: uin, win, rfi
+    real(kind=dp), dimension(:), allocatable :: uin, win
+    real(kind=dp), dimension(:,:), allocatable :: uin_all, win_all, rf_batch
     type(sachead) :: header
     integer :: irec_local, irec, igauss
     character(len=MAX_STRING_LEN) :: datafile, bandname
@@ -51,9 +53,9 @@ module rf_data
     call synchronize_all()
 
     if (this%nrec_loc > 0) then
+      allocate(uin_all(NSTEP, this%nrec_loc), win_all(NSTEP, this%nrec_loc))
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
-        ! calculate rf
         uin = this%data(:, 2, irec)
         win = this%data(:, 1, irec)
         call window_taper(uin, taper_per, 1)
@@ -62,13 +64,19 @@ module rf_data
                          1/fpar%sim%SHORT_P(1), IORD)
         call bandpass_dp(win ,NSTEP, dble(DT),1/fpar%sim%LONG_P(1),&
                          1/fpar%sim%SHORT_P(1), IORD)
-        do igauss = 1, fpar%sim%rf%NGAUSS
-          write(bandname,'(a1,f3.1)') 'F',fpar%sim%rf%f0(igauss)
+        uin_all(:, irec_local) = uin
+        win_all(:, irec_local) = win
+      enddo
+      ! calculate rf of all local receivers at once
+      do igauss = 1, fpar%sim%rf%NGAUSS
+        write(bandname,'(a1,f3.1)') 'F',fpar%sim%rf%f0(igauss)
+        call deconvolve_batch(uin_all, win_all, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
+                              fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rf_batch, GPU_MODE)
+        do irec_local = 1, this%nrec_loc
+          irec = select_global_id_for_rec(irec_local)
           datafile = trim(fpar%acqui%in_dat_path(this%ievt))//'/'//trim(this%od%netwk(irec))//'.'&
                      //trim(this%od%stnm(irec))//'.'//trim(fpar%sim%CH_CODE)//'R.'&
                      //trim(bandname)//'.rf.sac'
-          call deconvolve(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igauss),&
-                           fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi, GPU_MODE)
           call sacio_newhead(header, real(fpar%sim%dt), fpar%sim%nstep, -fpar%sim%rf%tshift)
           header%az = this%az(irec)
           header%baz = this%baz(irec)
@@ -80,13 +88,33 @@ module rf_data
           header%kcmpnm = trim(fpar%sim%CH_CODE)//'R'
           header%user1 = fpar%sim%rf%f0(igauss)
           header%kuser1 = 'gauss'
-          call sacio_writesac(datafile, header, rfi, ier)
+          call sacio_writesac(datafile, header, rf_batch(:, irec_local), ier)
         enddo
       enddo
     endif
     call synchronize_all()
 
   end subroutine semd2sac
+
+  subroutine rotate_to_LQ(this)
+    class(RFData), intent(inout) :: this
+    integer :: irec_local, irec
+    real(kind=dp), dimension(:, :, :), allocatable :: data_local
+
+    if (this%nrec_loc > 0) then
+      ! Allocate temporary arrays outside loop to avoid repeated allocation
+      data_local = zeros_dp(NSTEP, NCOMP_SPECFEM, nrec_local)
+
+      do irec_local = 1, this%nrec_loc
+        irec = select_global_id_for_rec(irec_local)
+        ! Reuse existing arrays instead of reallocating
+        call rotate_ZR_to_LQ(this%data(:, 1, irec), this%data(:, 2, irec), &
+                             data_local(:, 1, irec_local), data_local(:, 2, irec_local),&
+                             NSTEP, dble(this%inc(irec)))
+      enddo
+    endif
+    call this%collect_data(data_local)
+  end subroutine rotate_to_LQ
 
   subroutine preprocess(this, ievt)
     class(RFData), intent(inout) :: this
@@ -245,7 +273,8 @@ module rf_data
 
   subroutine calc_rf(this)
     class(RFData), intent(inout) :: this
-    real(kind=dp), dimension(:), allocatable :: uin, win, rfi
+    real(kind=dp), dimension(:), allocatable :: uin, win
+    real(kind=dp), dimension(:,:), allocatable :: uin_all, win_all, rf_batch
     real(kind=dp), dimension(:,:,:), allocatable :: rf_data_local, recv_buffer
     integer, dimension(:), allocatable :: recv_indices, send_indices
     integer :: igaus, irec_local, irec, iproc, nsta_irank, i
@@ -255,6 +284,7 @@ module rf_data
 
     if (this%nrec_loc > 0) then
       rf_data_local = zeros_dp(NSTEP, fpar%sim%rf%NGAUSS, this%nrec_loc)
+      allocate(uin_all(NSTEP, this%nrec_loc), win_all(NSTEP, this%nrec_loc))
       do irec_local = 1, this%nrec_loc
         irec = select_global_id_for_rec(irec_local)
         uin = this%data(:, 2, irec)
@@ -282,13 +312,20 @@ module rf_data
                               trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                               '.'//trim(fpar%sim%CH_CODE)//'R.sac', header, uin, ier)
         endif
-        do igaus = 1, fpar%sim%rf%NGAUSS
-          call deconvolve(uin, win, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igaus),&
-                         fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rfi, use_gpu=GPU_MODE)
-          rf_data_local(:, igaus, irec_local) = rfi
-          if (IS_OUTPUT_PREPROC) then
+        uin_all(:, irec_local) = uin
+        win_all(:, irec_local) = win
+      enddo
+
+      ! RFs of all local receivers at once
+      do igaus = 1, fpar%sim%rf%NGAUSS
+        call deconvolve_batch(uin_all, win_all, real(DT), fpar%sim%rf%tshift, fpar%sim%rf%f0(igaus),&
+                              fpar%sim%rf%maxit, fpar%sim%rf%minderr, 0, rf_batch, GPU_MODE)
+        rf_data_local(:, igaus, :) = rf_batch
+        if (IS_OUTPUT_PREPROC) then
+          write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
+          do irec_local = 1, this%nrec_loc
+            irec = select_global_id_for_rec(irec_local)
             call sacio_newhead(header, real(DT), NSTEP, -real(fpar%sim%rf%tshift))
-            write(this%band_name, '(a1,F3.1)') 'F', fpar%sim%rf%f0(igaus)
             header%az = this%az(irec)
             header%baz = this%baz(irec)
             header%kstnm = trim(this%od%stnm(irec))
@@ -298,13 +335,14 @@ module rf_data
             header%kuser1 = 'gauss'
             call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/syn.'//&
                                 trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
-                                '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), header, rfi, ier)
+                                '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), header, &
+                                rf_batch(:, irec_local), ier)
             call sacio_writesac(trim(fpar%acqui%out_fwd_path(this%ievt))//'/'//trim(OUTPUT_PATH)//'/obs.'//&
                                 trim(this%od%netwk(irec))//'.'//trim(this%od%stnm(irec))//&
                                 '.'//trim(fpar%sim%CH_CODE)//'R.rf.sac.'//trim(this%band_name), &
                                 header, this%rf_dat(:, igaus, irec), ier)
-          endif
-        enddo
+          enddo
+        endif
       enddo
     endif
     call synchronize_all()
@@ -354,6 +392,7 @@ module rf_data
 
     call prepare_shm_array_cr_1d(this%baz, this%nrec, this%baz_win)
     call prepare_shm_array_cr_1d(this%az, this%nrec, this%az_win)
+    call prepare_shm_array_cr_1d(this%inc, this%nrec, this%inc_win)
     call read_fk_model(fpar%acqui%evtid_names(this%ievt)) 
     baz_local = -phi_FK - 90.d0
     az_local = 90.d0 - phi_FK
@@ -361,10 +400,12 @@ module rf_data
       do irec = 1, this%nrec
         this%baz(irec) = baz_local
         this%az(irec) = az_local
+        this%inc(irec) = theta_FK
       enddo
     end if
     call sync_from_main_rank_cr_1d(this%baz, this%nrec)
     call sync_from_main_rank_cr_1d(this%az, this%nrec)
+    call sync_from_main_rank_cr_1d(this%inc, this%nrec)
     call free_fk_arrays()
   end subroutine get_baz
 
@@ -396,6 +437,7 @@ module rf_data
     call free_shm_array(this%syn_win)
     call free_shm_array(this%baz_win)
     call free_shm_array(this%az_win)
+    call free_shm_array(this%inc_win)
   end subroutine finalize
 
 end module rf_data

@@ -46,6 +46,9 @@
   use shared_parameters, only: &
     COUPLE_WITH_INJECTION_TECHNIQUE,MESH_A_CHUNK_OF_THE_EARTH,INJECTION_TECHNIQUE_TYPE
 
+  ! scattering
+  use shared_parameters, only: ADD_SCATTERING_PERTURBATIONS
+
   implicit none
 
   ! local parameters
@@ -90,6 +93,10 @@
   case (IMODEL_COUPLED)
     call model_coupled_broadcast()
   end select
+
+  ! sets up scattering perturbations
+  if (ADD_SCATTERING_PERTURBATIONS) call model_scattering_broadcast()
+
   call synchronize_all()
 
   ! (optional) checks if additional VS30 layer model is provided in DATA/interface_vs30.dat file
@@ -537,7 +544,7 @@
   use create_regions_mesh_ext_par
 
   use constants, only: INJECTION_TECHNIQUE_IS_FK
-  use shared_parameters, only: COUPLE_WITH_INJECTION_TECHNIQUE,INJECTION_TECHNIQUE_TYPE
+  use shared_parameters, only: COUPLE_WITH_INJECTION_TECHNIQUE,INJECTION_TECHNIQUE_TYPE,ADD_SCATTERING_PERTURBATIONS
 
   implicit none
 
@@ -777,6 +784,15 @@
 
   ! Vs30 model interface at top
   if (USE_MODEL_LAYER_VS30) call model_vs30(xmesh,ymesh,zmesh,rho,vp,vs,idomain_id)
+
+  ! adds scattering perturbations
+  if (ADD_SCATTERING_PERTURBATIONS) then
+    call model_scattering_add_perturbations(imaterial_id,xmesh,ymesh,zmesh, &
+                                            rho,vp,vs, &
+                                            c11,c12,c13,c14,c15,c16,c22,c23,c24,c25,c26, &
+                                            c33,c34,c35,c36,c44,c45,c46,c55,c56,c66, &
+                                            ANISOTROPY)
+  endif
 
   ! for pure acoustic simulations (a way of avoiding re-mesh, re-partition etc.)
   ! can be used to compare elastic & acoustic reflections in exploration seismology

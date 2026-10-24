@@ -4,6 +4,7 @@ program fwat_post_proc
   use post_processing
   use input_params, fpar => fwat_par_global
   use argparse, only: parse_args_post_process
+  use param_check, only: check_postproc_params, check_nevents
 
   implicit none
 
@@ -24,7 +25,12 @@ program fwat_post_proc
 
       ! generate kernels for this type
       call fpp%init_for_type(itype)
-    
+
+      ! init_for_type selected the data type and read its source list, so the
+      ! smoothing and tapering parameters of this type can be checked here.
+      call check_postproc_params()
+      call check_nevents()
+
       ! sum kernels for this type
       if (run_mode == 1) then
         call fpp%sum_kernel()
@@ -32,7 +38,7 @@ program fwat_post_proc
         call fpp%read_sum_kernel()
       endif
       
-      if (fpar%postproc%IS_PRECOND) then
+      if (fpar%postproc%IS_HESS_PRECOND) then
         call fpp%apply_precond()
       else
         if ((.not. (is_joint .and. (itype == 1 .or. itype == 3))) .and. &
@@ -40,10 +46,14 @@ program fwat_post_proc
       endif
 
       call fpp%pde_smooth()
-
-      call fpp%taper_kernel_grid()
-
-      call fpp%write_gradient_grid()
+      
+      if (use_gll) then
+        call fpp%taper_kernel_gll()
+        call fpp%write_gradient_gll()
+      else
+        call fpp%taper_kernel_grid()
+        call fpp%write_gradient_grid()
+      endif
 
       ! remove event kernels
       call remove_ekernel()

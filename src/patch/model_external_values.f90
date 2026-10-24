@@ -58,6 +58,8 @@
       integer nx, ny, nz
     end type model_external_variables
   type (model_external_variables) MEXT_V, ext_grid
+  ! Fixed attenuation used by this external model and subsequent GLL builds.
+  real(kind=CUSTOM_REAL), parameter :: EXTERNAL_QMU = 600._CUSTOM_REAL, EXTERNAL_QKAPPA = 9999._CUSTOM_REAL
 
   end module external_model
 
@@ -259,10 +261,10 @@
   endif
 
   ! attenuation: PREM crust value
-  qmu_atten = 600._CUSTOM_REAL
+  qmu_atten = EXTERNAL_QMU
 
   ! no Q_Kappa in this model, use a dummy very high value of 9999. as a flag for no QKappa attenuation
-  qkappa_atten = 9999._CUSTOM_REAL
+  qkappa_atten = EXTERNAL_QKAPPA
 
   ! no anisotropy
   iflag_aniso = 0

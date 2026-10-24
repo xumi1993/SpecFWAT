@@ -24,3 +24,163 @@ for it in `seq 0 9`; do
 done
 ```
 
+## Single-command GLL inversion
+
+To update an already computed GLL gradient independently:
+
+```bash
+mpirun -np "$NPROC" /path/to/bin/xfwat_optimize -m M00 -g
+```
+
+Without `-g` (or `--use-gll`), the regular-grid workflow is unchanged. GLL mode
+selects the single enabled `POSTPROC.INV_TYPE` and reads the existing mesh
+databases from `LOCAL_PATH` and processed kernels from `optimize/SUM_KERNELS_M00`.
+It uses the same SD/L-BFGS optimizer, preconditioning, Vp/Vs bounds, and optional
+weak Wolfe line search described below; `MODEL_GRID` is not required. Line search
+also requires the raw summed kernels and the current model's event misfit files.
+The mesh partition, rank count, and CPU/GPU mesh ordering must match the kernels.
+This command archives the current model in `optimize/model_M00` and writes the
+updated model to both `optimize/model_M01` and `LOCAL_PATH`. It does not remesh
+or rebuild the accepted model's solver databases after a fixed-step update.
+Set `MODEL = gll` in `DATA/Par_file` before building the next iteration's
+databases; only the initial `M00` update may use `MODEL = external`.
+
+Build the `specfwat` target, then run from the case directory:
+
+```bash
+# In the repository, with your usual compiler/MPI/CUDA modules loaded:
+cmake -S . -B build
+cmake --build build --target specfwat -j 4
+
+# In the case directory:
+mpirun -np "$NPROC" /path/to/bin/xspecfwat -m M00 -s noise -n 10
+```
+
+This runs ten iterations (`M00` to `M10`) in one MPI job: mesh/database setup,
+forward and adjoint simulations, kernel processing, and model updates. The mesh
+is generated once; model-dependent databases are regenerated each iteration.
+The original four commands remain available for regular-grid/joint inversion.
+
+The first version supports one data type (`noise`, `tele`, or `leq`), a purely
+elastic isotropic model (`MODEL_TYPE: 1`, `vp/vs/rho`), and SD or L-BFGS
+(`OPT_METHOD: 1` or `2`). Use the standard internal mesher, binary SPECFEM
+files, and one MPI group with the same number of ranks as `NPROC`.
+
+### Configuration and initial model
+
+In `DATA/fwat_params.yml`, retain the selected data section, measurement/output
+settings, `POSTPROC`, and `MODEL_UPDATE`. Enable exactly the data type selected
+by `-s` in `POSTPROC.INV_TYPE` (order: noise, tele, leq). For example:
+
+```yaml
+POSTPROC:
+  INV_TYPE: [True, False, False]
+  JOINT_WEIGHT: [1.0, 1.0, 1.0]
+  IS_HESS_PRECOND: False
+  # Existing taper settings may also be used.
+
+MODEL_UPDATE:
+  INIT_MODEL_PATH: initial_model.h5
+  MODEL_TYPE: 1
+  OPT_METHOD: 2
+  ITER_START: 0
+  LBFGS_M_STORE: 5
+  MAX_SLEN: 0.02
+  DO_LS: true
+  MAX_SHRINK: 0.618
+  MAX_SUB_ITER: 10
+  C1: 0.01
+  C2: 0.9
+  VPVS_RATIO_RANGE: [1.3, 2.5]
+```
+
+For a fresh run (`-m M00`), choose the initial model source with `MODEL` in
+`DATA/Par_file`, following SPECFEM's `IMODEL` selection:
+
+- `MODEL = external`: `INIT_MODEL_PATH` points to the initial HDF5 file, using
+  the existing external-model format with `/x`, `/y`, `/z`, `/vp`, `/vs`, and
+  `/rho` datasets. `generate_databases_fwat` interpolates this model onto the
+  mesh in the solver database. At optimizer initialization, `vp/vs/rho` are
+  obtained from its material arrays and saved as GLL model files. No separate
+  projection or copy to `DATA/tomo_files/tomography_model.h5` is needed.
+- `MODEL = gll`: provide `proc*_vp.bin`, `proc*_vs.bin`, and `proc*_rho.bin`
+  directly in `LOCAL_PATH`. Database generation reads these files using
+  SPECFEM's GLL loader. `INIT_MODEL_PATH` is unused and may be omitted.
+
+At the start of optimization for `Mxx`, the current GLL model is archived in
+`optimize/model_Mxx` for L-BFGS. The accepted update `Mxx+1` is written only to
+`LOCAL_PATH`, ready for the next database build. Its history copy is written
+when the next iteration reaches optimization. For example, after two iterations,
+`model_M00` and `model_M01` exist in `optimize`, while `LOCAL_PATH` holds `M02`.
+Subsequent iterations and line searches use `MODEL = gll` in memory.
+`SAVE_MESH_FILES` stays false; the driver writes only the required model files.
+
+Each model file contains one SPECFEM sequential unformatted record of
+single-precision values in `(NGLLX, NGLLY, NGLLZ, NSPEC_local)` order. With
+attenuation enabled, the first optimization also writes `proc*_qmu.bin`
+and `proc*_qkappa.bin` using the existing external-model routine; GLL
+initialization requires these files in `LOCAL_PATH`. They are archived in
+`model_M00` and remain fixed during inversion.
+
+`MODEL_GRID` is unused and may be omitted for `xspecfwat`; optimization vectors
+stay on the GLL mesh. Use positive `SIGMA_H` and `SIGMA_V` and `PRECOND_TYPE: 1`,
+`2`, or `3` (or `-1` for no preconditioning) in the selected data section.
+
+### Files and restart
+
+- `optimize/model_Mxx/proc*_vp.bin`, `vs.bin`, `rho.bin`: accepted model history.
+- `optimize/SUM_KERNELS_Mxx/proc*_alpha_kernel_smooth.bin`, `beta_kernel_smooth.bin`,
+  `rhop_kernel_smooth.bin`: processed gradient history read directly by L-BFGS.
+- `optimize/SUM_KERNELS_Mxx/proc*_hess_inv.bin`: inverse diagonal preconditioner
+  when `IS_HESS_PRECOND: False`; with `True`, preconditioning is applied to the kernels.
+- `LOCAL_PATH/proc*_{vp,vs,rho}.bin`: latest accepted model, ready for the next
+  database generation. Solver databases correspond to the last evaluated model.
+- `optimize/step_len.h5`: accepted step length of each iteration; the next line
+  search starts from it.
+- `solver/Mxx_lsNN.*`, `misfits/Mxx_lsNN.*`: outputs of line-search trial `NN`.
+  Solver outputs of rejected trials are deleted; the accepted trial is renamed to
+  the next model with a `FROM_LINE_SEARCH` marker (see below).
+- `output_optimize_gll_Mxx.log`: search direction and accepted step information.
+
+L-BFGS uses log-model differences and MPI sums of GLL quadrature integrals
+(including element Jacobians). Invalid curvature pairs are skipped and a
+non-descent direction falls back to preconditioned SD. With `DO_LS: false` the
+model is updated with a fixed step of `MAX_SLEN`.
+
+`DO_LS: true` enables a weak Wolfe line search. It starts from the step accepted
+in the previous iteration (at most `MAX_SLEN`), and each trial runs the forward
+and adjoint simulations, giving the misfit `f(a)` and the directional derivative
+`g(a)` from the trial's raw kernels. A trial step `a` is accepted when
+
+- `f(a) <= f(0) + C1*a*g(0)` (Armijo, sufficient decrease), and
+- `g(a) >= C2*g(0)` (curvature, `0 < C1 < C2 < 1`).
+
+A step failing Armijo is shrunk by `MAX_SHRINK`; a step meeting Armijo but not
+the curvature condition is expanded by `1/MAX_SHRINK` up to `MAX_SLEN`. Once both
+bounds exist, the next step bisects them. `MAX_SUB_ITER` limits the number of
+trials; when it is used up, the largest step meeting Armijo is accepted, and the
+search fails only if no trial met it, restoring the current model and database.
+
+The accepted trial already holds the next model's misfits and event kernels, so
+its outputs are renamed to the next model instead of being recomputed: `xspecfwat`
+skips the next iteration's forward and adjoint simulations, and
+`xfwat_fwd_measure_adj -r 3` exits early when `solver/<model>.<data type>` holds
+the `FROM_LINE_SEARCH` marker. Delete the marker to recompute that model.
+
+To continue after `M10` has been produced:
+
+```bash
+mpirun -np "$NPROC" /path/to/bin/xspecfwat -m M10 -s noise -n 5
+```
+
+A continuation reads the latest GLL model directly from `LOCAL_PATH`; it does
+not reread the initial HDF5 file. Keep `LOCAL_PATH` and the L-BFGS history when
+resuming, including the fixed quality factor files when attenuation is enabled.
+To restart from an older archived model, first copy its `vp/vs/rho` files from
+`optimize/model_Mxx` to `LOCAL_PATH` and pass the matching `-m Mxx`.
+Keep the mesh, element ordering,
+CPU/GPU mesh-coloring configuration, rank count, data selection, processing
+settings, and optimization history consistent when resuming. Set `ITER_START`
+to the restart index to reset L-BFGS history after changing processing settings.
+The optimizer and `xspecfwat` require model names `M00`–`M98`; forward and
+post-processing steps accept any model name.

@@ -4,7 +4,7 @@ module smooth_mod
 implicit none
 
 contains
-subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
+subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph, clf_level)
   use constants
   use config, only : distance_min_glob
   use specfem_par
@@ -23,6 +23,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   real(kind=CUSTOM_REAL), intent(in) :: sigma_h, sigma_v
   real(kind=CUSTOM_REAL), dimension(:,:,:,:), allocatable, intent(out) :: dat
   logical, intent(in) :: is_sph
+  integer, intent(in) :: clf_level
   real(kind=CUSTOM_REAL), dimension(:,:,:,:),allocatable :: dat_bak
   real(kind=CUSTOM_REAL), dimension(:,:,:,:,:),allocatable :: rotate_r
   real(kind=CUSTOM_REAL), dimension(NGLLX,NGLLY,NGLLZ) :: &
@@ -97,8 +98,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   ! deallocate(ispec_is_acoustic, ispec_is_elastic, ispec_is_poroelastic)
 
   !! determine ch, cv, ntstep
-  !cmax = distance_min_glob ** 2 / 6.0
-  cmax = distance_min_glob ** 2 / 9.0
+  cmax = distance_min_glob ** 2 / (9.0 * real(clf_level,kind=CUSTOM_REAL))
   if (sigma_v >= sigma_h) then
     cv = cmax
     ch = cv * (sigma_h ** 2) / (sigma_v ** 2)
@@ -118,7 +118,7 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
   call define_derivation_matrices(xigll,yigll,zigll,wxgll,wygll,wzgll, &
                                   hprime_xx,hprime_yy,hprime_zz, &
                                   hprimewgll_xx,hprimewgll_yy,hprimewgll_zz, &
-                                  wgllwgll_xy,wgllwgll_xz,wgllwgll_yz)
+                                  wgllwgll_xy,wgllwgll_xz,wgllwgll_yz,wgll_cube)
   ! define transpose of derivation matrix
   do j = 1,NGLLY
     do i = 1,NGLLX
@@ -267,14 +267,15 @@ subroutine smooth_sem_pde(dat_in, sigma_h, sigma_v, dat, is_sph)
               gammazl = gammazstore(i,j,k,ispec_irreg)
               jacobianl = jacobianstore(i,j,k,ispec_irreg)
             else
+              ! regular (axis-aligned cube) element: diagonal Jacobian matrix
               xixl = xix_regular
-              xiyl = xix_regular
-              xizl = xix_regular
-              etaxl = xix_regular
+              xiyl = 0.0
+              xizl = 0.0
+              etaxl = 0.0
               etayl = xix_regular
-              etazl = xix_regular
-              gammaxl = xix_regular
-              gammayl = xix_regular
+              etazl = 0.0
+              gammaxl = 0.0
+              gammayl = 0.0
               gammazl = xix_regular
               jacobianl = jacobian_regular
             endif
@@ -677,6 +678,7 @@ subroutine assemble_MPI_send_smooth(NPROC,NGLOB_AB, &
             hp3 = hprime_zzT(l,k)
             temp3l = temp3l + s(i,j,l) * hp3
           enddo
+          ! regular (axis-aligned cube) element: xix = etay = gammaz, off-diagonal terms are zero
           dx_elem(i,j,k)=temp1l*xix+&
                   temp2l*xix+temp3l*xix
           dy_elem(i,j,k)=temp1l*xix+&

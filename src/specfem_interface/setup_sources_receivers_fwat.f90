@@ -130,6 +130,7 @@
            hdur_Gaussian(NSOURCES), &
            utm_x_source(NSOURCES), &
            utm_y_source(NSOURCES), &
+           isource_glob2loc(NSOURCES), &
            nu_source(NDIM,NDIM,NSOURCES),stat=ier)
   if (ier /= 0) call exit_MPI_without_rank('error allocating array 2049')
   if (ier /= 0) stop 'error allocating arrays for sources'
@@ -139,27 +140,19 @@
   ispec_selected_source(:) = 0
   Mxx(:) = 0.d0; Myy(:) = 0.d0; Mzz(:) = 0.d0
   Mxy(:) = 0.d0; Mxz(:) = 0.d0; Myz(:) = 0.d0
+  isource_glob2loc(:) = 0
   xi_source(:) = 0.d0; eta_source(:) = 0.d0; gamma_source(:) = 0.d0
   tshift_src(:) = 0.d0; hdur(:) = 0.d0; hdur_Gaussian(:) = 0.d0
   utm_x_source(:) = 0.d0; utm_y_source(:) = 0.d0
   nu_source(:,:,:) = 0.d0
 
-  if (USE_FORCE_POINT_SOURCE) then
-    allocate(force_stf(NSOURCES), &
-             factor_force_source(NSOURCES), &
-             comp_dir_vect_source_E(NSOURCES), &
-             comp_dir_vect_source_N(NSOURCES), &
-             comp_dir_vect_source_Z_UP(NSOURCES),stat=ier)
-    if (ier /= 0) call exit_MPI_without_rank('error allocating array 2053')
-  else
-    allocate(force_stf(1), &
-             factor_force_source(1), &
-             comp_dir_vect_source_E(1), &
-             comp_dir_vect_source_N(1), &
-             comp_dir_vect_source_Z_UP(1),stat=ier)
-    if (ier /= 0) call exit_MPI_without_rank('error allocating array 2057')
-  endif
-  if (ier /= 0) stop 'error allocating arrays for force point sources'
+  ! note: force arrays are indexed per source (see is_POINTFORCE), thus always allocated with NSOURCES
+  allocate(force_stf(NSOURCES), &
+           factor_force_source(NSOURCES), &
+           comp_dir_vect_source_E(NSOURCES), &
+           comp_dir_vect_source_N(NSOURCES), &
+           comp_dir_vect_source_Z_UP(NSOURCES),stat=ier)
+  if (ier /= 0) call exit_MPI_without_rank('error allocating array 2057')
   force_stf(:) = 0
   factor_force_source(:) = 0.d0
   comp_dir_vect_source_E(:) = 0.d0
@@ -202,8 +195,12 @@
 
   ! count number of sources located in this slice
   nsources_local = 0
+  isource_glob2loc(:) = 0
   do isource = 1, NSOURCES
-    if (myrank == islice_selected_source(isource)) nsources_local = nsources_local + 1
+    if (myrank == islice_selected_source(isource)) then
+      nsources_local = nsources_local + 1
+      isource_glob2loc(isource) = nsources_local
+    endif
   enddo
 
   ! checks if source is in an acoustic element and exactly on the free surface because pressure is zero there

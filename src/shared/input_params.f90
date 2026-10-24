@@ -54,13 +54,13 @@ module input_params
     logical, dimension(NUM_INV_TYPE) :: INV_TYPE = .false.
     real(kind=cr), dimension(NUM_INV_TYPE) :: JOINT_WEIGHT
     real(kind=cr) :: TAPER_H_SUPPRESS, TAPER_V_SUPPRESS, TAPER_H_BUFFER, TAPER_V_BUFFER
-    integer :: NORM_TYPE
-    logical :: IS_PRECOND
+    integer :: NORM_TYPE, PDE_CLF_LEVEL
+    logical :: IS_HESS_PRECOND
   end type postproc_params
 
   type update_params
     integer :: MODEL_TYPE, ITER_START, LBFGS_M_STORE, OPT_METHOD, MAX_SUB_ITER, CURRENT_INV_TYPE
-    real(kind=cr) :: MAX_SLEN, MAX_SHRINK, C1
+    real(kind=cr) :: MAX_SLEN, MAX_SHRINK, C1, C2
     logical :: DO_LS, ALT_INV
     real(kind=cr), dimension(2) :: VPVS_RATIO_RANGE
     character(len=MAX_STRING_LEN) :: INIT_MODEL_PATH
@@ -512,20 +512,27 @@ contains
         is_output_direction = output%get_logical('IS_OUTPUT_DIRECTION', error=io_err, default=.false.)
 
         ! model grid
-        grid => root%get_dictionary('MODEL_GRID', required=.true., error=io_err)
-        if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        list => grid%get_list('REGULAR_GRID_SIZE', required=.true., error=io_err)
-        call read_static_int_list(list, this%grid%regular_grid_size)
-        list => grid%get_list('REGULAR_GRID_MIN_COORD', required=.true., error=io_err)
-        call read_static_real_list(list, this%grid%regular_grid_min_coord)
-        list => grid%get_list('REGULAR_GRID_INTERVAL', required=.true., error=io_err)
-        call read_static_real_list(list, this%grid%regular_grid_interval)
+        if (.not. use_gll) then
+          grid => root%get_dictionary('MODEL_GRID', required=.true., error=io_err)
+          if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+          list => grid%get_list('REGULAR_GRID_SIZE', required=.true., error=io_err)
+          call read_static_int_list(list, this%grid%regular_grid_size)
+          list => grid%get_list('REGULAR_GRID_MIN_COORD', required=.true., error=io_err)
+          call read_static_real_list(list, this%grid%regular_grid_min_coord)
+          list => grid%get_list('REGULAR_GRID_INTERVAL', required=.true., error=io_err)
+          call read_static_real_list(list, this%grid%regular_grid_interval)
+        else
+          this%grid%regular_grid_size = 0
+          this%grid%regular_grid_min_coord = 0.0_cr
+          this%grid%regular_grid_interval = 0.0_cr
+        endif
 
         ! POSTPROC
         post => root%get_dictionary('POSTPROC', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
         list => post%get_list('INV_TYPE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
+        this%postproc%PDE_CLF_LEVEL = post%get_integer('PDE_CLF_LEVEL', error=io_err, default=1)
         call read_static_logi_list(list, this%postproc%INV_TYPE)
         if (count(this%postproc%INV_TYPE) > 1) is_joint = .true.
         list => post%get_list('JOINT_WEIGHT', required=.true., error=io_err)
@@ -535,12 +542,18 @@ contains
         this%postproc%TAPER_V_SUPPRESS = post%get_real('TAPER_V_SUPPRESS', error=io_err, default=0.0_cr)
         this%postproc%TAPER_H_BUFFER = post%get_real('TAPER_H_BUFFER', error=io_err, default=0.0_cr)
         this%postproc%TAPER_V_BUFFER = post%get_real('TAPER_V_BUFFER', error=io_err, default=0.0_cr)
-        this%postproc%IS_PRECOND = post%get_logical('IS_PRECOND', error=io_err)
+        this%postproc%IS_HESS_PRECOND = post%get_logical('IS_HESS_PRECOND', error=io_err)
 
         ! Model UPDATE
         update => root%get_dictionary('MODEL_UPDATE', required=.true., error=io_err)
         if (associated(io_err)) call exit_mpi(worldrank, trim(io_err%message))
-        this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
+        ! The GLL driver only needs the HDF5 path for a fresh external model.
+        ! It validates this after reading MODEL from SPECFEM's Par_file.
+        if (use_gll) then
+          this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err, default='')
+        else
+          this%update%INIT_MODEL_PATH = update%get_string('INIT_MODEL_PATH', error=io_err)
+        endif
         if (associated(io_err)) call exit_mpi(worldrank, 'ERROR: INIT_MODEL_PATH is not set')
         this%update%MODEL_TYPE = update%get_integer('MODEL_TYPE', error=io_err, default=1)
         if (this%update%MODEL_TYPE == 2) then
@@ -562,6 +575,7 @@ contains
         list => update%get_list('VPVS_RATIO_RANGE', required=.true., error=io_err)
         call read_static_real_list(list, this%update%VPVS_RATIO_RANGE)
         this%update%C1 = update%get_real('C1', error=io_err, default=0.01_cr)
+        this%update%C2 = update%get_real('C2', error=io_err, default=0.9_cr)
 
       end select
       call root%finalize()
@@ -757,11 +771,12 @@ contains
     call bcast_all_singlecr(this%postproc%TAPER_V_SUPPRESS)
     call bcast_all_singlecr(this%postproc%TAPER_H_BUFFER)
     call bcast_all_singlecr(this%postproc%TAPER_V_BUFFER)
-    call bcast_all_singlel(this%postproc%IS_PRECOND)
+    call bcast_all_singlel(this%postproc%IS_HESS_PRECOND)
     call bcast_all_l_array(this%postproc%INV_TYPE, NUM_INV_TYPE)
     call bcast_all_r(this%postproc%JOINT_WEIGHT, NUM_INV_TYPE)
     call bcast_all_singlel(is_joint)
     call bcast_all_singlei(this%postproc%NORM_TYPE)
+    call bcast_all_singlei(this%postproc%PDE_CLF_LEVEL)
 
     ! Model UPDATE
     call bcast_all_ch_array(this%update%INIT_MODEL_PATH, 1, MAX_STRING_LEN)
@@ -772,6 +787,7 @@ contains
     call bcast_all_singlecr(this%update%MAX_SLEN)
     call bcast_all_singlecr(this%update%MAX_SHRINK)
     call bcast_all_singlecr(this%update%C1)
+    call bcast_all_singlecr(this%update%C2)
     call bcast_all_singlei(this%update%MAX_SUB_ITER)
     call bcast_all_singlel(this%update%DO_LS)
     call bcast_all_r(this%update%VPVS_RATIO_RANGE, 2)

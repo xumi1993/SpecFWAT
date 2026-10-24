@@ -425,10 +425,8 @@ contains
     real(kind=dp), allocatable :: taper(:)
     real(kind=dp) :: power
 
-    if (taper_percentage < 0.0_dp .or. taper_percentage > 1.0_dp) then
-      print *, "taper_percentage must be 0 < % < 1"
-      stop
-    end if
+    if (taper_percentage < 0.0_dp .or. taper_percentage > 1.0_dp) &
+      call exit_MPI(worldrank, 'taper_percentage must be 0 < % < 1')
 
     npts = size(signal)
     if (taper_percentage == 0.0_dp .or. taper_percentage == 1.0_dp) then
@@ -482,8 +480,7 @@ contains
         end do
         signal(idx2+1:npts) = signal(idx2+1:npts) * taper(:)
       case default
-        print *, "Taper type not supported!"
-        stop
+        call exit_MPI(worldrank, 'Taper type not supported!')
       end select
       deallocate(taper)
     end if
@@ -500,10 +497,7 @@ contains
     ne = int(window(2) / dt)
     nlen_win = ne - nb + 1
 
-    if (nlen_win <= 0) then
-      print *, "Error: Invalid window length."
-      stop
-    end if
+    if (nlen_win <= 0) call exit_MPI(worldrank, 'Error: Invalid window length.')
 
   end subroutine get_window_info
 

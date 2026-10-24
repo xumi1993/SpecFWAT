@@ -338,7 +338,7 @@ contains
     ! Check for errors
     if (info /= 0) then
       write(*,'(A,I0)') 'ERROR: DSTERF failed with info = ', info
-      error stop 
+      call exit_MPI_without_rank('ERROR: DSTERF failed in dpss')
     else
       
       ! d_copy now contains all eigenvalues in ascending order

@@ -26,6 +26,9 @@ module fwat_constants
   character(len=MAX_STRING_LEN), parameter :: OUTPUT_PATH = "OUTPUT_FILES"
   character(len=MAX_STRING_LEN), parameter :: ADJOINT_PATH = "SEM"
   character(len=MAX_STRING_LEN), parameter :: EKERNEL_PATH = "EKERNEL"
+  ! Marks solver outputs that a line search already computed for a model.
+  character(len=MAX_STRING_LEN), parameter :: LS_KERNEL_FLAG = "FROM_LINE_SEARCH"
+  character(len=MAX_STRING_LEN), parameter :: TOMO_PATH = "tomography_model.h5"
 
   !Injection types
   integer, parameter :: INJECTION_FK = 1
@@ -40,9 +43,12 @@ module fwat_constants
   character(len=MAX_STRING_LEN), dimension(5), parameter :: MODEL_NAME_AZI_ANI = ['vp ', 'vs ', 'rho', 'gcp', 'gsp']
 
   real(kind=cr),parameter :: THRESHOLD_HESS = 1.e-3, RHO_SCALING_FAC = 0.33
+
+  integer, parameter :: NCOMP_SPECFEM = 3
   integer, parameter :: NUM_INV_TYPE = 3
 
   ! Preconditioner parameters
+  integer, parameter :: NO_PRECOND = -1
   integer, parameter :: DEFAULT_PRECOND = 1
   integer, parameter :: Z_PRECOND = 2
   integer, parameter :: Z_SQRT_PRECOND = 3
@@ -103,7 +109,7 @@ module config
   character(len=MAX_STRING_LEN) :: mesh_par_file
   character(len=MAX_STRING_LEN) :: dat_coord, local_path_backup, local_path_fwat, output_files_backup
   character(len=MAX_STRING_LEN) :: simu_type, dat_type, model_name, model_name_ls
-  real(kind=cr), dimension(:), allocatable :: rmassx_copy,rmassy_copy,rmassz_copy,rmass_copy,rmass_acoustic_copy
+  real(kind=cr), dimension(:), allocatable :: rmass_copy,rmass_acoustic_copy
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_rho_kl 
   real(kind=cr), dimension(:,:,:,:,:), allocatable :: sum_cijkl_kl 
   real(kind=cr), dimension(:,:,:,:), allocatable :: sum_mu_kl 
@@ -124,6 +130,7 @@ module config
 
   ! post
   logical :: is_joint = .false.
+  logical :: use_gll = .false.
   integer :: nkernel, parameter_type
   character(len=MAX_STRING_LEN) :: kernel_type
   character(len=MAX_STRING_LEN), dimension(:), allocatable :: kernel_names, parameter_names

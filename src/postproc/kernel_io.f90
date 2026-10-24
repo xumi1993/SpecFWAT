@@ -39,7 +39,7 @@ contains
     call bcast_all_singlecr(distance_min_glob)
     call bcast_all_singlecr(distance_max_glob)
 
-    if (worldrank == 0) then
+    if (worldrank == 0 .and. .not. use_gll) then
       if (ext_grid%x(1) > x_min_glob) then
         write(msg, '(A,F0.6,A,F20.6)') 'Error: Min x: ',ext_grid%x(1), &
               ' value of grid larger than x_min_glob:', x_min_glob
@@ -92,8 +92,9 @@ contains
     endif
 
     allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT),stat=ier)
-    read(IIN) data
+    read(IIN, iostat=ier) data
     close(IIN)
+    if (ier /= 0) call exit_mpi(worldrank, 'Error reading database file: '//trim(fprname)//trim(dataname)//'.bin')
 
   end subroutine read_event_kernel
 
@@ -155,6 +156,18 @@ contains
     ker(:,:,:,:,3) = ker(:,:,:,:,3) * rhostore
   end subroutine kernel_cijkl2hti
 
+  subroutine convert_kernel_vp2vpvs(ker, vpvs)
+
+    real(kind=cr), dimension(:,:,:,:), allocatable, intent(in) :: vpvs
+    real(kind=cr), dimension(:,:,:,:,:), allocatable, intent(inout) :: ker
+
+    ! vs kernel
+    ker(:,:,:,:,2) = ker(:,:,:,:,2) + ker(:,:,:,:,1)
+    ! vp -> vp/vs kernel
+    ker(:,:,:,:,1) = ker(:,:,:,:,1) / vpvs
+
+  end subroutine convert_kernel_vp2vpvs
+
   subroutine remove_event_kernel(ievt, dataname)
     integer, intent(in) :: ievt
     character(len=*), intent(in) :: dataname
@@ -181,8 +194,9 @@ contains
     endif
 
     allocate(data(NGLLX,NGLLY,NGLLZ,NSPEC_FWAT),stat=ier)
-    read(IIN) data
+    read(IIN, iostat=ier) data
     close(IIN)
+    if (ier /= 0) call exit_mpi(worldrank, 'Error reading database file: '//trim(fprname)//trim(dataname)//'.bin')
 
   end subroutine read_kernel
 
@@ -199,8 +213,9 @@ contains
       call exit_mpi(myrank,'Error opening database file')
     endif
 
-    write(IOUT) data
+    write(IOUT, iostat=ier) data
     close(IOUT)
+    if (ier /= 0) call exit_mpi(worldrank, 'Error writing database file: '//trim(fprname)//trim(dataname)//'.bin')
 
   end subroutine write_kernel
 

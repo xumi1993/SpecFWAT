@@ -40,15 +40,22 @@ contains
     real(kind=cr) :: maxh,maxh_all
     integer :: iz, ix, iy, ispec, iglob
 
-    call get_1d_precond(zl)
-    zl_dp = dble(zl)
+    if (.not. use_gll) then
+      call get_1d_precond(zl)
+      zl_dp = dble(zl)
+    endif
 
     hess = zeros(NGLLX, NGLLY, NGLLZ, NSPEC_FWAT)
     
     do ispec = 1, NSPEC_FWAT
       do ix = 1, NGLLX; do iy = 1, NGLLY; do iz = 1, NGLLZ
         iglob = ibool(ix, iy, iz, ispec)
-        zz = interp1(dble(ext_grid%z), zl_dp, dble(zstore(iglob)))
+        if (use_gll) then
+          zz = 1.0_dp / max(abs(min(dble(zstore(iglob)), 0.0_dp)), 1.e-8_dp)
+          if (fpar%sim%PRECOND_TYPE == Z_SQRT_PRECOND) zz = sqrt(zz)
+        else
+          zz = interp1(dble(ext_grid%z), zl_dp, dble(zstore(iglob)))
+        endif
         hess(ix, iy, iz, ispec) = sngl(zz)
       enddo; enddo; enddo
     enddo

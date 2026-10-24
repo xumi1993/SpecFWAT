@@ -22,10 +22,8 @@ contains
     integer :: iwin, nlen, nb, ne, nlen_win
 
     ! num of measurements
-    if (size(windows, 2) /= 2) then
-      write(*,*) 'Error: windows must have two columns (start and end times)'
-      error stop
-    end if
+    if (size(windows, 2) /= 2) &
+      call exit_MPI(worldrank, 'Error: windows must have two columns (start and end times)')
   
     ! allocate measurement arrays
     this%nwin = size(windows, 1)

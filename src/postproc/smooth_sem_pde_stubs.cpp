@@ -1,5 +1,11 @@
 #include <stdio.h>
 // #ifdef WITH_MPI
+#ifndef OMPI_SKIP_MPICXX
+#define OMPI_SKIP_MPICXX 1
+#endif
+#ifndef MPICH_SKIP_MPICXX
+#define MPICH_SKIP_MPICXX 1
+#endif
 #include <mpi.h>
 // #endif
 const int  NGLL =  5;

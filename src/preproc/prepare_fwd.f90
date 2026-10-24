@@ -6,11 +6,10 @@ module preproc_fwd
                          ANISOTROPIC_KL, NSPEC_ADJOINT, FKMODEL_FILE, prname, COUPLE_WITH_INJECTION_TECHNIQUE,&
                          USE_FORCE_POINT_SOURCE, OUTPUT_FILES, INJECTION_TECHNIQUE_TYPE,ADIOS_FOR_MESH, &
                          ATTENUATION, ANISOTROPY, PML_CONDITIONS, UNDO_ATTENUATION_AND_OR_PML, TRACTION_PATH
-  use specfem_par_elastic, only: rmass, rmassx, rmassy, rmassz, COMPUTE_AND_STORE_STRAIN
+  use specfem_par_elastic, only: COMPUTE_AND_STORE_STRAIN
   use specfem_par_acoustic, only: rmass_acoustic
   ! use specfem_par_poroelastic
   use input_params, fpar => fwat_par_global
-  use fk_coupling, only: couple_with_injection_prepare_boundary_fwat, check_fk_files, read_fk_model
   use axisem_coupling, only: setup_axisem_coupling
   use logger, only: log
   use tele_data, only: TeleData
@@ -129,9 +128,6 @@ contains
 
     if (allocated(rmass_acoustic_copy)) deallocate(rmass_acoustic_copy)
     if (allocated(rmass_copy)) deallocate(rmass_copy)
-    if (allocated(rmassx_copy)) deallocate(rmassx_copy)
-    if (allocated(rmassy_copy)) deallocate(rmassy_copy)
-    if (allocated(rmassz_copy)) deallocate(rmassz_copy)
     if (allocated(sum_rho_kl)) deallocate(sum_rho_kl)
     if (allocated(sum_cijkl_kl)) deallocate(sum_cijkl_kl)
     if (allocated(sum_mu_kl)) deallocate(sum_mu_kl)

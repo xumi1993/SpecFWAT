@@ -159,14 +159,15 @@ kernel_smooth_sph_pde(int is_sph, int num_elmts,int iphase,int num_phase_ispec,
         gamyl = gamy[offset_irreg];
         gamzl = gamz[offset_irreg];
     } else {
+        // regular (axis-aligned cube) element: diagonal Jacobian matrix
         xixl = xix_regular;
-        xiyl = xix_regular;
-        xizl = xix_regular;
-        etaxl = xix_regular;
+        xiyl = 0.f;
+        xizl = 0.f;
+        etaxl = 0.f;
         etayl = xix_regular;
-        etazl = xix_regular;
-        gamxl = xix_regular;
-        gamyl = xix_regular;
+        etazl = 0.f;
+        gamxl = 0.f;
+        gamyl = 0.f;
         gamzl = xix_regular;
     }
     jacobianl = jaco[offset];

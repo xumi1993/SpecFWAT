@@ -13,8 +13,6 @@ module syn_data
 
   implicit none
 
-  integer, parameter, private :: NCOMP=3
-
   type :: SynData
     character(len=MAX_STRING_LEN), dimension(3) :: comp_name
     integer :: ievt, nrec
@@ -26,6 +24,7 @@ module syn_data
     integer :: dat_win
     contains
     procedure :: read=>read_syn_data, filter, assemble_2d, assemble_3d, init
+    procedure :: collect_data
     procedure :: get_comp_name_adj, finalize, write_adj
 
   end type SynData
@@ -46,16 +45,14 @@ contains
   subroutine read_syn_data(this, bazi)
     class(SynData), intent(inout) :: this
     real(kind=cr), dimension(:), intent(in) :: bazi
-    integer :: irec, irec_local, ispec, iproc, nsta_irank, i
+    integer :: irec, irec_local, ispec
     real(kind=dp), dimension(:, :, :), allocatable :: data_local
-    real(kind=dp), dimension(:,:,:), allocatable :: recv_buffer
-    integer, dimension(:), allocatable :: recv_indices, send_indices
 
     ! read source and reciever files
-    call prepare_shm_array_dp_3d(this%data, NSTEP, NCOMP, nrec, this%dat_win)
+    call prepare_shm_array_dp_3d(this%data, NSTEP, NCOMP_SPECFEM, nrec, this%dat_win)
 
     if (nrec_local > 0) then
-      data_local = zeros_dp(NSTEP, NCOMP, nrec_local)
+      data_local = zeros_dp(NSTEP, NCOMP_SPECFEM, nrec_local)
       do irec_local = 1, nrec_local
         irec = number_receiver_global(irec_local)
         ispec = ispec_selected_rec(irec)
@@ -72,7 +69,23 @@ contains
       enddo
     endif
 
-    ! collect data to rank 0
+    ! collect data to rank 0 and broadcast to all the other ranks
+    call this%collect_data(data_local)
+
+  end subroutine read_syn_data
+
+  subroutine collect_data(this, data_local)
+    ! Collect a local array distributed over the SPECFEM receiver slices into
+    ! the shared-memory array this%data, then share it with all the ranks
+    ! Input:
+    !   data_local: local 3D array (NSTEP, NCOMP, nrec_local), it can be left
+    !               unallocated on the ranks holding no receiver
+    class(SynData), intent(inout) :: this
+    real(kind=dp), dimension(:,:,:), allocatable, intent(in) :: data_local
+    integer :: irec, irec_local, nsta_irank, iproc, i
+    real(kind=dp), dimension(:,:,:), allocatable :: recv_buffer
+    integer, dimension(:), allocatable :: recv_indices, send_indices
+
     if (worldrank == 0) then
       if (nrec_local > 0) then
         do irec_local = 1, nrec_local
@@ -85,14 +98,14 @@ contains
         do irec = 1, nrec
           if (islice_selected_rec(irec) == iproc) nsta_irank = nsta_irank + 1
         enddo
-      
+
         if (nsta_irank > 0) then
-          allocate(recv_buffer(NSTEP, NCOMP, nsta_irank))  ! Allocate a buffer to receive data
-          allocate(recv_indices(nsta_irank)) 
+          allocate(recv_buffer(NSTEP, NCOMP_SPECFEM, nsta_irank))  ! Allocate a buffer to receive data
+          allocate(recv_indices(nsta_irank))
           ! Receive the indices first
           call recv_i(recv_indices, nsta_irank, iproc, targ)
           ! Receive the data
-          call recv_dp(recv_buffer, NSTEP*NCOMP*nsta_irank, iproc, targ)
+          call recv_dp(recv_buffer, NSTEP*NCOMP_SPECFEM*nsta_irank, iproc, targ)
           ! Copy the received data to the correct location
           do i = 1, nsta_irank
             irec = recv_indices(i)
@@ -109,13 +122,13 @@ contains
           send_indices(irec_local) = number_receiver_global(irec_local)
         enddo
         call send_i(send_indices, nrec_local, 0, targ)
-        call send_dp(data_local(:, :, :), NSTEP*NCOMP*nrec_local, 0, targ)
+        call send_dp(data_local(:, :, :), NSTEP*NCOMP_SPECFEM*nrec_local, 0, targ)
         deallocate(send_indices)
       endif
     endif
-    call sync_from_main_rank_dp_3d(this%data, NSTEP, NCOMP, nrec)
+    call sync_from_main_rank_dp_3d(this%data, NSTEP, NCOMP_SPECFEM, nrec)
 
-  end subroutine read_syn_data
+  end subroutine collect_data
 
   subroutine assemble_2d(this, array_local, array_global)
     class(SynData), intent(inout) :: this
@@ -284,7 +297,7 @@ contains
 
     if (noderank == 0) then
       do irec = 1, nrec
-        do icomp = 1, NCOMP
+        do icomp = 1, NCOMP_SPECFEM
           call bandpass_dp(this%data(:, icomp, irec), NSTEP, DT, freqmin, freqmax, order_local)
         enddo
       enddo

@@ -268,4 +268,52 @@ contains
     enddo
 
   end subroutine model_interpolation
+
+  function step_len_key(iter) result(key)
+    ! key of the accepted step length of the update from model M<iter> to M<iter+1>
+    integer, intent(in) :: iter
+    character(len=4) :: key
+
+    write(key, '("/M",I2.2)') iter
+  end function step_len_key
+
+  subroutine write_step_len(iter, slen)
+    ! accepted step lengths of all iterations are kept in OPT_DIR/step_len.h5
+    integer, intent(in) :: iter
+    real(kind=cr), intent(in) :: slen
+    type(hdf5_file) :: h5file
+
+    if (worldrank == 0) then
+      call h5file%open(trim(OPT_DIR)//'/step_len.h5', status='old', action='write')
+      if (h5file%exist(step_len_key(iter))) call h5file%delete(step_len_key(iter))
+      call h5file%add(step_len_key(iter), real(slen))
+      call h5file%close(finalize=.true.)
+    endif
+    call synchronize_all()
+  end subroutine write_step_len
+
+  subroutine read_step_len(iter, slen, found)
+    integer, intent(in) :: iter
+    real(kind=cr), intent(out) :: slen
+    logical, intent(out) :: found
+    real :: val
+    type(hdf5_file) :: h5file
+
+    slen = 0.0_cr
+    found = .false.
+    if (worldrank == 0) then
+      inquire(file=trim(OPT_DIR)//'/step_len.h5', exist=found)
+      if (found) then
+        call h5file%open(trim(OPT_DIR)//'/step_len.h5', status='old', action='read')
+        found = h5file%exist(step_len_key(iter))
+        if (found) then
+          call h5file%get(step_len_key(iter), val)
+          slen = real(val, kind=cr)
+        endif
+        call h5file%close(finalize=.true.)
+      endif
+    endif
+    call bcast_all_singlel(found)
+    call bcast_all_singlecr(slen)
+  end subroutine read_step_len
 end module opt_io

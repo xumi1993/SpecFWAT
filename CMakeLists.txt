@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 
 set(CMAKE_PROJECT_NAME "SpecFWAT")
-set(project_version 0.7.1)
+set(project_version 0.7.2)
 
 # setup CUDA
 # - CUDA 4 for Tesla,   cards like K10, Geforce GTX 650, ..
@@ -67,6 +67,20 @@ if(USE_CUDA)
     message(STATUS "CUDAToolkit_VERSION: ${CUDAToolkit_VERSION}")
     add_definitions(-DUSE_CUDA)
     set(USE_CUDA ON)
+    # the GPU sources include mpi.h, but nvcc does not go through the MPI compiler wrapper,
+    # and FindMPI reports no include dirs when CXX is already a wrapper: ask the wrapper instead
+    if (NOT MPI_CXX_INCLUDE_DIRS)
+      execute_process(
+        COMMAND ${MPI_CXX_COMPILER} -show
+        OUTPUT_VARIABLE MPI_CXX_SHOW
+        ERROR_QUIET
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+      )
+      string(REGEX MATCHALL "-I[^ ]+" MPI_CUDA_INCLUDE_DIRS "${MPI_CXX_SHOW}")
+      list(TRANSFORM MPI_CUDA_INCLUDE_DIRS REPLACE "^-I" "")
+      message(STATUS "MPI include dirs for CUDA: ${MPI_CUDA_INCLUDE_DIRS}")
+      include_directories(${MPI_CUDA_INCLUDE_DIRS})
+    endif()
   else()
     message(SEND_ERROR "-DUSE_CUDA=True is defined, but CUDAToolkit not found, Non-CUDA build is used")
     set(USE_CUDA OFF)
@@ -119,7 +133,7 @@ include_directories(
   ${YAML_CPP_INCLUDE_DIR}
 )
 
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin CACHE PATH "Directory for executables")
 set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 message(STATUS "CMAKE_Fortran_COMPILER_ID: ${CMAKE_Fortran_COMPILER_ID}")
 

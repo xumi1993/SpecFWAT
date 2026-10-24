@@ -119,10 +119,22 @@
                    tiny(1._CUSTOM_REAL),huge(1._CUSTOM_REAL)
     write(IMAIN,*)
 
-    write(IMAIN,'(a)',advance='no') ' velocity model: '
+    ! velocity model
+    if (USE_LUNAR_PROJECTIONS) then
+      ! Moon
+      write(IMAIN,*) 'Moon simulation model: ',trim(MODEL)
+      if (.not. SUPPRESS_UTM_PROJECTION) then
+        write(IMAIN,*) '  using lunar projections (LTM/LPS) instead of UTM'
+      endif
+      write(IMAIN,*)
+      write(IMAIN,'(a)',advance='no') ' velocity model type:'
+    else
+      write(IMAIN,'(a)',advance='no') ' velocity model:'
+    endif
+
     select case (IMODEL)
     case (IMODEL_DEFAULT)
-    write(IMAIN,'(a)',advance='yes') '  default '
+    write(IMAIN,'(a)',advance='yes') '  default'
     case (IMODEL_GLL)
     write(IMAIN,'(a)',advance='yes') '  gll'
     case (IMODEL_1D_PREM)
@@ -297,7 +309,7 @@
   call initialize_simulation_adjoint()
 
   ! initializes GPU cards
-  if (GPU_MODE) call initialize_GPU()
+  call initialize_GPU()
 
   ! output info for possible OpenMP
   call init_openmp()
@@ -406,9 +418,6 @@
   ! check simulation type
   if (SIMULATION_TYPE /= 1 .and. SIMULATION_TYPE /= 2 .and. SIMULATION_TYPE /= 3) &
     call exit_mpi(myrank,'SIMULATION_TYPE can only be 1, 2, or 3')
-
-  ! gravity only on GPU supported
-  if (.not. GPU_MODE .and. GRAVITY) stop 'GRAVITY only supported in GPU mode'
 
   if (NGLLX /= NGLLY .or. NGLLY /= NGLLZ) stop 'Methods that can handle unstructured meshes require NGLLX = NGLLY = NGLLZ'
 
